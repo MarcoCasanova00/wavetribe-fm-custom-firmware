@@ -1,0 +1,9 @@
+# RIPTIDE demo: start the sequencer (BTN_PLAY = 12), watch it run, tweak parts/presets.
+80 btn 12
+1500 shot
+2600 enc 0 1
+3200 shot
+4000 enc 6 2
+4700 shot
+6000 btn 12
+6500 end
