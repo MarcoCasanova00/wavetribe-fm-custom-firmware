@@ -13,19 +13,16 @@ KORG iELECTRIBE factory preset catalog and (where possible) authentic sounds.
 - **`main/`** — the firmware (C source, tools, docs, tests, the real `.fwsc` build).
 - **`gh-pages/`** — the browser emulator (same firmware compiled to WebAssembly), deployed to GitHub Pages.
 
-## Web Emulator (GitHub Pages)
+## Web Emulator (GitHub Pages) ✅ Live!
 
-The browser build lives in `gh-pages/`. To publish it to GitHub Pages:
+The browser build lives in **`/docs/`** and is deployed to GitHub Pages.
 
-1. Go to **Settings → Pages** → **Build and deployment**.
-2. Source: **Deploy from a branch** → branch `main`, folder `/gh-pages`.
-3. Save.
+**Live site:** https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
 
-The site will be live at `https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/`
-within 1–2 minutes. Or serve `gh-pages/` locally first to verify:
+(Serve `docs/` locally first to verify — browsers block `file://` for WebAssembly:)
 
 ```sh
-python3 -m http.server 8000 -d gh-pages
+python3 -m http.server 8000 -d docs
 ```
 
 ## Build
