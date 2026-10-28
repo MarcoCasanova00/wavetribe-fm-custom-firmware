@@ -60,7 +60,7 @@ BOARD_DEFS = {"fm1": [], "smk37": ["-DBOARD_SMK37=1"]}
 MODELS = {"pro": "SMK-37 Pro", "elite": "SMK-37 Elite", "mke": "MKE-P37"}   # smk37: one keyboard, three names
 DATA_FAMILY = "RIPTID"              # the SMK store's owner tag (store.h): 1..7 of A-Z 0-9. Your fork: your own
 SCREEN_NAME = "RIPTIDE"             # the update loader's screen (FM-1, ldr_screen.c): the name and its colour (RGB565)
-SCREEN_COLOUR = 0x251D              # amber, Electribe's LCD (#EB9E22)
+SCREEN_COLOUR = 0x251D              # amber, the app's LCD (#EB9E22)
 PRODUCT = "FM-1_991"                # RIPTIDE: 99N. Your fork: pick your own
 VERSION = None                      # APP_VER for release builds
 

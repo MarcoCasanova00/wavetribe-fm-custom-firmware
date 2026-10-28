@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RIPTIDE · an groovy FM-1, in your browser</title>
+<style>
+  :root { --bg:#0c0a09; --panel:#1a1612; --edge:#3a2f20; --amber:#eb9e22; --amber2:#ffd278;
+          --hl:#ff5c00; --dim:#6a5648; --on:#ffd278; --off:#4a3d30; }
+  * { box-sizing:border-box; -webkit-user-select:none; user-select:none; }
+  body { margin:0; background:radial-gradient(1200px 600px at 50% -10%, #241b12, var(--bg));
+         color:var(--amber); font:14px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; min-height:100vh; }
+  header { text-align:center; padding:18px 12px 6px; }
+  h1 { margin:0; font-size:22px; letter-spacing:6px; color:var(--amber2); font-weight:700; }
+  header p { margin:4px 0 0; color:var(--dim); font-size:12px; }
+  .stage { display:flex; flex-wrap:wrap; gap:22px; justify-content:center; padding:18px; align-items:flex-start; }
+  .lcd-wrap { background:linear-gradient(180deg,#3a3a3c,#1e1e20); border-radius:12px; padding:14px;
+              box-shadow:0 18px 50px rgba(0,0,0,.6), inset 0 1px 0 #555; }
+  canvas { display:block; width:480px; height:480px; border-radius:4px; background:#000;
+           box-shadow:inset 0 0 30px rgba(255,120,0,.25); image-rendering:pixelated; }
+  .panel { background:var(--panel); border:1px solid var(--edge); border-radius:12px; padding:14px;
+           width:320px; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+  .sect { margin-bottom:12px; }
+  .sect h2 { font-size:11px; letter-spacing:3px; color:var(--dim); margin:0 0 8px; }
+  .btns { display:flex; flex-wrap:wrap; gap:6px; }
+  .btn { background:#241e17; color:var(--amber); border:1px solid var(--edge); border-radius:8px;
+         padding:8px 10px; cursor:pointer; font:inherit; letter-spacing:1px; font-size:12px; }
+  .btn:hover { border-color:var(--amber); color:var(--amber2); }
+  .btn.on { background:var(--hl); color:#fff; border-color:var(--hl); }
+  .btn.lite { background:#2e271e; }
+  .row { display:flex; align-items:center; gap:8px; margin-top:8px; }
+  .row .lbl { width:64px; color:var(--dim); font-size:11px; letter-spacing:1px; }
+  .kbd { display:grid; grid-template-columns:repeat(14,1fr); gap:3px; margin-top:8px; }
+  .key { height:34px; background:#181410; border:1px solid #3a3126; border-radius:4px; color:var(--dim);
+         font-size:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .key:hover { border-color:var(--amber); color:var(--amber2); }
+  .key.black { background:#0e0c0a; color:#4a4038; }
+  .key.down { background:var(--amber); color:#1a1208; border-color:var(--amber2); }
+  footer { text-align:center; color:var(--dim); font-size:11px; padding:10px; }
+  .overlay { position:fixed; inset:0; background:rgba(8,6,4,.82); display:flex; align-items:center; justify-content:center;
+             z-index:10; cursor:pointer; }
+  .overlay .card { text-align:center; padding:30px; border:1px solid var(--amber); border-radius:14px; background:var(--bg); }
+  .overlay .big { font-size:26px; letter-spacing:4px; color:var(--amber2); }
+  .overlay p { color:var(--amber); margin:8px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>RIPTIDE</h1>
+  <p>an groovy M-VAVE FM-1 · built on Dinghy · runs the real firmware, compiled to WebAssembly</p>
+</header>
+
+<div class="stage">
+  <div class="lcd-wrap"><canvas id="lcd" width="240" height="240"></canvas></div>
+
+  <div class="panel">
+    <div class="sect">
+      <h2>TRANSPORT</h2>
+      <div class="btns">
+        <button class="btn" id="b-play">▶ PLAY</button>
+        <button class="btn" id="b-rec">● REC</button>
+        <button class="btn" id="b-glo">GLO</button>
+        <button class="btn" id="b-home">HOME</button>
+      </div>
+    </div>
+
+    <div class="sect">
+      <h2>PART / PATTERN</h2>
+      <div class="btns">
+        <button class="btn" id="b-selm">PART −</button>
+        <button class="btn" id="b-selp">PART +</button>
+        <button class="btn lite" id="b-prsm">PRESET −</button>
+        <button class="btn lite" id="b-prsp">PRESET +</button>
+        <button class="btn" id="b-pgm">PAGE</button>
+      </div>
+    </div>
+
+    <div class="sect">
+      <h2>KNOBS (selected part A·B·C·D)</h2>
+      <div class="btns">
+        <button class="btn" id="b-k1m">A −</button>
+        <button class="btn" id="b-k1p">A +</button>
+        <button class="btn" id="b-k2m">B −</button>
+        <button class="btn" id="b-k2p">B +</button>
+        <button class="btn" id="b-k3m">C −</button>
+        <button class="btn" id="b-k3p">C +</button>
+        <button class="btn" id="b-k4m">D −</button>
+        <button class="btn" id="b-k4p">D +</button>
+      </div>
+    </div>
+
+    <div class="sect">
+      <h2>KEYS (F3 … G5 · play / write steps with REC)</h2>
+      <div class="kbd" id="kbd"></div>
+    </div>
+  </div>
+</div>
+
+<footer>the source app factory preset catalog © 2011 vendor (metadata only). RIPTIDE is an independent, GPL-3.0
+firmware; not affiliated with the vendor.</footer>
+
+<div class="overlay" id="overlay">
+  <div class="card">
+    <div class="big">▶ START</div>
+    <p>click to start audio &amp; the device</p>
+  </div>
+</div>
+
+<script src="./riptide.js"></script>
+<script src="./main.js" type="module"></script>
+</body>
+</html>

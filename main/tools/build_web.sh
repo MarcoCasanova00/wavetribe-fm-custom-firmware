@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
-# Build the Wavetribe browser emulator into the repo's gh-pages/ directory.
+# Build the Wavetribe browser emulator into the repo's docs/ directory.
 # Finds emcc via $EMCC, PATH, or $EMSDK (default ~/emsdk).
 #
 #   ./tools/build_web.sh
@@ -20,13 +20,16 @@ if [ -z "$EMCC" ]; then
 fi
 [ -n "$EMCC" ] || { echo "build_web: emcc not found (set EMCC or EMSDK, or add Emscripten to PATH)"; exit 1; }
 
-OUT="$(pwd)/../gh-pages"
+OUT="$(pwd)/../docs"
 
+# dinghy.c includes platform.c which includes tests/host.c (under DINGHY_WEB);
+# host.c provides the web_* EXPORTED_KEEPALIVE functions.
 "$EMCC" -O2 -Wall -Wno-unused-function -DDINGHY_WEB -DAPP_VER="\"${APP_VER:-dev}\"" \
-  -Ifirmware/hal -Ifirmware/src -Ifirmware/gen \
+  -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -Itests \
   -sMODULARIZE=1 -sEXPORT_NAME='createRiptide' -sENVIRONMENT=web \
   -sALLOW_MEMORY_GROWTH=1 -sNO_EXIT_RUNTIME=1 --no-entry \
   -sEXPORTED_FUNCTIONS='["_web_init","_web_run","_web_fb_ptr","_web_fb_words","_web_key","_web_btn","_web_enc","_web_midi","_web_audio","_malloc","_free"]' \
+  -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPU8","HEAPU16"]' \
   firmware/src/dinghy.c -o "$OUT/riptide.js"
 
 cp site/index.html site/main.js "$OUT/"

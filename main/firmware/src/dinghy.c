@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* RIPTIDE: an Electribe-style groovebox firmware for the M-VAVE FM-1, built on Dinghy
+/* RIPTIDE: an groovy groovebox firmware for the M-VAVE FM-1, built on Dinghy
  * (zvenson), Felucca (Leo Kuroshita / Hügelton Instruments) and SLOOP (isod89).
  *
  * Everything platform.c does is unchanged: updates, the USB rescue, MIDI (USB + TRS),
  * USB audio, keys, knobs, LEDs, the screen, flash storage. Below is only the app: a
- * 8-part step sequencer (5 synthesized drums + 3 FM voices), a 240x240 Electribe-style
- * screen, and the KORG iELECTRIBE factory preset catalog (tools/electribe/make_catalog.py).
+ * 8-part step sequencer (5 synthesized drums + 3 FM voices), a 240x240 groovy
+ * screen, and the the source app factory preset catalog (tools/extract/make_catalog.py).
  *
  *   ENC_SELECT  the part (KICK..LEAD)
- *   ENC_PRESETS the pattern (the iELECTRIBE catalog; show name/genre)
+ *   ENC_PRESETS the pattern (the the app catalog; show name/genre)
  *   ENC_ALGORITHM  pattern length page (16/32/48/64 steps)
  *   KNOB1..KNOB4  the selected part's A/B/C/D parameters
  *   GLO          holds a global page: KNOB1 tempo, KNOB2 swing, KNOB3 accent, KNOB4 page
@@ -28,8 +28,8 @@ static void app_idle(void);
 #include "smk_wheel.h"
 #endif
 
-#include "electribe_catalog.h"      /* the iELECTRIBE factory preset names/authors/genres */
-#include "electribe_drums.h"        /* authentic iELECTRIBE drum one-shots (make_drum_bank.py) */
+#include "electribe_catalog.h"      /* the authentic factory preset names/authors/genres */
+#include "electribe_drums.h"        /* authentic the app drum one-shots (make_drum_bank.py) */
 
 #ifdef DINGHY_HOST
 #define DBG(...) printf(__VA_ARGS__)
@@ -58,7 +58,7 @@ static char *apu(char *p, uint32_t v) { char t[8]; utoa(v, t); return ap(p, t); 
 #define C_BG     RGB(14, 12, 9)     /* near-black chassy LCD */
 #define C_PANEL  RGB(26, 22, 16)
 #define C_SUB    RGB(70, 56, 40)
-#define C_TEXT    RGB(235, 158, 34) /* amber, Electribe's LCD */
+#define C_TEXT    RGB(235, 158, 34) /* amber, the app's LCD */
 #define C_TEXT2   RGB(255, 210, 120)
 #define C_HL     RGB(255, 92, 0)   /* bright orange: the playing step */
 #define C_MUTE   RGB(64, 58, 48)
@@ -90,7 +90,7 @@ static int32_t sine(uint32_t ph)         /* -32767..32767 over 2^32 */
     return y > 32767 ? 32767 : y < -32767 ? -32767 : y;
 }
 
-/* --- drums: authentic iELECTRIBE one-shots, played from flash (DRUM_BANK).
+/* --- drums: authentic the app one-shots, played from flash (DRUM_BANK).
  * A drum is a playback cursor into a const int16 sample. The part's A knob sets a
  * decay/muffle (a moving average over the tail), B a pitch offset (playback rate),
  * D the level. B runs at native pitch; B>64 speeds up (brighter/shorter), <64 slows. */
@@ -259,9 +259,9 @@ static void app_audio(int32_t *out, uint32_t n)
 #define NPART 8u
 #define NSTEP 64u
 
-#include "electribe_patterns.h"     /* authentic KORG iELECTRIBE gates (make_patterns.py) */
+#include "electribe_patterns.h"     /* authentic the source app gates (make_patterns.py) */
 
-/* The working pattern: gates come from the real KORG grids; the synth parts get note
+/* The working pattern: gates come from the factory grids; the synth parts get note
  * lines supplied here (the IPA's grids encode gates, not our synth notes). */
 struct pat {
     uint8_t gates[NPART][NSTEP];   /* byte per step, 0/1 */
@@ -330,7 +330,7 @@ static void set_defaults(void)
     pattern_load(0); memcpy(&S.pat, &pat, sizeof pat);
 }
 
-/* ================= the screen: Electribe-style ================= */
+/* ================= the screen: groovy ================= */
 static void draw_header(uint32_t playing)
 {
     char s[40];

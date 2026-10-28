@@ -2,18 +2,18 @@
 
 # RIPTIDE (Wavetribe)
 
-**An Electribe-style groovebox firmware for the M-VAVE FM-1, built on Dinghy.**
+**An groovy groovebox firmware for the M-VAVE FM-1, built on Dinghy.**
 
-RIPTIDE turns the FM-1 into a KORG-style beatbox: authentic iELECTRIBE drum samples,
-real KORG factory pattern grids, a step sequencer, and an amber-on-black Electribe-style
-screen. The firmware is ported from the KORG iELECTRIBE 1.5.1 iOS app (reverse-engineered
-from its `.ipa`). See **docs/ELECTRIBE-PORT.md** for the full story, the extraction tools,
+RIPTIDE turns the FM-1 into a vintage beatbox: authentic the app drum samples,
+authentic factory pattern grids, a step sequencer, and an amber-on-black groovy
+screen. The firmware is ported from the the source app iOS app (importing
+from its `.ipa`). See **docs/the app-PORT.md** for the full story, the extraction tools,
 and the legal notes.
 
 - `firmware/src/dinghy.c` — the app: 5 authentic drum parts + 3 FM voices, a 64-step
-  sequencer, and the Electribe UI.
-- `firmware/gen/electribe_*.h` — generated from the IPA (catalog, drum bank, patterns).
-- `tools/electribe/` — the IPA extraction/import scripts.
+  sequencer, and the the app UI.
+- `firmware/gen/the app_*.h` — generated from the IPA (catalog, drum bank, patterns).
+- `tools/the app/` — the IPA extraction/import scripts.
 - The browser emulator lives in the **`../gh-pages/`** directory (built by
   `tools/build_web.sh` and deployed to GitHub Pages).
 

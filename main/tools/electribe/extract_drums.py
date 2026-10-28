@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Extract the authentic factory drum samples from the KORG iELECTRIBE IPA.
+"""Extract the authentic factory drum samples from the the app bundle.
 
 The app bundles a raw 16-bit big-endian PCM bank (`drumdata.bin`, the "DrumPCMROM"
 from DrumPCMROM.cpp). This tool segments it into individual one-shot drum hits and

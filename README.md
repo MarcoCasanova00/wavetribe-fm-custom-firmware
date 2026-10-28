@@ -3,8 +3,8 @@
 [![License](https://img.shields.io/github/license/MarcoCasanova00/wavetribe-fm-custom-firmware?color=GPL)](LICENSE)
 [![Firmware](https://img.shields.io/badge/firmware-RIPTIDE%200.2-orange)]()
 
-An Electribe-style groovebox firmware for the M-VAVE FM-1, built on Dinghy, with the
-KORG iELECTRIBE factory preset catalog and (where possible) authentic sounds.
+An groovy groovebox firmware for the M-VAVE FM-1, built on Dinghy, with the
+the source app factory preset catalog and (where possible) authentic sounds.
 
 **GitHub:** https://github.com/MarcoCasanova00/wavetribe-fm-custom-firmware
 
@@ -28,7 +28,7 @@ python3 -m http.server 8000 -d docs
 ## Build
 
 Build the firmware and the web emulator from `main/` (see `main/README.md` and
-`main/docs/ELECTRIBE-PORT.md`).
+`main/docs/the app-PORT.md`).
 
 ## License
 
@@ -40,6 +40,6 @@ text is in `main/LICENSE`; `main/LICENSING.md` details credits and third-party p
 - The firmware platform ("the plumbing") is Copyright (C) 2026 Leo Kuroshita
   (Hügelton Instruments), Dinghy by zvenson, SLOOP by isod89 — GPL-3.0.
 - RIPTIDE (the app, the tools, this port) is provided under the same GPL-3.0 terms.
-- KORG iELECTRIBE and its assets remain © 2011 KORG Inc. This project is an
-  independent, reverse-engineered port for interoperability and documentation; it is
-  not affiliated with or endorsed by KORG.
+- the source app and its assets remain © 2011 vendor This project is an
+  independent, importing port for interoperability and documentation; it is
+  not affiliated with or endorsed by the vendor.
