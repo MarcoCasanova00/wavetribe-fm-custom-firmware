@@ -33,10 +33,7 @@ function setKey(i, down) { if (!m) return; m._web_key(down ? 1 : 0, 1 << i); key
 /* --- framebuffer -> canvas (RGB565 -> RGBA) --- */
 function drawLcd() {
   if (!m) return;
-  const _fbcount = m._web_fb_words();
-  const fb = new Uint16Array(mem.buffer, m._web_fb_ptr(), m._web_fb_words());
-  const fb = new Uint16Array(mem.buffer, m._web_fb_ptr(), fbSz || 240*240);
-  if (!fb || !fb.length) { console.error("fb empty", fb); return; }
+  const fb = new Uint16Array(mem.buffer, m._web_fb_ptr(), 240 * 240);
   const d = img.data;
   for (let i = 0, p = 0; i < 240 * 240; i++) {
     const v = fb[i];
@@ -78,31 +75,16 @@ function startAudio() {
 }
 
 /* --- start overlay --- */
-globalThis._wasmInstMem = globalThis._wasmInstMem || null;
 document.getElementById("overlay").addEventListener("click", async () => {
-  const svgOpts = {
-    instantiateWasm: (info, cb) => {
-      fetch("riptide.wasm").then(async r => {
-        const wasmBin = await r.arrayBuffer();
-        WebAssembly.instantiate(wasmBin, info).then(inst => {
-          globalThis._wasmInstMem = inst.instance.exports.memory;
-          cb(inst.instance);
-        });
-      });
-      return {};
-    }
-  };
   document.getElementById("overlay").style.display = "none";
   try {
-    m = await createRiptide(svgOpts);
-    mem = globalThis._wasmInstMem && globalThis._wasmInstMem.buffer
-       || (m.HEAPU16 && m.HEAPU16.buffer)
-       || (m.memory && m.memory.buffer)
+    m = await createRiptide({ });
+    mem = (m.HEAPU16 && m.HEAPU16.buffer)
        || (m.wasmMemory ? m.wasmMemory.buffer : null)
-       || (m.asm && m.asm.memory && m.asm.memory.buffer);
+       || (m.asm && m.asm.memory && m.asm.memory.buffer)
+       || (m.memory && m.memory.buffer);
     if (!mem) throw new Error("could not locate wasm memory");
     m._web_init();
-    console.log("init OK. ptr=", m._web_fb_ptr(), "words=", m._web_fb_words(), "mem=", mem && mem.byteLength);
     startAudio();
     running = true;
     lastT = performance.now();
