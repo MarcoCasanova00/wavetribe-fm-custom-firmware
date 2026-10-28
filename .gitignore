@@ -1,0 +1,13 @@
+build/
+**/build/
+__pycache__/
+.DS_Store
+*.ppm
+*.o
+*.elf
+*.dis
+*.wav
+!main/assets/drums/*.wav
+!main/firmware/gen/*.h
+main/site/riptide.js
+main/site/riptide.wasm
