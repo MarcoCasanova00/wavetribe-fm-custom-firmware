@@ -1,0 +1,12 @@
+import { createRequire } from "module";
+import path from "path";
+import fs from "fs";
+const require = createRequire(import.meta.url);
+const wasmBinary = fs.readFileSync(path.join(process.cwd(),"riptide.wasm"));
+const factory = require("./riptide.js");
+const mod = await factory({ instantiateWasm(info, receiveInstance){ WebAssembly.instantiate(wasmBinary, info).then(r=>receiveInstance(r.instance)); } });
+const m = typeof mod === "function" ? await mod() : mod;
+console.log("keys:", Object.keys(m).slice(0,40));
+console.log("HEAPU8?", typeof m.HEAPU8, "HEAPU16?", typeof m.HEAPU16);
+console.log("_web_init?", typeof m._web_init, "_web_run?", typeof m._web_run, "_web_audio?", typeof m._web_audio);
+process.exit(0);
