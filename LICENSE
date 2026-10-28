@@ -1,0 +1,19 @@
+Wavetribe — an Electribe-style groovebox firmware for the M-VAVE FM-1
+Copyright (C) 2026 The Wavetribe contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+The complete license text required by the GPL is in `main/LICENSE`.
+Attribution, third-party parts, and the KORG/iELECTRIBE relationship are
+described in `main/LICENSING.md` and `main/docs/ELECTRIBE-PORT.md`.
