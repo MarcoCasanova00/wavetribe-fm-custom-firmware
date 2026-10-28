@@ -1,12 +1,11 @@
-/* RIPTIDE web emulator: drives the compiled firmware (riptide.js / .wasm).
- * The LCD is redrawn ~30-60 fps from the firmware's framebuffer; audio is generated
- * by a ScriptProcessorNode pulling from `web_audio`, which advances the device clock. */
-
+/* RIPTIDE web emulator: drives the compiled firmware (riptide.js / .wasm). */
 const createRiptide = globalThis.createRiptide;   // from the classic riptide.js script
 
 const canvas = document.getElementById("lcd");
 const ctx = canvas.getContext("2d");
 const img = ctx.createImageData(240, 240);
+
+console.log("RIPTIDE boot start; classic createRiptide present:", typeof createRiptide);
 
 const NOTES = ["F3","F#3","G3","G#3","A3","A#3","B3","C4","C#4","D4","D#4","E4","F4","F#4",
   "G4","G#4","A4","A#4","B4","C5","C#5","D5","D#5","E5","F5","F#5","G5"];
@@ -30,16 +29,18 @@ NOTES.forEach((nm, i) => {
 });
 function setKey(i, down) { if (!m) return; m._web_key(down ? 1 : 0, 1 << i); keyBits[i].classList.toggle("down", down); }
 
-/* --- framebuffer -> canvas (RGB565 -> RGBA) --- */
+/* --- framebuffer -> canvas (RGB565, possibly byte-swapped) --- */
 function drawLcd() {
-  if (!m) return;
+  if (!m || !mem) return;
   const fb = new Uint16Array(mem.buffer, m._web_fb_ptr(), 240 * 240);
   const d = img.data;
   for (let i = 0, p = 0; i < 240 * 240; i++) {
-    const v = fb[i];
-    d[p++] = ((v >> 11) & 31) * 255 / 31;   // r
-    d[p++] = ((v >> 5) & 63) * 255 / 63;    // g
-    d[p++] = (v & 31) * 255 / 31;           // b
+    let v = fb[i];
+    // Byte-swap for bytes exported via wasm (host stores them big-endian)
+    v = ((v & 0xFF) << 8) | ((v >> 8) & 0xFF);
+    d[p++] = ((v >> 11) & 31) * 255 / 31;
+    d[p++] = ((v >> 5) & 63) * 255 / 63;
+    d[p++] = (v & 31) * 255 / 31;
     d[p++] = 255;
   }
   ctx.putImageData(img, 0, 0);
@@ -75,15 +76,29 @@ function startAudio() {
 }
 
 /* --- start overlay --- */
+globalThis._wasmInstMem = globalThis._wasmInstMem || null;
 document.getElementById("overlay").addEventListener("click", async () => {
   document.getElementById("overlay").style.display = "none";
+  const svgOpts = {
+    instantiateWasm: (info, cb) => {
+      fetch("riptide.wasm").then(async r => {
+        const wasmBin = await r.arrayBuffer();
+        WebAssembly.instantiate(wasmBin, info).then(inst => {
+          globalThis._savedWasmMemory = inst.instance.exports.memory;
+          cb(inst.instance);
+        });
+      });
+      return {};
+    }
+  };
   try {
-    m = await createRiptide({ });
-    mem = (m.HEAPU16 && m.HEAPU16.buffer)
-       || (m.wasmMemory ? m.wasmMemory.buffer : null)
-       || (m.asm && m.asm.memory && m.asm.memory.buffer)
-       || (m.memory && m.memory.buffer);
-    if (!mem) throw new Error("could not locate wasm memory");
+    m = await createRiptide(svgOpts);
+    mem = globalThis._savedWasmMemory
+       && globalThis._savedWasmMemory.buffer
+       || (m.memory && m.memory.buffer)
+       || (m.HEAPU16 && m.HEAPU16.buffer);
+    if (!mem) throw new Error("could not locate wasm memory (mem=" + mem + ")");
+    console.log("mem OK", mem.byteLength, "ptr", m._web_fb_ptr());
     m._web_init();
     startAudio();
     running = true;
@@ -99,12 +114,10 @@ document.getElementById("overlay").addEventListener("click", async () => {
 /* --- controls --- */
 function bind(id, fn) { document.getElementById(id).addEventListener("click", fn); }
 function tapBtn(id, on) { if (m) m._web_btn(id, on ? 1 : 0); }
-// buttons: momentary (press+release)
 bind("b-play", () => { tapBtn(12, 1); setTimeout(() => tapBtn(12, 0), 60); document.getElementById("b-play").classList.toggle("on"); });
 bind("b-rec", () => { tapBtn(13, 1); setTimeout(() => tapBtn(13, 0), 60); document.getElementById("b-rec").classList.toggle("on"); });
 bind("b-glo", () => { tapBtn(7, 1); setTimeout(() => tapBtn(7, 0), 60); document.getElementById("b-glo").classList.toggle("on"); });
 bind("b-home", () => { tapBtn(8, 1); setTimeout(() => tapBtn(8, 0), 60); document.getElementById("b-home").classList.toggle("on"); });
-// encoders: role 0=part, 1=page, 6=presets, 2..5=knobs A-D
 function enc(role, n) { if (m) m._web_enc(role, n); }
 bind("b-selm", () => enc(0, -1));
 bind("b-selp", () => enc(0, 1));
@@ -116,5 +129,4 @@ bind("b-k2m", () => enc(3, -1)); bind("b-k2p", () => enc(3, 1));
 bind("b-k3m", () => enc(4, -1)); bind("b-k3p", () => enc(4, 1));
 bind("b-k4m", () => enc(5, -1)); bind("b-k4p", () => enc(5, 1));
 
-// keyboard: ignore drags off-panel
 window.addEventListener("pointerup", () => { for (let i = 0; i < 27; i++) setKey(i, false); });
