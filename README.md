@@ -1,4 +1,4 @@
-# Wavetribe
+# Frankentribe OS
 
 [![License](https://img.shields.io/github/license/MarcoCasanova00/wavetribe-fm-custom-firmware?color=GPL)](LICENSE)
 [![Web Emulator](https://img.shields.io/badge/web-emulator%20live-blue)](https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/)

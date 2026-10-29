@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* RIPTIDE: an groovy groovebox firmware for the M-VAVE FM-1, built on Dinghy
+/* FRANKENTRIBE OS: an FM-1 groovebox firmware, built on Dinghy
  * (zvenson), Felucca (Leo Kuroshita / Hügelton Instruments) and SLOOP (isod89).
  *
+
  * Everything platform.c does is unchanged: updates, the USB rescue, MIDI (USB + TRS),
  * USB audio, keys, knobs, LEDs, the screen, flash storage. Below is only the app: a
  * 8-part step sequencer (5 synthesized drums + 3 FM voices), a 240x240 groovy
