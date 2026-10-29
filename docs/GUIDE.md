@@ -8,10 +8,7 @@ Build the beat, shape the sounds, listen.
 ## 1. Boot
 1. Open the live link in a modern Chromium, Firefox or Safari.
 2. Click **Switch on**.
-3. The 240×240 screen lights up and the sequencer starts. The UI is a
-   monochrome **amber-on-black LCD** (default palette) with four coherent views —
-   **SEQ**, **FX**, **Wave/Patch** and **System** — sharing the same title-bar,
-   panel and highlight style.
+3. The 240×240 screen lights up and the sequencer starts.
 
 (If audio stays silent, click again — some browsers suspend the context.)
 
