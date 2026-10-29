@@ -79,3 +79,5 @@ Enjoy. Tag your feedback on the repository issues.
 ## 10. DX7 voice ROM 2 (experimental melting-pot sound source)
 - Global mode now can use `OCT-` toggle to switch patch banks; `PRESET` then cycles
   64 bank entries created from the DX7 patch name/parameter heuristics.
+
+- **MIDI OUT**: when toggled, the sequencer also emits clock (24 ppqn), Start (0xFA), and Stop (0xFC) on the USB + TRS outlets.

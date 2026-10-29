@@ -172,6 +172,8 @@ typedef struct {
 static sv_t sv[NV];
 static uint32_t sv_ages;
 
+static uint32_t midi_clk_acc;  /* frames until next 0xF8 clock pulse */
+
 /* simple mono effect chain (cheap integer DSP, no FPU) */
 static int16_t fx_buf[8192];
 static uint32_t fx_w;
@@ -203,6 +205,9 @@ static void sv_release(uint8_t note)
     for (v = 0; v < NV; v++)
         if (sv[v].note == note) sv[v].gate = 0;
 }
+
+/* forward declarations used by app_audio before their later definitions */
+static uint8_t run, bpm;
 
 /* --- the event queue between the main loop and the audio ISR --- */
 #define EVQN 48u
@@ -284,6 +289,16 @@ static void app_audio(int32_t *out, uint32_t n)
             out[2u * i] += s; out[2u * i + 1u] += s;
         }
         sv[v].cph = cph; sv[v].mph = mph; sv[v].amp = amp; sv[v].age++;
+    }
+    if (midi_out && run) {
+        uint32_t bpmx = bpm ? (uint32_t)bpm : 120u;
+        uint32_t per_tick = (44100u * 60u) / (bpmx * 24u);
+        if (per_tick == 0) per_tick = 1u;
+        midi_clk_acc += (uint32_t)n;
+        while (midi_clk_acc >= per_tick) {
+            midi_send(0xF8, 0, 0);
+            midi_clk_acc -= per_tick;
+        }
     }
     /* --- simple global effect chain (no FPU) --- */
     if (fx_mode) {
@@ -483,6 +498,7 @@ static uint32_t dirty, saved_ms;
 static void seq_stop(void)
 {
     uint32_t p;
+    if (midi_out) midi_send(0xFC, 0, 0);
     run = 0;
     for (p = NDRUM; p < NPART; p++)
         if (hold_note[p]) {
@@ -604,7 +620,7 @@ static void app_tick(void)
         if (b & (1u << BTN_PLAY)) {
             if (glomode) { }
             else if (run) seq_stop();
-            else { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; }
+            else { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; if (midi_out) midi_send(0xFA, 0, 0); }
             dirty = 1;
         }
         if (b & (1u << BTN_FX)) {

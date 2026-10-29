@@ -2,13 +2,21 @@
 #ifndef FACTORY_PATCHES_H
 #define FACTORY_PATCHES_H
 #include <stdint.h>
-#define N_PATCHES 5u
+#define N_PATCHES 13u
 static const char *const PATCH_NAME[N_PATCHES] = {
     "Init",
     "Bright",
     "Dark",
     "Pluck",
     "Soft",
+    "Bell",
+    "SawLead",
+    "Organ",
+    "Strings",
+    "NoiseBass",
+    "Chimes",
+    "PWM",
+    "Acid",
 };
 static const uint8_t PATCH_PRM[N_PATCHES][3][4] = {
   /* Init */
@@ -40,6 +48,54 @@ static const uint8_t PATCH_PRM[N_PATCHES][3][4] = {
     { 1, 50, 8, 70 },
     { 3, 40, 12, 70 },
     { 4, 50, 15, 65 },
+  },
+  /* Bell */
+  {
+    { 12, 90, 40, 85 },
+    { 16, 60, 35, 80 },
+    { 24, 80, 45, 75 },
+  },
+  /* SawLead */
+  {
+    { 0, 45, 30, 95 },
+    { 0, 40, 25, 90 },
+    { 0, 50, 35, 95 },
+  },
+  /* Organ */
+  {
+    { 15, 20, 10, 85 },
+    { 15, 20, 10, 85 },
+    { 15, 20, 10, 85 },
+  },
+  /* Strings */
+  {
+    { 60, 50, 20, 80 },
+    { 60, 55, 25, 80 },
+    { 60, 60, 30, 80 },
+  },
+  /* NoiseBass */
+  {
+    { 100, 120, 90, 90 },
+    { 100, 120, 90, 85 },
+    { 100, 120, 90, 80 },
+  },
+  /* Chimes */
+  {
+    { 30, 90, 70, 80 },
+    { 30, 90, 70, 75 },
+    { 30, 90, 70, 80 },
+  },
+  /* PWM */
+  {
+    { 80, 35, 15, 95 },
+    { 80, 35, 15, 90 },
+    { 80, 35, 15, 95 },
+  },
+  /* Acid */
+  {
+    { 120, 100, 100, 95 },
+    { 120, 95, 95, 90 },
+    { 120, 100, 100, 95 },
   },
 };
 #endif /* FACTORY_PATCHES_H */
