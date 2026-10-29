@@ -31,9 +31,28 @@ static void app_idle(void);
 
 #include "factory_catalog.h"      /* the authentic factory preset names/authors/genres */
 #include "factory_drum_kits.h"    /* kit bank: APP + 909; see import_drum_kits.py */
+#include "epl_drum.h"             /* 2 extra kits: ROCK (Emu Drumulator), ALT (Stock Set) */
 #include "factory_wavetables.h"   /* imported single-cycle waves (import_wavetables.py) */
 #include "mined_roms.h"           /* EPROM-mined waves from rare synth dumps */
 #define TOTAL_WT_COUNT (WT_COUNT + MWT_COUNT)   /* combined wavetable pool */
+#define TOTAL_DRUMS (N_DRUM_KITS + N_EPL_KITS)  /* combined drum kit count */
+static const char *drum_kit_name(uint8_t k) {
+    return (k < N_DRUM_KITS) ? DRUM_KIT_NAMES[k] : EPL_KIT_NAMES[k - N_DRUM_KITS];
+}
+static drum_smp_t drum_kit_smp(uint8_t k, uint8_t d) {
+    return (k < N_DRUM_KITS) ? DRUM_BANKS[k][d] : (drum_smp_t){ EPL_KITS[(k - N_DRUM_KITS) * NDRUM + d].n, EPL_KITS[(k - N_DRUM_KITS) * NDRUM + d].p };
+}
+/* instrument category tags for UI distinction */
+static const char *drum_kit_cat(uint8_t k) {
+    return (k < N_DRUM_KITS) ? "FACTORY" : "EPROM-MINED";
+}
+static const char *wt_category(uint16_t w) {
+    if (w < WT_COUNT) return "FACTORY";
+    if (w < WT_COUNT + 16) return "DE-HOHNER";  /* Hohner Adam */
+    if (w < WT_COUNT + 32) return "DE-BOHM";     /* Bohm DD16 */
+    if (w < WT_COUNT + 48) return "UK-CHEETAH";  /* Cheetah MD16 */
+    return "EPROM-MINED";
+}
 #include "factory_patchbanks.h"   /* APP, DX7, ROM banks (melting-pot patches) */
 
 #ifdef DINGHY_HOST
@@ -135,8 +154,8 @@ static void drum_trigger(uint32_t d, uint32_t vel)
 static int32_t drum_tick(uint32_t d)
 {
     drm_t *k = &drum[d];
-    uint32_t n = DRUM_BANKS[drum_kit][d].n, idx;
-    const int16_t *smp = DRUM_BANKS[drum_kit][d].p;
+    uint32_t n = drum_kit_smp(drum_kit, d).n, idx;
+    const int16_t *smp = drum_kit_smp(drum_kit, d).p;
     int32_t s, e;
     uint32_t inc = k->inc, pos = k->pos;
     if (!k->active) return 0;
@@ -483,7 +502,7 @@ static void draw_footer(uint32_t playing)
     } else {
         p = ap(p, PNAME[part_sel]);
         if (part_sel < NDRUM) {
-            p = ap(p, "  ["); p = ap(p, DRUM_KIT_NAMES[drum_kit]); p = ap(p, "]");
+            p = ap(p, "  ["); p = ap(p, drum_kit_name(drum_kit)); p = ap(p, "]");
         }
         for (q = 0; q < 4u; q++) {
             *p++ = ' '; *p++ = (char)('A' + q);
@@ -514,9 +533,12 @@ static void draw_wave_page(void)
     cv_begin(240, 224, C_BG);
     cv_text(2, 2, &FONT_S, "WAVES / PATCH", C_TEXT2);
     if (part_sel < NDRUM) {
-        p = ap(s, "Part "); p = apu(p, part_sel); p = ap(p, " drum  kit "); p = ap(p, DRUM_KIT_NAMES[drum_kit]);
+        p = ap(s, "Part "); p = apu(p, part_sel); p = ap(p, " drum  kit "); p = ap(p, drum_kit_name(drum_kit));
+        p = ap(p, " ["); p = ap(p, drum_kit_cat(drum_kit)); p = ap(p, "]");
     } else {
         p = ap(s, PNAME[part_sel]); p = ap(p, "  wave "); p = apu(p, part_prm[part_sel][0]);
+        p = ap(p, "/"); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ");
+        p = ap(p, wt_category((uint8_t)(part_prm[part_sel][0] * (TOTAL_WT_COUNT-1u) / 127u)));
         p = ap(p, " ratio "); p = apu(p, part_prm[part_sel][1]);
     }
     cv_text(2, 16, &FONT_S, s, C_TEXT);
@@ -536,7 +558,7 @@ static void draw_sys_page(void)
     char s[48]; char *p = s;
     cv_begin(240, 224, C_BG);
     cv_text(2, 2, &FONT_S, "SYSTEM PAGE", C_TEXT2);
-    p = ap(s, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, N_DRUM_KITS);
+    p = ap(s, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, TOTAL_DRUMS);
     cv_text(2, 16, &FONT_S, s, C_TEXT);
     p = s; p = ap(p, "Waves: "); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ("); p = apu(p, WT_COUNT); p = ap(p, "+"); p = apu(p, MWT_COUNT); p = ap(p, " EPROM)");
     cv_text(2, 30, &FONT_S, s, C_TEXT);
@@ -669,7 +691,7 @@ static void app_tick(void)
                 case 5: if (part_sel >= NDRUM) { part_prm[part_sel][2] = (uint8_t)(v >> 1); dirty = 1; } break;
                 case 7: if (part_sel >= NDRUM) { part_prm[part_sel][3] = v; dirty = 1; } break;
                 case 91: fx_mode = (uint8_t)((v * 4) / 128); if (fx_mode > 3) fx_mode = 3; dirty = 1; break;
-                case 92: drum_kit = (uint8_t)((v * N_DRUM_KITS) / 128); if (drum_kit >= N_DRUM_KITS) drum_kit = N_DRUM_KITS-1; dirty = 1; break;
+                case 92: drum_kit = (uint8_t)((v * TOTAL_DRUMS) / 128); if (drum_kit >= TOTAL_DRUMS) drum_kit = TOTAL_DRUMS-1; dirty = 1; break;
                 case 93: {
                     uint8_t ps = (uint8_t)((v * 13) / 128); if (ps >= 13) ps = 12;
                     patch_ix = ps; patchbank = 0;
@@ -772,7 +794,7 @@ static void app_tick(void)
             e = fm1_enc_take(ENC_KNOB2);
             if (glomode && e) { int32_t c = swing + e; swing = (uint8_t)(c < 0 ? 0 : c > 100 ? 100 : c); dirty = 1; }
             else if (e && part_sel < NDRUM) { int32_t c = drum_kit + (e > 0 ? 1 : -1);
-                drum_kit = (uint8_t)(c < 0 ? 0 : c >= (int32_t)N_DRUM_KITS ? N_DRUM_KITS - 1 : c); dirty = 1; }
+                drum_kit = (uint8_t)(c < 0 ? 0 : c >= (int32_t)TOTAL_DRUMS ? TOTAL_DRUMS - 1 : c); dirty = 1; }
             else if (e) { int32_t c = part_prm[part_sel][1] + e; part_prm[part_sel][1] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB3);
             if (glomode && e) { int32_t c = accent + e; accent = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
