@@ -74,4 +74,4 @@ Enjoy. Tag your feedback on the repository issues.
 
 ## 9. Drum kits
 - With a drum part selected (parts 1-5), turning Knob B (B) cycles available drum kits.
-  Two kits ship: the original authentic APP kit and a FunkBox-style 909 kit.
+  Three kits ship + four more: the original authentic APP kit and a FunkBox-style 909 kit.

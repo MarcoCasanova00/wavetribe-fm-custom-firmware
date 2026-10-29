@@ -61,17 +61,17 @@ Idle knobs stay idle until you move them; every move lands on the selected part.
 
 Enjoy. Tag your feedback on the repository issues.
 ## 8. Wave banks (experimental)
-- The three right-hand FM parts now read their carrier wave from a 32-entry embedded
+- The three right-hand FM parts now read their carrier wave from a 128-entry embedded (Absynth + Linn + EPROM waves)
   wavetable bank (single-cycle waves extracted from the supplied Absynth-format banks).
 - Knob A (KNOB 1) now also steps through those 32 wave shapes for whichever part you
   have selected (step by 8 gives a full cycle of 32 values).
 
 ## 8. Wave banks (experimental)
-- The three right-hand FM parts now read their carrier wave from a 32-entry embedded
+- The three right-hand FM parts now read their carrier wave from a 128-entry embedded (Absynth + Linn + EPROM waves)
   wavetable bank (single-cycle waves extracted from the supplied Absynth-format banks).
   Knob A (KNOB 1) now also steps through those 32 wave shapes for whichever part you
   have selected (each click advances; hold to sweep).
 
 ## 9. Drum kits
 - With a drum part selected (parts 1-5), turning Knob B (B) cycles available drum kits.
-  Two kits ship: the original authentic APP kit and a FunkBox-style 909 kit.
+  Three kits ship + four more: the original authentic APP kit and a FunkBox-style 909 kit.
