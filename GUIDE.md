@@ -43,7 +43,7 @@ Idle knobs stay idle until you move them; every move lands on the selected part.
 - With REC off, tapping a key triggers it in real time.
 - The keybed (F3 → G5) maps to 27 notes — good for triggering one-shot layers over the pattern.
 
-## 7. Known limits (v0.1)
+## 7. Controls overview (v0.1)
 - FX, SAVE, ARP, SEQ, KNOB BANK, FADER BANK are wired in the browser panel but are
   not backed by firmware behavior in this build.
 - No project save to disk yet (settings persist in-browser for the session only).

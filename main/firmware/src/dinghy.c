@@ -466,9 +466,16 @@ static void draw_footer(uint32_t playing)
     } else if (glomode) {
         if (playing) {
             p = ap(p, "GLO  "); p = apu(p, bpm); p = ap(p, "BPM sw");
-            p = apu(p, swing); p = ap(p, " acc"); p = apu(p, accent);
+            p = apu(p, swing); p = ap(p, " acc"); p = apu(p, accent); p = ap(p, " pg"); p = apu(p, page + 1);
         } else {
             p = ap(p, "GLO  tempo/swing/accent/page (knobs)");
+        }
+        p = ap(p, "  FX"); p = ap(p, (const char *[]){"off","chr","ech","c+e"}[fx_mode]);
+        p = ap(p, midi_out ? "  MD" : "  .");
+        if (dx7bank_sel) {
+            p = ap(p, "  DX7 ");
+        } else {
+            p = ap(p, "  ROM");
         }
     } else {
         p = ap(p, PNAME[part_sel]);
@@ -479,6 +486,8 @@ static void draw_footer(uint32_t playing)
             *p++ = ' '; *p++ = (char)('A' + q);
             p = apu(p, part_prm[part_sel][q]);
         }
+        p = ap(p, "  F"); p = apu(p, fx_mode);
+        p = ap(p, midi_out ? " M" : " .");
         *p = 0;
     }
     draw_text_box(2, 212, 236, &FONT_S, s, (write_arm || glomode) ? C_TEXT2 : (playing ? C_TEXT : C_SUB), 0);
