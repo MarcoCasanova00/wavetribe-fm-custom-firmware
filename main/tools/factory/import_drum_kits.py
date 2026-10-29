@@ -27,7 +27,28 @@ FB909 = {
     "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/funk909chat.wav",
     "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909oh1.wav",
 }
-KITS = {"APP": APP, "TR808": FB808, "TR909": FB909}
+CR78 = {
+    "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78bd.wav",
+    "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78rs.wav",
+    "CLAP": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78gu.wav",
+    "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78ch.wav",
+    "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78oh.wav",
+}
+LINN = {
+    "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnbd.wav",
+    "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnsd.wav",
+    "CLAP": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linncp.wav",
+    "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnch.wav",
+    "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnoh.wav",
+}
+MD110 = {
+    "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspsbd1.wav",
+    "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspssd1.wav",
+    "CLAP": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linncb.wav",
+    "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspsch2.wav",
+    "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspsoh3.wav",
+}
+KITS = {"APP": APP, "TR808": FB808, "TR909": FB909, "CR78": CR78, "LINN": LINN, "MD110": MD110}
 PARTS = ("KICK","SNARE","CLAP","CHH","OHH")
 
 def load16(path):
