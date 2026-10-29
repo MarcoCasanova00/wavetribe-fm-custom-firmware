@@ -32,7 +32,7 @@ OUT="$(pwd)/../docs"
   -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPU8","HEAPU16"]' \
   firmware/src/dinghy.c -o "$OUT/riptide.js"
 
-cp site/index.html site/main.js site/worklet.js "$OUT/"
+cp site/index.html site/main.js site/worklet.js site/GUIDE.md "$OUT/"
 mkdir -p "$OUT/fonts"
 cp site/fonts/* "$OUT/fonts/"
 
