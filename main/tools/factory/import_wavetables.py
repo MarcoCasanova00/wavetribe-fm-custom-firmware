@@ -110,8 +110,7 @@ def main():
     abs_dir = sys.argv[2] if len(sys.argv) > 2 else "/home/maltomare/new absynth banks"
     linn_dir = sys.argv[3] if len(sys.argv) > 3 else "/home/maltomare/eeproms/Linn 9000 roms 2"
     rom_files = sys.argv[4:] or [
-        "/home/maltomare/eeproms/KorgTrinity.zip",
-        "/home/maltomare/eeproms/Nord Lead 1 (27c4001 or 27c040 EPROM) (2.70 is final version_ 2002-11-05).zip",
+        "/home/maltomare/eeproms/obscure_solo_board.bin",        "/home/maltomare/eeproms/Nord Lead 1 (27c4001 or 27c040 EPROM) (2.70 is final version_ 2002-11-05).zip",
         "/home/maltomare/eeproms/DX7_Voice_Rom2.zip",
         "/home/maltomare/eeproms/Oberheim - DX v3.01.zip",
         "/home/maltomare/eeproms/Roland D-50 1.9 PA decoder v1.9.zip",
