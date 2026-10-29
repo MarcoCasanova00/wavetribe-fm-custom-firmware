@@ -9,6 +9,8 @@ preset catalog and authentic drum sounds.
 **GitHub:** https://github.com/MarcoCasanova00/wavetribe-fm-custom-firmware
 **Play in browser:** https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
 
+**Quick start guide:** see [GUIDE.md](GUIDE.md) (v0.1)
+
 ## Layout
 
 - **`main/`** — the firmware (C source, tools, docs, tests, the real `.fwsc` build).
