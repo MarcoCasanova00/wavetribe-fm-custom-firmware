@@ -71,3 +71,7 @@ Enjoy. Tag your feedback on the repository issues.
   wavetable bank (single-cycle waves extracted from the supplied Absynth-format banks).
   Knob A (KNOB 1) now also steps through those 32 wave shapes for whichever part you
   have selected (each click advances; hold to sweep).
+
+## 9. Drum kits
+- With a drum part selected (parts 1-5), turning Knob B (B) cycles available drum kits.
+  Two kits ship: the original authentic APP kit and a FunkBox-style 909 kit.
