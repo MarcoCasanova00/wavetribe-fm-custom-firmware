@@ -112,7 +112,7 @@ static uint8_t part_prm[8][4];
 static drm_t drum[NDRUM];
 static uint8_t drum_kit;
 static uint8_t patchbank, patch_ix;
-static uint8_t dx7bank_sel, dx7_patch;
+static uint8_t dx7bank_sel;
 static uint8_t midi_out;
 static uint8_t fx_mode; /* 0 off, 1 chorus, 2 delay, 3 chorus+delay */
 static uint8_t view_page;   /* 0 Seq, 1 FX, 2 wave/patch, 3 system */
@@ -624,7 +624,7 @@ static void app_init(void)
     }
     bpm = S.bpm; swing = S.swing; page = S.page; part_sel = S.part_sel;
     pat_sel = S.pat_sel; accent = S.accent; midi_out = S.midi_out;
-    dx7bank_sel = S.dx7_bank; dx7_patch = 0;
+    dx7bank_sel = S.dx7_bank;
     patchbank = S.patchbank; patch_ix = S.patch_ix;
     memcpy(mute, S.mute, sizeof mute);
     memcpy(part_prm, S.prm, sizeof part_prm);

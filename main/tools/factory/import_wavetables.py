@@ -2,7 +2,7 @@
 """Hybrid wavetable extractor: Absynth banks + Linn + generic EPROM scans."""
 import os, struct, sys, zipfile, math
 
-NTABLES = 192
+NTABLES = 256
 WT_SIZE = 2048
 HDR = 48
 
