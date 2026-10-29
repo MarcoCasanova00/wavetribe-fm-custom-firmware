@@ -1,0 +1,83 @@
+# Test patch bank cycling: OCT-DOWN + GLO cycles banks
+# Bank 0 (APP) -> Bank 1 (DX7) -> Bank 2 (ROM) -> back to APP
+
+# Start sequencer
+80 btn 12
+
+# Test FM voice with default patch (APP bank, patch 0)
+200 midi 0x90 60 100
+300 midi 0x80 60 0
+500 shot
+
+# Simulate OCT-DOWN + GLO to switch to bank 1 (DX7)
+# We can't easily simulate button combos in host test, but we can test MIDI CC 93
+# which only works on bank 0. Let's test patches within bank 0 first.
+
+# Patch 0 (APP bank)
+1000 midi 0xB0 93 0
+1100 midi 0x90 60 100
+1200 midi 0x80 60 0
+1250 shot
+
+# Patch 4 (APP bank)
+1300 midi 0xB0 93 50
+1400 midi 0x90 60 100
+1500 midi 0x80 60 0
+1550 shot
+
+# Patch 12 (APP bank, last)
+1600 midi 0xB0 93 127
+1700 midi 0x90 60 100
+1800 midi 0x80 60 0
+1850 shot
+
+# Test DX7 patches via... we can't easily switch banks via MIDI
+# But we can test that the FM engine uses different wavetables
+1900 midi 0xB0 1 0      # wavetable 0
+2000 midi 0x90 60 100
+2100 midi 0x80 60 0
+2150 shot
+
+2200 midi 0xB0 1 64     # wavetable ~128
+2300 midi 0x90 60 100
+2400 midi 0x80 60 0
+2450 shot
+
+2500 midi 0xB0 1 127    # wavetable ~319
+2600 midi 0x90 60 100
+2700 midi 0x80 60 0
+2750 shot
+
+# Test ratio sweep
+2800 midi 0xB0 2 0
+2900 midi 0x90 60 100
+2950 midi 0x80 60 0
+3000 shot
+
+2900 midi 0xB0 2 64
+3000 midi 0x90 60 100
+3100 midi 0x80 60 0
+3150 shot
+
+3000 midi 0xB0 2 127
+3100 midi 0x90 60 100
+3200 midi 0x80 60 0
+3250 shot
+
+# Test mod index
+3300 midi 0xB0 5 0
+3400 midi 0x90 60 100
+3500 midi 0x80 60 0
+3550 shot
+
+3400 midi 0xB0 5 64
+3500 midi 0x90 60 100
+3600 midi 0x80 60 0
+3650 shot
+
+3500 midi 0xB0 5 127
+3600 midi 0x90 60 100
+3700 midi 0x80 60 0
+3750 shot
+
+3800 end

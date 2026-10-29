@@ -806,6 +806,7 @@ static void app_tick(void)
             patchbank = (uint8_t)((patchbank + 1u) % N_PATCHBANKS);
             patch_ix = 0;
             dx7bank_sel = (patchbank == 1u);
+            for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
             dirty = 1;
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
