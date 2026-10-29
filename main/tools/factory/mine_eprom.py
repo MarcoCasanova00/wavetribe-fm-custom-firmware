@@ -17,6 +17,10 @@ def mine_bytes(data, limit):
             continue
         if mn > -800 or mx < 800:
             continue
+        # Reject near-silent regions (waves that are mostly zeros/padding)
+        nonzero = sum(1 for v in vals if abs(v) > 50)
+        if nonzero < len(vals) * 0.3:
+            continue
         inc = sum(1 for a, b in zip(vals, vals[1:]) if b > a)
         if inc > len(vals) * 0.9:
             continue
@@ -45,6 +49,10 @@ def extract_bins(path):
         zf = zipfile.ZipFile(io.BytesIO(raw))
         for info in zf.infolist():
             if info.filename.endswith("/") or info.is_dir():
+                continue
+            # Only process raw binary dumps (.BIN/.bin), skip WAV/HEX/MID/IDX etc
+            ext = info.filename.rsplit(".", 1)[-1].lower() if "." in info.filename else ""
+            if ext in ("wav", "hex", "mid", "midi", "aiff", "aif", "mp3", "txt", "idx", "cue"):
                 continue
             data = zf.read(info.filename)
             bins.append((info.filename.rsplit("/", 1)[-1], data))
