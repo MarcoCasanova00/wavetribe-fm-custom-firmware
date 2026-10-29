@@ -28,8 +28,8 @@ static void app_idle(void);
 #include "smk_wheel.h"
 #endif
 
-#include "electribe_catalog.h"      /* the authentic factory preset names/authors/genres */
-#include "electribe_drums.h"        /* authentic the app drum one-shots (make_drum_bank.py) */
+#include "factory_catalog.h"      /* the authentic factory preset names/authors/genres */
+#include "factory_drums.h"        /* authentic the app drum one-shots (make_drum_bank.py) */
 
 #ifdef DINGHY_HOST
 #define DBG(...) printf(__VA_ARGS__)
@@ -259,7 +259,7 @@ static void app_audio(int32_t *out, uint32_t n)
 #define NPART 8u
 #define NSTEP 64u
 
-#include "electribe_patterns.h"     /* authentic the source app gates (make_patterns.py) */
+#include "factory_patterns.h"     /* authentic the source app gates (make_patterns.py) */
 
 /* The working pattern: gates come from the factory grids; the synth parts get note
  * lines supplied here (the IPA's grids encode gates, not our synth notes). */

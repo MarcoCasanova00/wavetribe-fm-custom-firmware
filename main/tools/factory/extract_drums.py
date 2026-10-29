@@ -8,7 +8,7 @@ writes each as a WAV (mono, 44.1 kHz) under `assets/drums/`, with a JSON invento
 (offset, length, duration, spectral class, loudness).
 
 Usage:
-    python3 tools/electribe/extract_drums.py PATH_TO_APP_BUNDLE [OUT_DIR]
+    python3 tools/factory/extract_drums.py PATH_TO_APP_BUNDLE [OUT_DIR]
     # default OUT_DIR: assets/drums relative to the repo root
 
 That the bank is big-endian is established by autocorrelation: the kick region shows

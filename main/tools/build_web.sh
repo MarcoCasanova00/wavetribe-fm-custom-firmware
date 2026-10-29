@@ -28,10 +28,12 @@ OUT="$(pwd)/../docs"
   -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -Itests \
   -sMODULARIZE=1 -sEXPORT_NAME='createRiptide' -sENVIRONMENT=web \
   -sALLOW_MEMORY_GROWTH=1 -sNO_EXIT_RUNTIME=1 --no-entry \
-  -sEXPORTED_FUNCTIONS='["_web_init","_web_run","_web_fb_ptr","_web_fb_words","_web_key","_web_btn","_web_enc","_web_midi","_web_audio","_malloc","_free"]' \
+  -sEXPORTED_FUNCTIONS='["_web_init","_web_run","_web_fb_ptr","_web_fb_words","_web_leds_lo","_web_leds_hi","_web_glow_lo","_web_glow_hi","_web_key","_web_btn","_web_enc","_web_midi","_web_audio","_malloc","_free"]' \
   -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPU8","HEAPU16"]' \
   firmware/src/dinghy.c -o "$OUT/riptide.js"
 
-cp site/index.html site/main.js "$OUT/"
+cp site/index.html site/main.js site/worklet.js "$OUT/"
+mkdir -p "$OUT/fonts"
+cp site/fonts/* "$OUT/fonts/"
 
-echo "web: $OUT/ (index.html, main.js, riptide.js, riptide.wasm)"
+echo "web: $OUT/ (index.html, main.js, worklet.js, riptide.js, riptide.wasm, fonts/)"

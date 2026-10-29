@@ -20,7 +20,15 @@ The browser build lives in **`/docs/`** and is deployed to GitHub Pages.
 
 **Live site:** https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
 
-(Serve `docs/` locally first to verify — browsers block `file://` for WebAssembly:)
+Press **Switch on** and the whole FM-1 panel comes up: the 240×240 screen, eight knobs,
+the fourteen buttons and the 27-key keybed, with the firmware's audio running in an
+`AudioWorklet`. The screen, LEDs and sound are produced by the same code the device runs.
+
+Keyboard: `Z`–`'` and `Q`–`O` play the keys, `1`–`=` are the panel buttons, `[` `]` are
+OCT− / OCT+, the arrows turn SELECT and PAGE, and the knobs respond to drag or wheel.
+
+(Serve `docs/` locally first to verify — browsers block `file://` for WebAssembly and
+AudioWorklet:)
 
 ```sh
 python3 -m http.server 8000 -d docs
@@ -29,7 +37,7 @@ python3 -m http.server 8000 -d docs
 ## Build
 
 Build the firmware and the web emulator from `main/` (see `main/README.md` and
-`main/docs/ELECTRIBE-PORT.md`).
+`main/docs/PORT.md`).
 
 ## License
 

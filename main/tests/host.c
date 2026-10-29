@@ -419,6 +419,16 @@ uintptr_t web_fb_ptr(void) { return (uintptr_t)fb; }
 EMSCRIPTEN_KEEPALIVE
 uint32_t web_fb_words(void) { return 240u * 240u; }
 
+/* the panel's LEDs: host_leds bit id (0..13 buttons, 14..40 keys), host_glow the dim layer */
+EMSCRIPTEN_KEEPALIVE
+uint32_t web_leds_lo(void) { return (uint32_t)host_leds; }
+EMSCRIPTEN_KEEPALIVE
+uint32_t web_leds_hi(void) { return (uint32_t)(host_leds >> 32); }
+EMSCRIPTEN_KEEPALIVE
+uint32_t web_glow_lo(void) { return (uint32_t)host_glow; }
+EMSCRIPTEN_KEEPALIVE
+uint32_t web_glow_hi(void) { return (uint32_t)(host_glow >> 32); }
+
 /* inputs */
 EMSCRIPTEN_KEEPALIVE
 void web_key(int on, uint32_t mask)
@@ -450,9 +460,14 @@ EMSCRIPTEN_KEEPALIVE
 void web_audio(int16_t *out, int frames)
 {
     static int32_t blk[2u * 2048u];
-    uint32_t ticks = (uint32_t)(((uint64_t)frames * 1000u + FS / 2u) / FS);
-    uint32_t end = fm1_ms + ticks, i;
+    static uint32_t frac;                 /* the milliseconds not yet paid: no drift at 128-frame quanta */
+    uint64_t acc;
+    uint32_t ticks, end, i;
     if (frames > 2048) frames = 2048;
+    acc = (uint64_t)(uint32_t)frames * 1000u + frac;
+    ticks = (uint32_t)(acc / FS);
+    frac = (uint32_t)(acc % FS);
+    end = fm1_ms + ticks;
     memset(blk, 0, sizeof blk);
     while (fm1_ms < end) { platform_poll(); app_tick(); }
     app_audio(blk, (uint32_t)frames);
