@@ -1,19 +1,21 @@
-# Patch Format (DOC) - v0.3
+# Patch Format (DOC) - v0.5
 
-This firmware exposes a tiny synth-patch store in ROM:
+This firmware exposes a multi-bank patch store in ROM:
 
 ```c
-#define N_PATCHES 5u
-static const char *const PATCH_NAME[N_PATCHES] = { "Init", "Bright", "Dark", "Pluck", "Soft" };
-static const uint8_t PATCH_PRM[N_PATCHES][3][4] = {   /* 3 FM parts x 4 params */
-    { { A,B,C,D }, { A,B,C,D }, { A,B,C,D } },
-    ...
-};
+#define N_PATCHBANKS 3u    /* APP, DX7-voices, ROM-bank */
+static const uint8_t PATCHBANK_COUNT[N_PATCHBANKS] = { 13, 64, 32 };
 ```
 
-* Each FM part stores 4 params: `A` (wavetable index >> 3), `B` (ratio), `C` (mod index), `D` (level).
-* In global mode (press GLO) the PRESET encoder cycles patches and applies all 12 values.
-* Write your own patch by appending to `PATCH_PRM` in `firmware/gen/factory_patches.h`.
+- **Bank 0 (APP)**: 13 hand-authored synth patches
+- **Bank 1 (DX7)**: 64 voice names extracted from the DX7 Voice ROM
+- **Bank 2 (ROM)**: 32 patches derived from raw EPROM byte-sums
+
+Navigation (firmware menus):
+- `GLO` + `PRESET` cycles through the current bank's patches
+- `OCT-` switches banks (APP → DX7 → ROM → back to APP)
+
+Each patch controls 3 FM parts × 4 params (`A` wavetable, `B` ratio, `C` mod, `D` level).
 
 ## MIDI CC map (so you can drive it externally)
 | CC | Target |
@@ -24,7 +26,7 @@ static const uint8_t PATCH_PRM[N_PATCHES][3][4] = {   /* 3 FM parts x 4 params *
 | 7 | Part D (level) |
 | 91 | FX mode (0..3) |
 | 92 | Drum kit (0..N) |
-| 93 | Patch selector (0..N-1) |
+| 93 | Patch selector — cycles current bank (0..N-1) |
 | 123 | All notes off |
 
-MIDI out (notes + channel drains) on **OCT+** toggle.
+MIDI out (notes + clock) on **OCT+** toggle (USB + TRS).
