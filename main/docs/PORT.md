@@ -80,7 +80,7 @@ tests/run_host.sh tests/scripts/riptide-demo.txt   # screen PNGs + a WAV on this
 ## Legal & attribution
 
 * importing of the IPA was done for interoperability/documentation under the
-  GPL-3.0 port's scoping; the app and its assets remain © 2011 vendor
+  GPL-3.0 port's scoping; the app and its assets remain © 2011 factory
 * The extracted drum one-shots (`assets/drums/`) and the factory pattern grids are
   **reference assets** for this port; they are cited and described, and the firmware
   builds (the embedded sample bank) ship under the GPL-3.0 port's own terms as
