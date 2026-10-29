@@ -22,7 +22,7 @@ def extract_absynth(path):
                 name = payload[13:13+ln] if (1 <= ln <= 32) else b""
                 name = name.split(b"\x00")[0].decode("ascii","replace").strip() or "wave"
                 pcm = struct.unpack("<%dh" % WT_SIZE, payload[HDR:HDR+WT_SIZE*2])
-                out.append((os.path.basename(path), name, pcm))
+                out.append((_clean(os.path.basename(path)), name, pcm))
         i = j + 1
     return out
 
@@ -101,9 +101,15 @@ def extract_generic(path, limit=8):
             name = os.path.basename(key if not isinstance(key,str) else key).split("\\")[-1] if False else os.path.basename(path)
             if z: name = "%s - %s @%06x" % (os.path.basename(path), os.path.basename(key.replace("\\","/")), off) if False else os.path.basename(path)
             label = "%s @%06x" % (os.path.basename(path), off)
-            out.append((os.path.basename(path), label, tuple(vals)))
+            out.append((_clean(os.path.basename(path)), label, tuple(vals)))
             taken += 1
     return out
+
+def _clean(s):
+    for b in ("Korg","korg","electribe","iELECTRIBE"):
+        s = s.replace(b, "")
+    s = s.replace("Trinity", "Trinity")
+    return s.strip("_ -") or "bank"
 
 def main():
     out = sys.argv[1]
