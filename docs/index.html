@@ -9,10 +9,30 @@
 <meta name="description" content="RIPTIDE, the Wavetribe FM-1 groovebox firmware, running in your browser: the same code the instrument runs.">
 <style>
 @font-face { font-family: "DotGothic16"; src: url("fonts/DotGothic16-subset.woff") format("woff"); font-display: swap; }
-:root { --bg: #0a0908; --fg: #f0d8b0; --dim: #8a7a66; --rule: #3a2f20;
-        --body: #17130f; --tray: #0d0b09; --part: #241e17; --edge: #3a2f20; --label: #c8b28e;
-        --lit: #ffb43a; --green: #5fe08a; --amber: #eb9e22; color-scheme: dark; }
+:root { --bg: #0a0008; --fg: #f0d8b0; --dim: #8a7a66; --rule: #3a2f20;
+        --body: #c8c8c8; --tray: #9a9a9a; --part: #848484; --edge: #525252; --label: #333333;
+        --lit: #39d353; --green: #5fe08a; --amber: #ff9d1f; --santo-red: #8a1010;
+        --santo-rose: #b31616; color-scheme: dark; }
 html, body { background: var(--bg); }
+body { margin: 0; color: var(--fg); font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; 
+       display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px; min-height: 100vh; }
+main { max-width: 1200px; margin: 0 auto; width: 100%; }
+.chassis { position: relative; width: 100%; border-radius: 14px; padding: 24px 28px 20px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 100% at 30% 0%, #b31616 0%, #8a1010 45%, #5e0909 100%);
+  box-shadow: 0 30px 70px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.25), inset 0 -3px 6px rgba(0,0,0,.6); }
+.screw { position: absolute; width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e8e8e8, #8a8a8a 55%, #3a3a3a);
+  box-shadow: inset 0 -1px 2px rgba(0,0,0,.7); }
+.screw::after { content:""; position:absolute; left:2px; right:2px; top:8px; height:2px; background:#2b2b2b; transform: rotate(38deg); border-radius:1px; }
+.screw.tl{top:8px;left:8px}.screw.tr{top:8px;right:8px}.screw.bl{bottom:8px;left:8px}.screw.br{bottom:8px;right:8px}
+.badge-row { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.badge { border: 3px solid #fff; color: #fff; font-weight: 900; letter-spacing: 6px; font-size: 24px; padding: 4px 14px 4px 20px; display: flex; align-items: center; }
+.badge .inv { background: #fff; color: #8a1010; padding: 0 6px; margin: 0 2px 0 4px; }
+.badge-sub { color: #fff; font-size: 11px; letter-spacing: 3px; }
+.foot-silk { color: #f3e9e9; font-size: 10px; letter-spacing: 3px; opacity: .9; margin-top: 6px; display: flex; justify-content: space-between; flex-wrap: wrap; }
+.device { max-width: 100%; margin: 8px auto 0; }
 body { margin: 0; color: var(--fg); font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
 main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 32px; }
 @media (orientation: portrait) and (max-width: 700px) { main { padding: 8px 8px 24px; } }
@@ -53,10 +73,17 @@ footer small { font-size: 11px; opacity: .8; }
 </head>
 <body>
 <main>
-<div class="device" id="device">
+<div class="chassis" id="chassis">
+  <div class="screw tl"></div><div class="screw tr"></div><div class="screw bl"></div><div class="screw br"></div>
+  <div class="badge-row">
+    <div class="badge">WAVETRIBE<span class="inv">·</span>&nbsp;RIPTIDE</div>
+    <div class="badge-sub">RHYTHM COMMAND STUDIO<br>FM-1 WAVETABLE ENGINE</div>
+  </div>
+  <div class="device" id="device">
   <svg id="panel" viewBox="0 0 1000 624" aria-hidden="true"></svg>
   <canvas id="screen" width="240" height="240" role="img" aria-label="The screen"></canvas>
   <div class="start" id="start"><button id="go" type="button">Switch on</button><p id="status" hidden></p></div>
+</div>
 </div>
 
 <p class="keys">
