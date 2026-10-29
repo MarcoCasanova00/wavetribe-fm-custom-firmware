@@ -60,3 +60,14 @@ Idle knobs stay idle until you move them; every move lands on the selected part.
 | `←` / `→`   | PAGE selection         |
 
 Enjoy. Tag your feedback on the repository issues.
+## 8. Wave banks (experimental)
+- The three right-hand FM parts now read their carrier wave from a 32-entry embedded
+  wavetable bank (single-cycle waves extracted from the supplied Absynth-format banks).
+- Knob A (KNOB 1) now also steps through those 32 wave shapes for whichever part you
+  have selected (step by 8 gives a full cycle of 32 values).
+
+## 8. Wave banks (experimental)
+- The three right-hand FM parts now read their carrier wave from a 32-entry embedded
+  wavetable bank (single-cycle waves extracted from the supplied Absynth-format banks).
+  Knob A (KNOB 1) now also steps through those 32 wave shapes for whichever part you
+  have selected (each click advances; hold to sweep).

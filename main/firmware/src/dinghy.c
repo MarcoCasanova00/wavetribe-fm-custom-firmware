@@ -30,6 +30,7 @@ static void app_idle(void);
 
 #include "factory_catalog.h"      /* the authentic factory preset names/authors/genres */
 #include "factory_drums.h"        /* authentic the app drum one-shots (make_drum_bank.py) */
+#include "factory_wavetables.h"   /* imported single-cycle waves (import_wavetables.py) */
 
 #ifdef DINGHY_HOST
 #define DBG(...) printf(__VA_ARGS__)
@@ -158,12 +159,12 @@ static int32_t drum_tick(uint32_t d)
 typedef struct {
     uint32_t cph, mph, cinc, minc;
     int32_t modidx, gate, amp;
-    uint8_t note, age;
+    uint8_t note, age, wave;
 } sv_t;
 static sv_t sv[NV];
 static uint32_t sv_ages;
 
-static void sv_trigger(uint8_t note, uint8_t vel, uint32_t ratio, uint32_t mod)
+static void sv_trigger(uint8_t note, uint8_t vel, uint32_t ratio, uint32_t mod, uint8_t wave)
 {
     uint32_t pick = 0, best = 0xFFFFFFFFu, v;
     if (note > 127u || !vel) return;
@@ -180,6 +181,7 @@ static void sv_trigger(uint8_t note, uint8_t vel, uint32_t ratio, uint32_t mod)
     sv[pick].cph = 0; sv[pick].mph = 0;
     sv[pick].gate = (int32_t)(vel * 70u);         /* 127 -> 8890 */
     sv[pick].amp = sv[pick].gate;
+    sv[pick].wave = (uint8_t)(wave % WT_COUNT);
 }
 static void sv_release(uint8_t note)
 {
@@ -217,7 +219,8 @@ static void app_audio(int32_t *out, uint32_t n)
         case EV_NOTEON:
             if (e.p >= NDRUM) {
                 uint32_t pr = e.p - NDRUM, ratio = 65536 + (uint32_t)part_prm[pr][1] * 512u;
-                sv_trigger(e.note, e.vel, ratio, part_prm[pr][2] + 1u);
+                uint8_t wv = (uint8_t)(((part_prm[pr][0] >> 3)) % WT_COUNT);
+                sv_trigger(e.note, e.vel, ratio, part_prm[pr][2] + 1u, wv);
             }
             break;
         case EV_NOTEOFF: if (e.p >= NDRUM) sv_release(e.note); break;
@@ -245,10 +248,11 @@ static void app_audio(int32_t *out, uint32_t n)
             mph += minc;
             m = sine(mph);
             {
-                uint32_t ci = cinc + (uint32_t)(((int64_t)cinc * (m * mod >> 12)) >> 16);
+                /* FM-style phase modulation into the wavetable carrier */
+                uint32_t ci = cinc + (uint32_t)(((int64_t)cinc * (m * (mod >> 1)) >> 12) >> 16);
                 cph += ci;
             }
-            s = (sine(cph) * amp) >> 15;
+            s = ((int32_t)WT_DATA[sv[v].wave][cph >> WT_SHIFT] * amp) >> 15;
             out[2u * i] += s; out[2u * i + 1u] += s;
         }
         sv[v].cph = cph; sv[v].mph = mph; sv[v].amp = amp; sv[v].age++;
