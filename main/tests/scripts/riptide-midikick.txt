@@ -1,0 +1,22 @@
+# Isolated kick via MIDI (GM note 36 = kick, channel 10)
+200 midi 0x99 36 110
+400 midi 0x89 36 0
+600 midi 0x99 36 110
+800 midi 0x89 36 0
+1000 midi 0x99 36 110
+1200 midi 0x89 36 0
+1400 midi 0x99 36 110
+1600 midi 0x89 36 0
+1800 midi 0x99 36 110
+2000 midi 0x89 36 0
+2200 midi 0x99 36 110
+2400 midi 0x89 36 0
+2600 midi 0x99 36 110
+2800 midi 0x89 36 0
+3000 midi 0x99 36 110
+3200 midi 0x89 36 0
+3400 midi 0x99 36 110
+3600 midi 0x89 36 0
+3800 midi 0x99 36 110
+4000 midi 0x89 36 0
+4200 end

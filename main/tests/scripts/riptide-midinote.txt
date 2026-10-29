@@ -1,0 +1,8 @@
+# Isolated synth note (channel 1, note 60) to verify FM voices render
+300 midi 0x90 60 100
+1500 midi 0x80 60 0
+2000 midi 0x90 64 100
+3200 midi 0x80 64 0
+3700 midi 0x90 67 100
+4900 midi 0x80 67 0
+5400 end

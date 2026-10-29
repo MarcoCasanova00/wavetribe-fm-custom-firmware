@@ -24,6 +24,9 @@
 static void app_idle(void);
 #define LCD_IDLE app_idle
 #define CV_MAX (240u * 192u)           /* a taller canvas for the 8-row step grid */
+#ifndef APP_NAME
+#define APP_NAME "FRANKENTRIBE OS"
+#endif
 #include "platform.c"
 #if BOARD_SMK37
 #include "smk_wheel.h"
@@ -434,47 +437,43 @@ static void set_defaults(void)
 static void draw_header(uint32_t playing)
 {
     char s[40];
-    /* title badge */
-    draw_text_box(2, 2, 60, &FONT_S, APP_NAME, UI_HI, 0);
-    /* pattern name + genre, from the catalog */
-    {
-        uint32_t i = pat_sel < N_CATALOG ? pat_sel : N_CATALOG - 1u;
-        const char *nm = CATALOG[i].name, *g = CATALOG[i].genre;
-        uint32_t k = 0;
-        while (*nm && k < 13) s[k++] = *nm++;
-        s[k++] = ' ';
-        if (*g) { while (*g && k < 22) s[k++] = *g++; }
-        s[k] = 0;
-        draw_text_box(62, 2, 118, &FONT_S, s, UI_AMB, 0);
-    }
-    /* tempo */
+    uint32_t i, k = 0;
+    const char *nm, *g;
+    int32_t tx;
+    cv_begin(240, 34, C_BG);
+    /* line 1: brand (left) + tempo (right) */
+    cv_text(3, 1, &FONT_S, "FRANKENTRIBE OS", UI_HI);
     {
         char *p = ap(s, "");
         p = apu(p, bpm);
         p = ap(p, "BPM");
-        (void)p;
-        draw_text_box(170, 2, 68, &FONT_S, s, playing ? UI_HI : UI_LABEL, 2);
+        cv_text(188, 1, &FONT_S, s, playing ? UI_HI : UI_LABEL);
     }
-    /* separator rule under the header */
-    cv_begin(240, 2, C_BG);
-    cv_rect(0, 0, 240, 1, UI_PANEL);
-    cv_blit(0, 32);
+    /* line 2: pattern name + genre, centred, clamped to the width */
+    i = pat_sel < N_CATALOG ? pat_sel : N_CATALOG - 1u;
+    nm = CATALOG[i].name; g = CATALOG[i].genre;
+    while (*nm && k < 12) s[k++] = *nm++;
+    s[k++] = ' ';
+    if (*g) { while (*g && k < 23) s[k++] = *g++; }
+    s[k] = 0;
+    tx = ((int32_t)240 - text_w(&FONT_S, s)) >> 1;
+    if (tx < 0) tx = 0;
+    cv_text((uint32_t)tx, 18, &FONT_S, s, UI_AMB);
+    /* separator rule */
+    cv_rect(0, 33, 240, 1, UI_PANEL);
+    cv_blit(0, 0);
 }
 
 static void draw_parts(void)
 {
-    uint32_t p, s, x, y, w, h, cw = 12, labw = 46, top = 34, rh = 20;
+    uint32_t p, s, x, y, w, h, cw = 11, labw = 52, top = 34, rh = 20;
     cv_begin(240, 8u * rh, UI_BG);
     for (p = 0; p < NPART; p++) {
-        uint32_t y0 = p * rh, sel = (p == part_sel);
-        /* label cell: accent bar + name on the selected part */
-        if (sel) {
-            cv_rect(2, y0 + 3, 3, rh - 6, UI_HI);
-            cv_text(9, y0 + 2, &FONT_S, PNAME[p], UI_HI);
-        } else {
-            cv_text(9, y0 + 2, &FONT_S, PNAME[p], UI_LABEL);
-        }
-        if (mute[p]) cv_text(labw - 15, y0 + 2, &FONT_S, "M", UI_MUTE);
+        uint32_t y0 = p * rh, sel = (p == part_sel), mut = mute[p];
+        /* label cell: mute mark, accent bar, then the part name */
+        if (mut) cv_text(1, y0 + 2, &FONT_S, "M", UI_MUTE);
+        if (sel && !mut) cv_rect(2, y0 + 3, 3, rh - 6, UI_HI);
+        cv_text(mut ? 12 : 8, y0 + 2, &FONT_S, PNAME[p], sel ? UI_HI : UI_LABEL);
         /* step cells: 16 columns of the visible page */
         for (s = 0; s < 16u; s++) {
             uint32_t st = (step_cur / 16u) * 16u + s;
@@ -482,7 +481,7 @@ static void draw_parts(void)
             uint32_t cur = (s == step_cur % 16u);
             x = labw + s * cw; y = y0 + 2;
             w = cw - 2; h = rh - 5;
-            if (mute[p]) { cv_rect(x, y, w, h, UI_DIM); continue; }
+            if (mut) { cv_rect(x, y, w, h, UI_DIM); continue; }
             if (lit)
                 cv_rect(x, y, w, h, cur ? UI_HI : UI_AMB);
             else
@@ -490,6 +489,36 @@ static void draw_parts(void)
         }
     }
     cv_blit(0, top);
+}
+
+/* a small pixel-art Frankenstein face (13x13), drawn on a matching background */
+static void draw_franken(uint32_t x, uint32_t y)
+{
+    static const char *const F[13] = {
+        "...#######...",
+        "..#########..",
+        ".###########.",
+        "###############",
+        "######:######",
+        "#####@#@#####",
+        "#####@#@#####",
+        "###############",
+        "######:######",
+        "#############",
+        ".###########.",
+        "..#########..",
+        "...#######...",
+    };
+    uint32_t i, j;
+    cv_begin(13, 13, C_BG);
+    for (j = 0; j < 13u; j++)
+        for (i = 0; i < 13u; i++) {
+            char c = F[j][i];
+            if (c == '#') cv_pset((int32_t)i, (int32_t)j, UI_PANEL);
+            else if (c == '@') cv_pset((int32_t)i, (int32_t)j, UI_HI);
+            else if (c == ':') cv_pset((int32_t)i, (int32_t)j, UI_LABEL);
+        }
+    cv_blit(x, y);
 }
 
 static void draw_footer(uint32_t playing)
@@ -502,30 +531,22 @@ static void draw_footer(uint32_t playing)
     cv_rect(0, 1, 240, 1, UI_PANEL);
     cv_blit(0, 208);
     if (write_arm) {
-        p = ap(p, "REC  "); p = ap(p, PNAME[part_sel]); p = ap(p, "  keys: steps");
+        p = ap(p, "REC "); p = ap(p, PNAME[part_sel]); p = ap(p, " keys:steps");
     } else if (glomode) {
         if (playing) {
-            p = ap(p, "GLO  "); p = apu(p, bpm); p = ap(p, "BPM sw");
-            p = apu(p, swing); p = ap(p, " acc"); p = apu(p, accent); p = ap(p, " pg"); p = apu(p, page + 1);
+            p = ap(p, "GLO "); p = apu(p, bpm); p = ap(p, "BPM sw");
+            p = apu(p, swing); p = ap(p, " ac"); p = apu(p, accent); p = ap(p, " pg"); p = apu(p, page + 1);
         } else {
-            p = ap(p, "GLO  tempo/swing/accent/page (knobs)");
+            p = ap(p, "GLO tempo/swing/accent/page");
         }
-        p = ap(p, "  FX"); p = ap(p, (const char *[]){"off","chr","ech","c+e"}[fx_mode]);
-        p = ap(p, midi_out ? "  MD" : "  .");
-        p = ap(p, "  ");
-        p = ap(p, PATCHBANK_NAME[patchbank]);
-        p = ap(p, " "); p = apu(p, patch_ix);
     } else {
         p = ap(p, PNAME[part_sel]);
-        if (part_sel < NDRUM) {
-            p = ap(p, "  ["); p = ap(p, drum_kit_name(drum_kit)); p = ap(p, "]");
-        }
         for (q = 0; q < 4u; q++) {
             *p++ = ' '; *p++ = (char)('A' + q);
             p = apu(p, part_prm[part_sel][q]);
         }
-        p = ap(p, "  F"); p = apu(p, fx_mode);
-        p = ap(p, midi_out ? " M" : " .");
+        p = ap(p, " F"); p = apu(p, fx_mode);
+        if (midi_out) p = ap(p, " M");
         *p = 0;
     }
     draw_text_box(2, 210, 236, &FONT_S, s,
@@ -558,21 +579,22 @@ static void draw_wave_page(void)
         p = ap(p, " ["); p = ap(p, drum_kit_cat(drum_kit)); p = ap(p, "]");
         cv_text(4, 24, &FONT_S, s, UI_AMB);
     } else {
-        p = ap(s, PNAME[part_sel]); p = ap(p, "  wave "); p = apu(p, part_prm[part_sel][0]);
-        p = ap(p, "/"); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ");
-        p = ap(p, wt_category((uint8_t)(part_prm[part_sel][0] * (TOTAL_WT_COUNT-1u) / 127u)));
+        p = ap(s, PNAME[part_sel]); p = ap(p, " wave "); p = apu(p, part_prm[part_sel][0]);
+        p = ap(p, "/"); p = apu(p, TOTAL_WT_COUNT);
         cv_text(4, 24, &FONT_S, s, UI_AMB);
-        p = s; p = ap(p, "Ratio "); p = apu(p, part_prm[part_sel][1]);
-        p = ap(p, "  Mod "); p = apu(p, part_prm[part_sel][2]);
-        p = ap(p, "  Lvl "); p = apu(p, part_prm[part_sel][3]);
-        cv_text(4, 42, &FONT_S, s, UI_AMB);
+        p = s; p = ap(p, "source "); p = ap(p, wt_category((uint8_t)(part_prm[part_sel][0] * (TOTAL_WT_COUNT-1u) / 127u)));
+        cv_text(4, 42, &FONT_S, s, UI_LABEL);
+        p = s; p = ap(p, "ratio "); p = apu(p, part_prm[part_sel][1]);
+        p = ap(p, "  mod "); p = apu(p, part_prm[part_sel][2]);
+        p = ap(p, "  lvl "); p = apu(p, part_prm[part_sel][3]);
+        cv_text(4, 60, &FONT_S, s, UI_AMB);
     }
     if (patchbank < N_PATCHBANKS) {
         p = s; p = ap(p, "Patch bank: "); p = ap(p, PATCHBANK_NAME[patchbank]);
         p = ap(p, " / "); p = apu(p, patch_ix);
-        cv_text(4, 64, &FONT_S, s, UI_LABEL);
+        cv_text(4, 82, &FONT_S, s, UI_LABEL);
         p = s; p = ap(p, PATCH_NAME3[patchbank][patch_ix]);
-        cv_text(4, 82, &FONT_S, s, UI_HI);
+        cv_text(4, 100, &FONT_S, s, UI_HI);
     }
     cv_text(4, 188, &FONT_S, "A: wave  B: kit (drum parts)  GLO+PRESET: patch", UI_DIM);
     cv_blit(0, 34);
@@ -605,8 +627,10 @@ static void draw_screen(uint32_t playing)
         draw_wave_page();
     } else if (view_page == 3) {
         draw_sys_page();
+        draw_franken(214, 128);      /* face in the system page's empty area */
     } else {
         draw_parts();
+        draw_franken(217, 195);      /* face in the empty bottom-right corner */
         draw_footer(playing);
     }
 }
@@ -683,7 +707,7 @@ static void app_init(void)
     memcpy(&pat, &S.pat, sizeof pat);
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
     step_ms = 15000u / (bpm ? bpm : 128u);
-    drum_kit = 0;
+    drum_kit = 1;   /* default to the TR-808 kit (full-bodied); APP is thinner */
     view_page = 0;
     prev_keys = 0;
     for (k = 0; k < 27u; k++) held[k] = 0;

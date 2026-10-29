@@ -1,0 +1,22 @@
+# Isolated kick test: hit the kick (part 0) hard several times
+200 pad 0 127
+300 pad 0 0
+700 pad 0 127
+800 pad 0 0
+1200 pad 0 127
+1300 pad 0 0
+1700 pad 0 127
+1800 pad 0 0
+2200 pad 0 127
+2300 pad 0 0
+2700 pad 0 127
+2800 pad 0 0
+3200 pad 0 127
+3300 pad 0 0
+3700 pad 0 127
+3800 pad 0 0
+4200 pad 0 127
+4300 pad 0 0
+4700 pad 0 127
+4800 pad 0 0
+5200 end
