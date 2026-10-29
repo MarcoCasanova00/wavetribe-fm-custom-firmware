@@ -56,6 +56,9 @@ static const char *wt_category(uint16_t w) {
     return "EPROM-MINED";
 }
 #include "factory_patchbanks.h"   /* APP, DX7, ROM banks (melting-pot patches) */
+#include "fm_engine.h"
+extern uint32_t env_rate_to_inc(uint8_t rate);
+             /* 4-operator FM synth engine */
 
 #ifdef DINGHY_HOST
 #define DBG(...) printf(__VA_ARGS__)
@@ -139,16 +142,7 @@ static const char *const PNAME[8] = {
 
 /* ================= synthesis ================= */
 #define FS 44100u
-#define NV 6u                       /* polyphonic FM voices */
 #define NDRUM 5u                    /* kick, snare, clap, close hat, open hat */
-
-static const uint32_t INC_C9[12] = {   /* MIDI 120..131; lower octaves shift right */
-    815363807u, 863847862u, 915214929u, 969636441u, 1027294024u, 1088380105u,
-    1153098554u, 1221665363u, 1294309365u, 1371273005u, 1452813141u, 1539201906u};
-static uint32_t note_inc(uint8_t note)   /* 0..127 -> phase step per frame */
-{
-    return note >= 120u ? INC_C9[note % 12u] : INC_C9[note % 12u] >> (10u - note / 12u);
-}
 
 static int32_t sine(uint32_t ph)         /* -32767..32767 over 2^32 */
 {
@@ -236,8 +230,8 @@ typedef struct {
     uint8_t note, age;
     uint16_t wave;
 } sv_t;
-static sv_t sv[NV];
-static uint32_t sv_ages;
+
+/* removed: sv[NV] voice array and sv_ages - replaced by fm engine */
 
 static uint32_t midi_clk_acc;  /* frames until next 0xF8 clock pulse */
 
@@ -247,31 +241,11 @@ static uint32_t fx_w;
 #define FX_MASK 8191u
 static int16_t lfo_phase;
 
-static void sv_trigger(uint8_t note, uint8_t vel, uint32_t ratio, uint32_t mod, uint16_t wave)
-{
-    uint32_t pick = 0, best = 0xFFFFFFFFu, v;
-    if (note > 127u || !vel) return;
-    for (v = 0; v < NV; v++) {
-        uint32_t score = sv[v].note == note && sv[v].gate ? 0u
-                       : sv[v].gate ? 0x80000000u + sv[v].age : (uint32_t)sv[v].amp + 1u;
-        if (score < best) { best = score; pick = v; }
-    }
-    sv[pick].note = note;
-    sv[pick].age = (uint8_t)++sv_ages;
-    sv[pick].cinc = note_inc(note);
-    sv[pick].minc = (uint32_t)(((uint64_t)sv[pick].cinc * ratio) >> 16);   /* ratio Q16 */
-    sv[pick].modidx = (int32_t)(mod * 64u);       /* 0..127 -> 0..8128 */
-    sv[pick].cph = 0; sv[pick].mph = 0;
-    sv[pick].gate = (int32_t)(vel * 70u);         /* 127 -> 8890 */
-    sv[pick].amp = sv[pick].gate;
-    sv[pick].wave = (uint16_t)(wave % TOTAL_WT_COUNT);
-}
-static void sv_release(uint8_t note)
-{
-    uint32_t v;
-    for (v = 0; v < NV; v++)
-        if (sv[v].note == note) sv[v].gate = 0;
-}
+/* FM engine integration replaces sv_t voice array */
+void fm_note_on(uint8_t voice, uint8_t note, uint8_t velocity);
+void fm_note_off(uint8_t voice, uint8_t note);
+void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames);
+void fm_load_patch(uint8_t voice, const fm_patch_t *patch);
 
 /* forward declarations used by app_audio before their later definitions */
 static uint8_t run, bpm;
@@ -312,15 +286,14 @@ static void app_audio(int32_t *out, uint32_t n)
             break;
         case EV_NOTEON:
             if (e.p >= NDRUM) {
-                uint32_t pr = e.p - NDRUM, ratio = 65536 + (uint32_t)part_prm[pr][1] * 512u;
-                uint16_t wv = (uint16_t)(((TOTAL_WT_COUNT <= 1) ? 0 : (uint32_t)part_prm[pr][0] * (TOTAL_WT_COUNT - 1u) / 127u));
-                sv_trigger(e.note, e.vel, ratio, part_prm[pr][2] + 1u, wv);
-                if (midi_out) midi_send(0x90u + (uint8_t)pr, e.note, (uint32_t)(e.vel < 127 ? e.vel : 127));
+                /* FM note on: use part parameters for patch selection */
+                fm_note_on(e.p - NDRUM, e.note, e.vel);
+                if (midi_out) midi_send(0x90u + (uint8_t)(e.p - NDRUM), e.note, (uint32_t)(e.vel < 127 ? e.vel : 127));
             }
             break;
         case EV_NOTEOFF:
             if (e.p >= NDRUM) {
-                sv_release(e.note);
+                fm_note_off(0, e.note);  /* voice 0 for mono, or use pr */
                 if (midi_out) midi_send(0x80u + (uint8_t)(e.p - NDRUM), e.note, 0);
             }
             break;
@@ -336,28 +309,81 @@ static void app_audio(int32_t *out, uint32_t n)
         out[2u * i] += s;
         out[2u * i + 1u] += s;
     }
-    /* voices */
-    for (v = 0; v < NV; v++) {
-        if (!sv[v].gate && !sv[v].amp) continue;
-        uint32_t cph = sv[v].cph, mph = sv[v].mph, minc = sv[v].minc, cinc = sv[v].cinc;
-        int32_t amp = sv[v].amp, g = sv[v].gate, mod = sv[v].modidx;
-        for (i = 0; i < n; i++) {
-            int32_t s, m;
-            if (amp < g) { amp += 40; if (amp > g) amp = g; }
-            else if (amp > g) { amp -= 8; if (amp < g) amp = g; }
-            mph += minc;
-            m = sine(mph);
-            {
-                /* FM-style phase modulation into the wavetable carrier */
-                uint32_t ci = cinc + (uint32_t)(((int64_t)cinc * (m * (mod >> 1)) >> 12) >> 16);
-                cph += ci;
+    
+/* voices - FM engine replaces sv_t / sine wave oscillator */
+    {
+        uint32_t j;
+        int32_t l_buf[64], r_buf[64];
+        /* fm_process writes interleaved left/right; we need to de-interleave */
+        /* The out buffer is interleaved: out[0]=L0, out[1]=R0, out[2]=L1, out[3]=R1, ... */
+        /* fm_process expects separate left/right: out_l[0]=L0, out_l[1]=L1, ... */
+        /* So we just add FM output to the existing out buffer at the right indices */
+    {
+        uint32_t v, o, f;
+        /* accumulate FM voice outputs into the interleaved out buffer */
+        for (v = 0; v < FM_MAX_VOICES; v++) {
+            fm_voice_t *voice = &fm_voices[v];
+            uint8_t alg = voice->algorithm;
+            if (!voice->active && !voice->ops[0].env_state && !voice->ops[1].env_state &&
+                !voice->ops[2].env_state && !voice->ops[3].env_state) continue;
+            for (f = 0; f < n; f++) {
+                int32_t sum = 0;
+                int32_t op_out[FM_OPS_PER_VOICE] = {0, 0, 0, 0};
+                /* compute all modulator outputs, then carriers */
+                for (o = 0; o < FM_OPS_PER_VOICE; o++) {
+                    fm_op_t *op = &voice->ops[o];
+                    int32_t mod_in = 0;
+                    if (!op->active && !op->env_state) { op_out[o] = 0; continue; }
+                    uint8_t m;
+                    for (m = 0; m < FM_OPS_PER_VOICE; m++) {
+                        if (fm_mod_routing[alg][m][o])
+                            mod_in += op_out[m] * (int32_t)fm_mod_routing[alg][m][o];
+                    }
+                    if (op->feedback)
+                        mod_in += (op->last_output * (int32_t)op->feedback) >> 8;
+                    /* envelope */
+                    if (op->env_state == 1) {
+                        op->env_level += (int32_t)env_rate_to_inc(99) * 2;
+                        if (op->env_level >= 32767) op->env_level = 32767;
+                        if (op->env_level >= 32767) { op->env_state = 2; }
+                    } else if (op->env_state == 2) {
+                        op->env_level -= (int32_t)env_rate_to_inc(60) / 2;
+                        if (op->env_level <= (int32_t)(32767 * 30 / 100)) op->env_state = 3;
+                    } else if (op->env_state == 3) {
+                        op->env_level -= (int32_t)env_rate_to_inc(80) / 4;
+                        if (op->env_level <= 0) { op->env_level = 0; op->env_state = 0; }
+                    } else if (op->env_state == 4) {
+                        op->env_level -= (int32_t)env_rate_to_inc(70) / 4;
+                        if (op->env_level <= 0) { op->env_level = 0; op->env_state = 0; op->active = 0; }
+                    }
+                    /* phase modulation */
+                    uint32_t ph = op->phase + (uint32_t)((int64_t)mod_in * (int32_t)op->mod_index >> 8);
+                    int32_t s = fm_sine(ph);
+                    s = (s * op->env_level) >> 15;
+                    op_out[o] = s;
+                    op->phase += op->phase_inc;
+                    op->last_output = s;
+                    op->output = s;
+                }
+                /* apply algorithm */
+                if (alg < FM_ALGORITHMS) {
+                    sum = op_out[0];
+                    uint8_t mm, is_c;
+                    for (mm = 1; mm < FM_OPS_PER_VOICE; mm++) {
+                        is_c = 1;
+                        for (uint8_t n = 0; n < FM_OPS_PER_VOICE; n++)
+                            if (fm_mod_routing[alg][mm][n]) { is_c = 0; break; }
+                        if (is_c) sum += op_out[mm];
+                    }
+                } else {
+                    sum = op_out[0] + op_out[1] + op_out[2] + op_out[3];
+                }
+                sum = (sum * (int32_t)voice->velocity) >> 7;
+                out[2u * f] += sum;
+                out[2u * f + 1u] += sum;
             }
-            s = ((int32_t)(sv[v].wave < WT_COUNT
-                ? WT_DATA[sv[v].wave][cph >> WT_SHIFT]
-                : MINED_WAVES[sv[v].wave - WT_COUNT][cph >> WT_SHIFT]) * amp) >> 15;
-            out[2u * i] += s; out[2u * i + 1u] += s;
         }
-        sv[v].cph = cph; sv[v].mph = mph; sv[v].amp = amp; sv[v].age++;
+    }
     }
     if (midi_out && run) {
         uint32_t bpmx = bpm ? (uint32_t)bpm : 120u;
