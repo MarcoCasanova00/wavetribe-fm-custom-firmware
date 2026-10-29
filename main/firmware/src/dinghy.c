@@ -80,7 +80,15 @@ static char *ap(char *p, const char *t)
 }
 static char *apu(char *p, uint32_t v) { char t[8]; utoa(v, t); return ap(p, t); }
 
-/* ================= the screen ================= */
+/* trim a string until it fits a pixel width (the screen is 240 wide; nothing may overhang) */
+static void fit_text(char *s, int32_t maxw)
+{
+    while (s[0] && text_w(&FONT_S, s) > maxw) {
+        char *q = s;
+        while (q[1]) q++;
+        *q = 0;
+    }
+}
 #define C_BG     RGB(14, 12, 9)     /* near-black chassy LCD */
 #define C_PANEL  RGB(26, 22, 16)
 #define C_SUB    RGB(70, 56, 40)
@@ -98,6 +106,32 @@ static char *apu(char *p, uint32_t v) { char t[8]; utoa(v, t); return ap(p, t); 
 #define UI_AMB    C_AMB                   /* active, secondary text */
 #define UI_HI     C_HI                    /* brightest: selection, playhead */
 #define UI_MUTE   C_MUTE
+
+
+/* a clear, scalable Frankenstein-head glyph drawn with primitives */
+static void draw_franken(uint32_t x, uint32_t y, uint32_t w, uint32_t h)
+{
+    int32_t hx = (int32_t)x, hy = (int32_t)y, hw = (int32_t)w, hh = (int32_t)h;
+    int32_t bw = hw / 4, bh = hh / 5, ey = hy + hh * 2 / 5;
+    /* head body: flat top, an arch of the jaw */
+    cv_rect(hx + 1, hy, hw - 2, hh - 1, UI_PANEL);
+    /* outline */
+    cv_rect(hx + 1, hy, hw - 2, 1, UI_LABEL);
+    cv_rect(hx, hy + 1, 1, hh - 2, UI_LABEL);
+    cv_rect(hx + hw - 1, hy + 1, 1, hh - 2, UI_LABEL);
+    /* the two bolts on the jaw */
+    cv_rect(hx - 1, hy + hh * 3 / 5, 3, 3, UI_LABEL);
+    cv_rect(hx + hw - 2, hy + hh * 3 / 5, 3, 3, UI_LABEL);
+    /* brow stitches above the eyes */
+    cv_rect(hx + hw / 4, hy + hh / 5, 1, hh / 6, UI_LABEL);
+    cv_rect(hx + hw * 3 / 4 - 1, hy + hh / 5, 1, hh / 6, UI_LABEL);
+    /* eyes: two bright blocks */
+    cv_rect(hx + hw / 4, ey, bw, bh, UI_HI);
+    cv_rect(hx + hw * 3 / 4 - bw, ey, bw, bh, UI_HI);
+    /* the scar / mouth */
+    cv_rect(hx + hw / 3, hy + hh * 4 / 5, hw / 3, hh / 12, UI_LABEL);
+    cv_rect(hx + hw / 2 - 1, hy + hh * 4 / 5, 1, hh / 6, UI_LABEL);
+}
 
 /* part names (8 = 5 drums + 3 tonal) */
 static const char *const PNAME[8] = {
@@ -436,26 +470,28 @@ static void set_defaults(void)
 /* ================= the screen: groovy ================= */
 static void draw_header(uint32_t playing)
 {
-    char s[40];
+    char s[48];
     uint32_t i, k = 0;
     const char *nm, *g;
     int32_t tx;
     cv_begin(240, 34, C_BG);
-    /* line 1: brand (left) + tempo (right) */
-    cv_text(3, 1, &FONT_S, "FRANKENTRIBE OS", UI_HI);
+    /* line 1: face badge + brand (left), tempo (right) */
+    draw_franken(3, 3, 15, 18);
+    cv_text(23, 1, &FONT_S, "FRANKENTRIBE OS", UI_HI);
     {
         char *p = ap(s, "");
         p = apu(p, bpm);
         p = ap(p, "BPM");
         cv_text(188, 1, &FONT_S, s, playing ? UI_HI : UI_LABEL);
     }
-    /* line 2: pattern name + genre, centred, clamped to the width */
+    /* line 2: pattern name + genre, centred and clamped to the width */
     i = pat_sel < N_CATALOG ? pat_sel : N_CATALOG - 1u;
     nm = CATALOG[i].name; g = CATALOG[i].genre;
     while (*nm && k < 12) s[k++] = *nm++;
     s[k++] = ' ';
-    if (*g) { while (*g && k < 23) s[k++] = *g++; }
+    if (*g) { while (*g && k < 24) s[k++] = *g++; }
     s[k] = 0;
+    fit_text(s, 228);
     tx = ((int32_t)240 - text_w(&FONT_S, s)) >> 1;
     if (tx < 0) tx = 0;
     cv_text((uint32_t)tx, 18, &FONT_S, s, UI_AMB);
@@ -491,36 +527,6 @@ static void draw_parts(void)
     cv_blit(0, top);
 }
 
-/* a small pixel-art Frankenstein face (13x13), drawn on a matching background */
-static void draw_franken(uint32_t x, uint32_t y)
-{
-    static const char *const F[13] = {
-        "...#######...",
-        "..#########..",
-        ".###########.",
-        "###############",
-        "######:######",
-        "#####@#@#####",
-        "#####@#@#####",
-        "###############",
-        "######:######",
-        "#############",
-        ".###########.",
-        "..#########..",
-        "...#######...",
-    };
-    uint32_t i, j;
-    cv_begin(13, 13, C_BG);
-    for (j = 0; j < 13u; j++)
-        for (i = 0; i < 13u; i++) {
-            char c = F[j][i];
-            if (c == '#') cv_pset((int32_t)i, (int32_t)j, UI_PANEL);
-            else if (c == '@') cv_pset((int32_t)i, (int32_t)j, UI_HI);
-            else if (c == ':') cv_pset((int32_t)i, (int32_t)j, UI_LABEL);
-        }
-    cv_blit(x, y);
-}
-
 static void draw_footer(uint32_t playing)
 {
     char s[48];
@@ -549,6 +555,7 @@ static void draw_footer(uint32_t playing)
         if (midi_out) p = ap(p, " M");
         *p = 0;
     }
+    fit_text(s, 232);
     draw_text_box(2, 210, 236, &FONT_S, s,
                   (write_arm || glomode) ? UI_HI : (playing ? UI_AMB : UI_LABEL), 0);
 }
@@ -565,7 +572,8 @@ static void draw_fx_page(void)
     cv_text(4, 42, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "Clock: "); p = apu(p, bpm); p = ap(p, " BPM");
     cv_text(4, 60, &FONT_S, s, UI_LABEL);
-    cv_text(4, 188, &FONT_S, "FX key (btn 3) cycles modes.", UI_DIM);
+    p = s; p = ap(p, "FX key (btn 3) cycles modes."); fit_text(s, 232);
+    cv_text(4, 188, &FONT_S, s, UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_wave_page(void)
@@ -581,12 +589,15 @@ static void draw_wave_page(void)
     } else {
         p = ap(s, PNAME[part_sel]); p = ap(p, " wave "); p = apu(p, part_prm[part_sel][0]);
         p = ap(p, "/"); p = apu(p, TOTAL_WT_COUNT);
+        fit_text(s, 232);
         cv_text(4, 24, &FONT_S, s, UI_AMB);
         p = s; p = ap(p, "source "); p = ap(p, wt_category((uint8_t)(part_prm[part_sel][0] * (TOTAL_WT_COUNT-1u) / 127u)));
+        fit_text(s, 232);
         cv_text(4, 42, &FONT_S, s, UI_LABEL);
         p = s; p = ap(p, "ratio "); p = apu(p, part_prm[part_sel][1]);
-        p = ap(p, "  mod "); p = apu(p, part_prm[part_sel][2]);
-        p = ap(p, "  lvl "); p = apu(p, part_prm[part_sel][3]);
+        p = ap(p, " mod "); p = apu(p, part_prm[part_sel][2]);
+        p = ap(p, " lvl "); p = apu(p, part_prm[part_sel][3]);
+        fit_text(s, 232);
         cv_text(4, 60, &FONT_S, s, UI_AMB);
     }
     if (patchbank < N_PATCHBANKS) {
@@ -605,17 +616,18 @@ static void draw_sys_page(void)
     cv_begin(240, 206, UI_BG);
     cv_text(4, 2, &FONT_S, "SYSTEM", UI_HI);
     cv_rect(0, 18, 240, 1, UI_PANEL);
-    p = ap(s, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, TOTAL_DRUMS);
+    p = ap(s, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, TOTAL_DRUMS); fit_text(s, 232);
     cv_text(4, 24, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "Waves: "); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ("); p = apu(p, WT_COUNT); p = ap(p, "+"); p = apu(p, MWT_COUNT); p = ap(p, ")");
+    p = s; p = ap(p, "Waves: "); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ("); p = apu(p, WT_COUNT); p = ap(p, "+"); p = apu(p, MWT_COUNT); p = ap(p, ")"); fit_text(s, 232);
     cv_text(4, 42, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "Patch banks: "); p = apu(p, N_PATCHBANKS);
+    p = s; p = ap(p, "Patch banks: "); p = apu(p, N_PATCHBANKS); fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "MIDI I/O: "); p = ap(p, (midi_out ? "ON" : "OFF"));
+    p = s; p = ap(p, "MIDI I/O: "); p = ap(p, (midi_out ? "ON" : "OFF")); fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
+    p = s; p = ap(p, "FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]); fit_text(s, 232);
     cv_text(4, 96, &FONT_S, s, UI_AMB);
-    cv_text(4, 188, &FONT_S, "SEQ/FX/EDIT/ENV switch pages. OCT+ toggles MIDI.", UI_DIM);
+    p = s; p = ap(p, "SEQ/FX/EDIT/ENV switch pages. OCT+ toggles MIDI."); fit_text(s, 232);
+    cv_text(4, 188, &FONT_S, s, UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_screen(uint32_t playing)
@@ -627,10 +639,9 @@ static void draw_screen(uint32_t playing)
         draw_wave_page();
     } else if (view_page == 3) {
         draw_sys_page();
-        draw_franken(214, 128);      /* face in the system page's empty area */
+        draw_franken(96, 120, 48, 62);   /* the face: clear and large, in the empty lower area */
     } else {
         draw_parts();
-        draw_franken(217, 195);      /* face in the empty bottom-right corner */
         draw_footer(playing);
     }
 }
