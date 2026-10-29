@@ -87,6 +87,15 @@ static char *apu(char *p, uint32_t v) { char t[8]; utoa(v, t); return ap(p, t); 
 #define C_MUTE   RGB(64, 58, 48)
 #define C_CELL    RGB(210, 130, 20) /* a step that is set */
 
+/* UI role colours − they follow the active palette (default AMBER): */
+#define UI_BG     C_BG                    /* canvas background */
+#define UI_PANEL  C_LINE                  /* panels, separators (darkest tint) */
+#define UI_DIM    C_DIM                   /* empty/inactive */
+#define UI_LABEL  C_GRAY                  /* static labels */
+#define UI_AMB    C_AMB                   /* active, secondary text */
+#define UI_HI     C_HI                    /* brightest: selection, playhead */
+#define UI_MUTE   C_MUTE
+
 /* part names (8 = 5 drums + 3 tonal) */
 static const char *const PNAME[8] = {
     "KICK", "SNARE", "CLAP", "CHH", "OHH", "BASS", "CHRD", "LEAD"};
@@ -425,7 +434,8 @@ static void set_defaults(void)
 static void draw_header(uint32_t playing)
 {
     char s[40];
-    draw_text_box(2, 2, 60, &FONT_S, APP_NAME, C_TEXT2, 0);
+    /* title badge */
+    draw_text_box(2, 2, 60, &FONT_S, APP_NAME, UI_HI, 0);
     /* pattern name + genre, from the catalog */
     {
         uint32_t i = pat_sel < N_CATALOG ? pat_sel : N_CATALOG - 1u;
@@ -435,7 +445,7 @@ static void draw_header(uint32_t playing)
         s[k++] = ' ';
         if (*g) { while (*g && k < 22) s[k++] = *g++; }
         s[k] = 0;
-        draw_text_box(62, 2, 120, &FONT_S, s, C_TEXT, 0);
+        draw_text_box(62, 2, 118, &FONT_S, s, UI_AMB, 0);
     }
     /* tempo */
     {
@@ -443,36 +453,40 @@ static void draw_header(uint32_t playing)
         p = apu(p, bpm);
         p = ap(p, "BPM");
         (void)p;
-        draw_text_box(170, 2, 68, &FONT_S, s, playing ? C_TEXT2 : C_SUB, 2);
+        draw_text_box(170, 2, 68, &FONT_S, s, playing ? UI_HI : UI_LABEL, 2);
     }
+    /* separator rule under the header */
+    cv_begin(240, 2, C_BG);
+    cv_rect(0, 0, 240, 1, UI_PANEL);
+    cv_blit(0, 32);
 }
 
 static void draw_parts(void)
 {
-    uint32_t p, s, x, y, w, h, cw = 12, labw = 38, top = 34, rh = 20;
-    cv_begin(240, 8u * rh, C_PANEL);
-    /* labels */
+    uint32_t p, s, x, y, w, h, cw = 12, labw = 46, top = 34, rh = 20;
+    cv_begin(240, 8u * rh, UI_BG);
     for (p = 0; p < NPART; p++) {
-        uint32_t y0 = p * rh;
-        cv_rect(0, y0, labw, rh, p == part_sel ? C_PANEL : C_BG);
-        cv_text(2, y0 + 3, &FONT_S, PNAME[p], p == part_sel ? C_TEXT2 : C_SUB);
-        if (mute[p]) cv_text(labw - 12, y0 + 3, &FONT_S, "M", C_MUTE);
-    }
-    /* cells: 16 columns per page view (position = step_cur) */
-    {
-        uint32_t base = (step_cur / 16u) * 16u;
-        for (p = 0; p < NPART; p++) {
-            for (s = 0; s < 16u; s++) {
-                uint32_t st = base + s, lit = pat.gates[p][st % NSTEP];
-                x = labw + s * cw; y = p * rh;
-                w = cw - 2; h = rh - 3;
-                if (mute[p]) { cv_rect(x, y, w, h, C_MUTE); continue; }
-                if (lit)
-                    cv_rect(x, y, w, h, s == step_cur % 16u ? C_HL : C_CELL);
-                else
-                    cv_rect(x, y, w, h, s == step_cur % 16u ? C_HL : C_PANEL);
-                cv_rect(x, y, w, 1, C_SUB);
-            }
+        uint32_t y0 = p * rh, sel = (p == part_sel);
+        /* label cell: accent bar + name on the selected part */
+        if (sel) {
+            cv_rect(2, y0 + 3, 3, rh - 6, UI_HI);
+            cv_text(9, y0 + 2, &FONT_S, PNAME[p], UI_HI);
+        } else {
+            cv_text(9, y0 + 2, &FONT_S, PNAME[p], UI_LABEL);
+        }
+        if (mute[p]) cv_text(labw - 15, y0 + 2, &FONT_S, "M", UI_MUTE);
+        /* step cells: 16 columns of the visible page */
+        for (s = 0; s < 16u; s++) {
+            uint32_t st = (step_cur / 16u) * 16u + s;
+            uint32_t lit = pat.gates[p][st % NSTEP];
+            uint32_t cur = (s == step_cur % 16u);
+            x = labw + s * cw; y = y0 + 2;
+            w = cw - 2; h = rh - 5;
+            if (mute[p]) { cv_rect(x, y, w, h, UI_DIM); continue; }
+            if (lit)
+                cv_rect(x, y, w, h, cur ? UI_HI : UI_AMB);
+            else
+                cv_rect(x, y, w, h, cur ? UI_HI : UI_PANEL);
         }
     }
     cv_blit(0, top);
@@ -483,7 +497,10 @@ static void draw_footer(uint32_t playing)
     char s[48];
     char *p = s;
     uint32_t q;
-    draw_text_box(2, 210, 236, &FONT_S, "", C_BG, 0);
+    /* status-bar rule */
+    cv_begin(240, 2, C_BG);
+    cv_rect(0, 1, 240, 1, UI_PANEL);
+    cv_blit(0, 208);
     if (write_arm) {
         p = ap(p, "REC  "); p = ap(p, PNAME[part_sel]); p = ap(p, "  keys: steps");
     } else if (glomode) {
@@ -511,63 +528,72 @@ static void draw_footer(uint32_t playing)
         p = ap(p, midi_out ? " M" : " .");
         *p = 0;
     }
-    draw_text_box(2, 212, 236, &FONT_S, s, (write_arm || glomode) ? C_TEXT2 : (playing ? C_TEXT : C_SUB), 0);
+    draw_text_box(2, 210, 236, &FONT_S, s,
+                  (write_arm || glomode) ? UI_HI : (playing ? UI_AMB : UI_LABEL), 0);
 }
 
 static void draw_fx_page(void)
 {
     char s[48]; char *p = s;
-    cv_begin(240, 224, C_BG);
-    cv_text(2, 2, &FONT_S, "FX PAGE", C_TEXT2);
-    p = ap(s, " FX mode: "); p = ap(p, (const char *[]){"off","chor","echo","c+e"}[fx_mode]);
-    cv_text(2, 18, &FONT_S, s, C_TEXT);
-    cv_text(2, 32, &FONT_S, "FX key (btn 3) changes mode", C_SUB);
-    p = s; p = ap(p, "MIDI: "); p = ap(p, midi_out ? "ON " : "OFF");
-    cv_text(2, 46, &FONT_S, s, C_TEXT);
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "FX", UI_HI);
+    cv_rect(0, 18, 240, 1, UI_PANEL);
+    p = ap(s, "FX mode: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
+    cv_text(4, 24, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "MIDI OUT: "); p = ap(p, midi_out ? "ON" : "OFF");
+    cv_text(4, 42, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "Clock: "); p = apu(p, bpm); p = ap(p, " BPM");
+    cv_text(4, 60, &FONT_S, s, UI_LABEL);
+    cv_text(4, 188, &FONT_S, "FX key (btn 3) cycles modes.", UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_wave_page(void)
 {
     char s[48]; char *p = s;
-    cv_begin(240, 224, C_BG);
-    cv_text(2, 2, &FONT_S, "WAVES / PATCH", C_TEXT2);
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "WAVES / PATCH", UI_HI);
+    cv_rect(0, 18, 240, 1, UI_PANEL);
     if (part_sel < NDRUM) {
-        p = ap(s, "Part "); p = apu(p, part_sel); p = ap(p, " drum  kit "); p = ap(p, drum_kit_name(drum_kit));
+        p = ap(s, "Part "); p = apu(p, part_sel); p = ap(p, "  kit "); p = ap(p, drum_kit_name(drum_kit));
         p = ap(p, " ["); p = ap(p, drum_kit_cat(drum_kit)); p = ap(p, "]");
+        cv_text(4, 24, &FONT_S, s, UI_AMB);
     } else {
         p = ap(s, PNAME[part_sel]); p = ap(p, "  wave "); p = apu(p, part_prm[part_sel][0]);
         p = ap(p, "/"); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ");
         p = ap(p, wt_category((uint8_t)(part_prm[part_sel][0] * (TOTAL_WT_COUNT-1u) / 127u)));
-        p = ap(p, " ratio "); p = apu(p, part_prm[part_sel][1]);
+        cv_text(4, 24, &FONT_S, s, UI_AMB);
+        p = s; p = ap(p, "Ratio "); p = apu(p, part_prm[part_sel][1]);
+        p = ap(p, "  Mod "); p = apu(p, part_prm[part_sel][2]);
+        p = ap(p, "  Lvl "); p = apu(p, part_prm[part_sel][3]);
+        cv_text(4, 42, &FONT_S, s, UI_AMB);
     }
-    cv_text(2, 16, &FONT_S, s, C_TEXT);
     if (patchbank < N_PATCHBANKS) {
         p = s; p = ap(p, "Patch bank: "); p = ap(p, PATCHBANK_NAME[patchbank]);
         p = ap(p, " / "); p = apu(p, patch_ix);
-        cv_text(2, 30, &FONT_S, s, C_TEXT);
+        cv_text(4, 64, &FONT_S, s, UI_LABEL);
         p = s; p = ap(p, PATCH_NAME3[patchbank][patch_ix]);
-        cv_text(2, 44, &FONT_S, s, C_TEXT2);
+        cv_text(4, 82, &FONT_S, s, UI_HI);
     }
-    cv_text(2, 58, &FONT_S, "Select: waves  A=B wave  B=kit (drum parts)", C_SUB);
-    cv_text(2, 72, &FONT_S, "GLO+PRESET cycles patches; OCT- changes bank.", C_SUB);
+    cv_text(4, 188, &FONT_S, "A: wave  B: kit (drum parts)  GLO+PRESET: patch", UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_sys_page(void)
 {
     char s[48]; char *p = s;
-    cv_begin(240, 224, C_BG);
-    cv_text(2, 2, &FONT_S, "SYSTEM PAGE", C_TEXT2);
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "SYSTEM", UI_HI);
+    cv_rect(0, 18, 240, 1, UI_PANEL);
     p = ap(s, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, TOTAL_DRUMS);
-    cv_text(2, 16, &FONT_S, s, C_TEXT);
-    p = s; p = ap(p, "Waves: "); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ("); p = apu(p, WT_COUNT); p = ap(p, "+"); p = apu(p, MWT_COUNT); p = ap(p, " EPROM)");
-    cv_text(2, 30, &FONT_S, s, C_TEXT);
+    cv_text(4, 24, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "Waves: "); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ("); p = apu(p, WT_COUNT); p = ap(p, "+"); p = apu(p, MWT_COUNT); p = ap(p, ")");
+    cv_text(4, 42, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "Patch banks: "); p = apu(p, N_PATCHBANKS);
-    cv_text(2, 44, &FONT_S, s, C_TEXT);
+    cv_text(4, 60, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "MIDI I/O: "); p = ap(p, (midi_out ? "ON" : "OFF"));
-    cv_text(2, 58, &FONT_S, s, C_TEXT);
+    cv_text(4, 78, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
-    cv_text(2, 72, &FONT_S, s, C_TEXT);
-    cv_text(2, 90, &FONT_S, "SELECT/WAVE  FX/FX-mode  ENV/SYSTEM  OCT+: MIDI", C_SUB);
+    cv_text(4, 96, &FONT_S, s, UI_AMB);
+    cv_text(4, 188, &FONT_S, "SEQ/FX/EDIT/ENV switch pages. OCT+ toggles MIDI.", UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_screen(uint32_t playing)
@@ -663,6 +689,7 @@ static void app_init(void)
     for (k = 0; k < 27u; k++) held[k] = 0;
 
     lcd_fill(0, 0, 240, 240, C_BG);
+    palette_set(1);                  /* default palette: AMBER */
     draw_screen(0);
     last_repaint = 0; saved_ms = 0; dirty = 0;
 }

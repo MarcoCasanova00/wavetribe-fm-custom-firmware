@@ -1,0 +1,17 @@
+# Render all 4 UI views for verification
+# view 0 (seq) is the default; view 1=FX, 2=Wave, 3=System
+80 btn 12
+1500 shot
+# switch to FX page (BTN_FX = 2)
+2500 btn 2
+3000 shot
+# switch to Wave page (BTN_EDIT = 6)
+3500 btn 6
+4000 shot
+# switch to System page (BTN_ENV = 4)
+4500 btn 4
+5000 shot
+# back to seq
+5500 btn 11
+6000 btn 12
+6500 end
