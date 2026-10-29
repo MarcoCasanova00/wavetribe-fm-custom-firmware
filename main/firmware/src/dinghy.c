@@ -111,7 +111,6 @@ static uint8_t part_prm[8][4];
 
 static drm_t drum[NDRUM];
 static uint8_t drum_kit;
-static uint8_t patch_sel;
 static uint8_t patchbank, patch_ix;
 static uint8_t dx7bank_sel, dx7_patch;
 static uint8_t midi_out;
