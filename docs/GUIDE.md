@@ -43,7 +43,7 @@ Idle knobs stay idle until you move them; every move lands on the selected part.
 - With REC off, tapping a key triggers it in real time.
 - The keybed (F3 → G5) maps to 27 notes — good for triggering one-shot layers over the pattern.
 
-## 7. Controls overview (v0.1)
+## 7. Known limits (v0.1)
 - FX, SAVE, ARP, SEQ, KNOB BANK, FADER BANK are wired in the browser panel but are
   not backed by firmware behavior in this build.
 - No project save to disk yet (settings persist in-browser for the session only).
@@ -61,23 +61,17 @@ Idle knobs stay idle until you move them; every move lands on the selected part.
 
 Enjoy. Tag your feedback on the repository issues.
 ## 8. Wave banks (experimental)
-- The three right-hand FM parts now read their carrier wave from a 192-entry embedded (Absynth + Linn + EPROM waves + FunkBox singles) (Absynth + Linn + EPROM cycles + FunkBox singles) (Absynth + Linn + EPROM waves)
+- The three right-hand FM parts now read their carrier wave from a 32-entry embedded
   wavetable bank (single-cycle waves extracted from the supplied Absynth-format banks).
 - Knob A (KNOB 1) now also steps through those 32 wave shapes for whichever part you
   have selected (step by 8 gives a full cycle of 32 values).
 
 ## 8. Wave banks (experimental)
-- The three right-hand FM parts now read their carrier wave from a 192-entry embedded (Absynth + Linn + EPROM waves + FunkBox singles) (Absynth + Linn + EPROM cycles + FunkBox singles) (Absynth + Linn + EPROM waves)
+- The three right-hand FM parts now read their carrier wave from a 32-entry embedded
   wavetable bank (single-cycle waves extracted from the supplied Absynth-format banks).
   Knob A (KNOB 1) now also steps through those 32 wave shapes for whichever part you
   have selected (each click advances; hold to sweep).
 
 ## 9. Drum kits
 - With a drum part selected (parts 1-5), turning Knob B (B) cycles available drum kits.
-  Three kits ship + four more: the original authentic APP kit and a FunkBox-style 909 kit.
-
-## 10. DX7 voice ROM 2 (experimental melting-pot sound source)
-- Global mode now can use `OCT-` toggle to switch patch banks; `PRESET` then cycles
-  64 bank entries created from the DX7 patch name/parameter heuristics.
-
-- **MIDI OUT**: when toggled, the sequencer also emits clock (24 ppqn), Start (0xFA), and Stop (0xFC) on the USB + TRS outlets.
+  Two kits ship: the original authentic APP kit and a FunkBox-style 909 kit.

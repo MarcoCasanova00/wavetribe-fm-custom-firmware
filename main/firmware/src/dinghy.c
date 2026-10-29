@@ -32,8 +32,7 @@ static void app_idle(void);
 #include "factory_catalog.h"      /* the authentic factory preset names/authors/genres */
 #include "factory_drum_kits.h"    /* kit bank: APP + 909; see import_drum_kits.py */
 #include "factory_wavetables.h"   /* imported single-cycle waves (import_wavetables.py) */
-#include "factory_patches.h"      /* synth engine patches (patch helper) */
-#include "factory_dx7voices.h"    /* 64 DX7 patch names from voice ROM 2 */
+#include "factory_patchbanks.h"   /* APP, DX7, ROM banks (melting-pot patches) */
 
 #ifdef DINGHY_HOST
 #define DBG(...) printf(__VA_ARGS__)
@@ -113,9 +112,11 @@ static uint8_t part_prm[8][4];
 static drm_t drum[NDRUM];
 static uint8_t drum_kit;
 static uint8_t patch_sel;
+static uint8_t patchbank, patch_ix;
 static uint8_t dx7bank_sel, dx7_patch;
 static uint8_t midi_out;
 static uint8_t fx_mode; /* 0 off, 1 chorus, 2 delay, 3 chorus+delay */
+static uint8_t view_page;   /* 0 Seq, 1 FX, 2 wave/patch, 3 system */
 
 static void drum_trigger(uint32_t d, uint32_t vel)
 {
@@ -382,7 +383,7 @@ static void pattern_load(uint8_t i)
 struct set {
     uint8_t magic[4];
     uint8_t bpm, swing, page, part_sel, pat_sel, accent;
-    uint8_t midi_out, dx7_bank;
+    uint8_t midi_out, dx7_bank, patchbank, patch_ix;
     uint8_t mute[NPART];
     uint8_t prm[8][4];
     struct pat pat;
@@ -392,7 +393,7 @@ static struct set S;
 static void set_defaults(void)
 {
     S.magic[0] = 'R'; S.magic[1] = 'I'; S.magic[2] = 'P'; S.magic[3] = '1';
-    S.bpm = 128; S.swing = 0; S.page = 0; S.part_sel = 0; S.pat_sel = 0; S.accent = 40; S.midi_out = 0; S.dx7_bank = 0;
+    S.bpm = 128; S.swing = 0; S.page = 0; S.part_sel = 0; S.pat_sel = 0; S.accent = 40; S.midi_out = 0; S.dx7_bank = 0; S.patchbank = 0; S.patch_ix = 0;
     memset(S.mute, 0, sizeof S.mute);
     memset(S.prm, 64, sizeof S.prm);
     pattern_load(0); memcpy(&S.pat, &pat, sizeof pat);
@@ -472,11 +473,9 @@ static void draw_footer(uint32_t playing)
         }
         p = ap(p, "  FX"); p = ap(p, (const char *[]){"off","chr","ech","c+e"}[fx_mode]);
         p = ap(p, midi_out ? "  MD" : "  .");
-        if (dx7bank_sel) {
-            p = ap(p, "  DX7 ");
-        } else {
-            p = ap(p, "  ROM");
-        }
+        p = ap(p, "  ");
+        p = ap(p, PATCHBANK_NAME[patchbank]);
+        p = ap(p, " "); p = apu(p, patch_ix);
     } else {
         p = ap(p, PNAME[part_sel]);
         if (part_sel < NDRUM) {
@@ -493,11 +492,72 @@ static void draw_footer(uint32_t playing)
     draw_text_box(2, 212, 236, &FONT_S, s, (write_arm || glomode) ? C_TEXT2 : (playing ? C_TEXT : C_SUB), 0);
 }
 
+static void draw_fx_page(void)
+{
+    char s[48]; char *p = s;
+    cv_begin(240, 224, C_BG);
+    cv_text(2, 2, &FONT_S, "FX PAGE", C_TEXT2);
+    p = ap(s, " FX mode: "); p = ap(p, (const char *[]){"off","chor","echo","c+e"}[fx_mode]);
+    cv_text(2, 18, &FONT_S, s, C_TEXT);
+    cv_text(2, 32, &FONT_S, "FX key (btn 3) changes mode", C_SUB);
+    p = s; p = ap(p, "MIDI: "); p = ap(p, midi_out ? "ON " : "OFF");
+    cv_text(2, 46, &FONT_S, s, C_TEXT);
+    cv_blit(0, 34);
+}
+static void draw_wave_page(void)
+{
+    char s[48]; char *p = s;
+    cv_begin(240, 224, C_BG);
+    cv_text(2, 2, &FONT_S, "WAVES / PATCH", C_TEXT2);
+    if (part_sel < NDRUM) {
+        p = ap(s, "Part "); p = apu(p, part_sel); p = ap(p, " drum  kit "); p = ap(p, DRUM_KIT_NAMES[drum_kit]);
+    } else {
+        p = ap(s, PNAME[part_sel]); p = ap(p, "  wave "); p = apu(p, part_prm[part_sel][0]);
+        p = ap(p, " ratio "); p = apu(p, part_prm[part_sel][1]);
+    }
+    cv_text(2, 16, &FONT_S, s, C_TEXT);
+    if (patchbank < N_PATCHBANKS) {
+        p = s; p = ap(p, "Patch bank: "); p = ap(p, PATCHBANK_NAME[patchbank]);
+        p = ap(p, " / "); p = apu(p, patch_ix);
+        cv_text(2, 30, &FONT_S, s, C_TEXT);
+        p = s; p = ap(p, PATCH_NAME3[patchbank][patch_ix]);
+        cv_text(2, 44, &FONT_S, s, C_TEXT2);
+    }
+    cv_text(2, 58, &FONT_S, "Select: waves  A=B wave  B=kit (drum parts)", C_SUB);
+    cv_text(2, 72, &FONT_S, "GLO+PRESET cycles patches; OCT- changes bank.", C_SUB);
+    cv_blit(0, 34);
+}
+static void draw_sys_page(void)
+{
+    char s[48]; char *p = s;
+    cv_begin(240, 224, C_BG);
+    cv_text(2, 2, &FONT_S, "SYSTEM PAGE", C_TEXT2);
+    p = ap(s, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, N_DRUM_KITS);
+    cv_text(2, 16, &FONT_S, s, C_TEXT);
+    p = s; p = ap(p, "Wave banks: "); p = apu(p, WT_COUNT);
+    cv_text(2, 30, &FONT_S, s, C_TEXT);
+    p = s; p = ap(p, "Patch banks: "); p = apu(p, N_PATCHBANKS);
+    cv_text(2, 44, &FONT_S, s, C_TEXT);
+    p = s; p = ap(p, "MIDI I/O: "); p = ap(p, (midi_out ? "ON" : "OFF"));
+    cv_text(2, 58, &FONT_S, s, C_TEXT);
+    p = s; p = ap(p, "FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
+    cv_text(2, 72, &FONT_S, s, C_TEXT);
+    cv_text(2, 90, &FONT_S, "SELECT/WAVE  FX/FX-mode  ENV/SYSTEM  OCT+: MIDI", C_SUB);
+    cv_blit(0, 34);
+}
 static void draw_screen(uint32_t playing)
 {
     draw_header(playing);
-    draw_parts();
-    draw_footer(playing);
+    if (view_page == 1) {
+        draw_fx_page();
+    } else if (view_page == 2) {
+        draw_wave_page();
+    } else if (view_page == 3) {
+        draw_sys_page();
+    } else {
+        draw_parts();
+        draw_footer(playing);
+    }
 }
 
 /* ================= main ================= */
@@ -566,12 +626,14 @@ static void app_init(void)
     bpm = S.bpm; swing = S.swing; page = S.page; part_sel = S.part_sel;
     pat_sel = S.pat_sel; accent = S.accent; midi_out = S.midi_out;
     dx7bank_sel = S.dx7_bank; dx7_patch = 0;
+    patchbank = S.patchbank; patch_ix = S.patch_ix;
     memcpy(mute, S.mute, sizeof mute);
     memcpy(part_prm, S.prm, sizeof part_prm);
     memcpy(&pat, &S.pat, sizeof pat);
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
     step_ms = 15000u / (bpm ? bpm : 128u);
     drum_kit = 0;
+    view_page = 0;
     prev_keys = 0;
     for (k = 0; k < 27u; k++) held[k] = 0;
 
@@ -605,9 +667,9 @@ static void app_tick(void)
                 case 91: fx_mode = (uint8_t)((v * 4) / 128); if (fx_mode > 3) fx_mode = 3; dirty = 1; break;
                 case 92: drum_kit = (uint8_t)((v * N_DRUM_KITS) / 128); if (drum_kit >= N_DRUM_KITS) drum_kit = N_DRUM_KITS-1; dirty = 1; break;
                 case 93: {
-                    uint8_t ps = (uint8_t)((v * N_PATCHES) / 128); if (ps >= N_PATCHES) ps = N_PATCHES-1;
-                    patch_sel = ps;
-                    for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM[patch_sel][i][q];
+                    uint8_t ps = (uint8_t)((v * 13) / 128); if (ps >= 13) ps = 12;
+                    patch_ix = ps; patchbank = 0;
+                    for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[0][patch_ix][i][q];
                     dirty = 1; break;
                 }
                 default: break;
@@ -634,6 +696,19 @@ static void app_tick(void)
         }
         if (b & (1u << BTN_FX)) {
             fx_mode = (uint8_t)((fx_mode + 1u) % 4u);
+            view_page = 1;
+            dirty = 1;
+        }
+        if (b & (1u << BTN_SEQ)) {
+            view_page = 0;
+            dirty = 1;
+        }
+        if (b & (1u << BTN_EDIT)) {
+            view_page = 2;
+            dirty = 1;
+        }
+        if (b & (1u << BTN_ENV)) {
+            view_page = 3;
             dirty = 1;
         }
         if (b & (1u << BTN_OCT_UP)) {
@@ -641,7 +716,9 @@ static void app_tick(void)
            dirty = 1;
         }
         if (b & (1u << BTN_OCT_DOWN) && glomode) {
-            dx7bank_sel = !dx7bank_sel;
+            patchbank = (uint8_t)((patchbank + 1u) % N_PATCHBANKS);
+            patch_ix = 0;
+            dx7bank_sel = (patchbank == 1u);
             dirty = 1;
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
@@ -661,27 +738,16 @@ static void app_tick(void)
             }
             e = fm1_enc_take(ENC_PRESETS);
             if (e) {
-                if (glomode && dx7bank_sel) {
-                    uint32_t i;
-                    int32_t c = (int32_t)dx7_patch + (e > 0 ? 1 : -1);
-                    if (c < 0) c = (int32_t)N_DX7VOICES - 1;
-                    if (c >= (int32_t)N_DX7VOICES) c = 0;
-                    dx7_patch = (uint8_t)c;
-                    for (i = 0u; i < 3u; i++) {
-                        part_prm[NDRUM + (uint8_t)i][0] = DX7_PRM[dx7_patch][0];
-                        part_prm[NDRUM + (uint8_t)i][1] = DX7_PRM[dx7_patch][1];
-                        part_prm[NDRUM + (uint8_t)i][2] = DX7_PRM[dx7_patch][2];
-                        part_prm[NDRUM + (uint8_t)i][3] = DX7_PRM[dx7_patch][3];
-                    }
-                } else if (glomode) {
+                if (glomode) {
                     uint32_t i, q;
-                    int32_t c = (int32_t)patch_sel + (e > 0 ? 1 : -1);
-                    if (c < 0) c = N_PATCHES - 1;
-                    if (c >= (int32_t)N_PATCHES) c = 0;
-                    patch_sel = (uint8_t)c;
+                    uint32_t count = PATCHBANK_COUNT[patchbank];
+                    int32_t c = (int32_t)patch_ix + (e > 0 ? 1 : -1);
+                    if (c < 0) c = (int32_t)count - 1;
+                    if (c >= (int32_t)count) c = 0;
+                    patch_ix = (uint8_t)c;
                     for (i = 0u; i < 3u; i++)
                         for (q = 0u; q < 4u; q++)
-                            part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM[patch_sel][i][q];
+                            part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
                 } else {
                     int32_t c = (int32_t)pat_sel + e;
                     if (c < 0) c = N_CATALOG - 1;
@@ -752,7 +818,7 @@ static void app_tick(void)
         /* --- save when quiet & 2 s after a change --- */
         if (dirty && fm1_ms - saved_ms > 2000u && !run) {
             S.bpm = bpm; S.swing = swing; S.page = page; S.part_sel = part_sel;
-            S.pat_sel = pat_sel; S.accent = accent; S.midi_out = midi_out; S.dx7_bank = dx7bank_sel;
+            S.pat_sel = pat_sel; S.accent = accent; S.midi_out = midi_out; S.dx7_bank = dx7bank_sel; S.patchbank = patchbank; S.patch_ix = patch_ix;
             memcpy(S.mute, mute, sizeof mute);
             memcpy(S.prm, part_prm, sizeof part_prm);
             memcpy(&S.pat, &pat, sizeof pat);
