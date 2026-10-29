@@ -1,57 +1,58 @@
 #!/usr/bin/env python3
-"""Merge the factory app drum kit with an extra FunkBox 909 kit."""
-import struct, wave, os
+"""Merge factory + FunkBox + Linn 9000 kits into one drum bank C header."""
+import os, struct, wave
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 OUT = ROOT / "main" / "firmware" / "gen" / "factory_drum_kits.h"
+N_DRUM = ("KICK","SNARE","CLAP","CHH","OHH")
 
 APP = {
-    "KICK": "main/assets/drums/drum_07_kick.wav",
-    "SNARE": "main/assets/drums/drum_03_snare_tom.wav",
-    "CLAP": "main/assets/drums/drum_08_cymbal_ride.wav",
-    "CHH": "main/assets/drums/drum_00_snare_tom.wav",
-    "OHH": "main/assets/drums/drum_04_hihat.wav",
+    "KICK": ROOT / "main/assets/drums/drum_07_kick.wav",
+    "SNARE": ROOT / "main/assets/drums/drum_03_snare_tom.wav",
+    "CLAP": ROOT / "main/assets/drums/drum_08_cymbal_ride.wav",
+    "CHH": ROOT / "main/assets/drums/drum_00_snare_tom.wav",
+    "OHH": ROOT / "main/assets/drums/drum_04_hihat.wav",
 }
-FB808 = {
-    "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808bd3.wav",
-    "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808sd2.wav",
-    "CLAP": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808cp.wav",
-    "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/funk808chat.wav",
-    "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808oh2.wav",
+FB = {
+ "TR808":{"KICK":ROOT/"main/../tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808bd3.wav" if False else Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808bd3.wav"),
+"SNARE":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808sd2.wav"),
+"CLAP":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808cp.wav"),
+"CHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/funk808chat.wav"),
+"OHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808oh2.wav")},
+ "TR909":{"KICK":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909bd1.wav"),
+"SNARE":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909sd1.wav"),
+"CLAP":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909cp.wav"),
+"CHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/funk909chat.wav"),
+"OHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909oh1.wav")},
+ "CR78":{"KICK":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78bd.wav"),
+"SNARE":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78rs.wav"),
+"CLAP":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78gu.wav"),
+"CHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78ch.wav"),
+"OHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78oh.wav")},
+ "LINN":{"KICK":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnbd.wav"),
+"SNARE":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnsd.wav"),
+"CLAP":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linncp.wav"),
+"CHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnch.wav"),
+"OHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnoh.wav")},
+ "MD110":{"KICK":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspsbd1.wav"),
+"SNARE":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspssd1.wav"),
+"CLAP":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linncb.wav"),
+"CHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspsch2.wav"),
+"OHH":Path("/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspsoh3.wav")},
 }
-FB909 = {
-    "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909bd1.wav",
-    "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909sd1.wav",
-    "CLAP": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909cp.wav",
-    "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/funk909chat.wav",
-    "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909oh1.wav",
+LINN9000 = {
+ "KICK":Path("/tmp/linn_tmp/doopkick.bin"),
+ "SNARE":Path("/tmp/linn_tmp/policysnare.bin"),
+ "CLAP":Path("/tmp/linn_tmp/junglesnare.bin"),
+ "CHH":Path("/tmp/linn_tmp/resohi.bin"),
+ "OHH":Path("/tmp/linn_tmp/resokik.bin"),
 }
-CR78 = {
-    "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78bd.wav",
-    "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78rs.wav",
-    "CLAP": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78gu.wav",
-    "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78ch.wav",
-    "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/cr78oh.wav",
-}
-LINN = {
-    "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnbd.wav",
-    "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnsd.wav",
-    "CLAP": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linncp.wav",
-    "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnch.wav",
-    "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linnoh.wav",
-}
-MD110 = {
-    "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspsbd1.wav",
-    "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspssd1.wav",
-    "CLAP": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/linncb.wav",
-    "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspsch2.wav",
-    "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/mdspsoh3.wav",
-}
-KITS = {"APP": APP, "TR808": FB808, "TR909": FB909, "CR78": CR78, "LINN": LINN, "MD110": MD110}
-PARTS = ("KICK","SNARE","CLAP","CHH","OHH")
 
 def load16(path):
+    if str(path).endswith(".bin"):
+        raw = open(path,"rb").read()
+        return [(b - 128) * 256 for b in raw]
     w = wave.open(str(path))
     n = w.getnframes()
     fr = w.readframes(n)
@@ -67,34 +68,36 @@ def load16(path):
     return s
 
 kits = {}
-for name, paths in KITS.items():
-    kits[name] = {k: load16(paths[k]) for k in ("KICK","SNARE","CLAP","CHH","OHH")}
+kits["APP"] = {k: load16(APP[k]) for k in N_DRUM}
+for name, val in FB.items():
+    kits[name] = {k: load16(val[k]) for k in N_DRUM}
 
-lines = []
-lines.append("/* GENERATED by tools/factory/import_drum_kits.py — do not edit by hand. */")
+kits["LINN9000"] = {k: load16(LINN9000[k]) for k in N_DRUM}
+kit_names = list(kits.keys())
+lines=[]
+lines.append("/* GENERATED by tools/factory/import_drum_kits.py - do not edit by hand. */")
 lines.append("#ifndef FACTORY_DRUM_KITS_H")
 lines.append("#define FACTORY_DRUM_KITS_H")
 lines.append("#include <stdint.h>")
-lines.append("#define N_DRUM_KITS %uu" % len(kits))
+lines.append("#define N_DRUM_KITS %uu" % len(kit_names))
 lines.append("#define NDRUM 5u")
-kit_names = list(kits.keys())
-for ki, nm in enumerate(kit_names):
-    for part in PARTS:
-        s = kits[nm][part]
-        arr = "DRUM%d_%s" % (ki, part)
-        lines.append("static const int16_t %s[%d] = {" % (arr, len(s)))
-        for j in range(0, len(s), 12):
-            lines.append("    " + ", ".join(str(v) for v in s[j:j+12]) + ",")
+for ki,nm in enumerate(kit_names):
+    for idx,part in enumerate(N_DRUM):
+        s=kits[nm][part]
+        arr="DRUM%d_%s"%(ki,part)
+        lines.append("static const int16_t %s[%d] = {"%(arr,len(s)))
+        for j in range(0,len(s),12):
+            lines.append("    "+", ".join(str(v) for v in s[j:j+12])+",")
         lines.append("};")
         lines.append("")
 lines.append("typedef struct { uint16_t n; const int16_t *p; } drum_smp_t;")
 lines.append("static const drum_smp_t DRUM_BANKS[N_DRUM_KITS][NDRUM] = {")
-for ki, nm in enumerate(kit_names):
+for ki,nm in enumerate(kit_names):
     lines.append("  {")
-    for part in PARTS:
-        s = kits[nm][part]
-        arr = "DRUM%d_%s" % (ki, part)
-        lines.append("    { %du, %s }," % (len(s), arr))
+    for part in N_DRUM:
+        s=kits[nm][part]
+        arr="DRUM%d_%s"%(ki,part)
+        lines.append("    { %du, %s },"%(len(s),arr))
     lines.append("  },")
 lines.append("};")
 lines.append("")
@@ -105,5 +108,5 @@ lines.append("};")
 lines.append("#endif /* FACTORY_DRUM_KITS_H */")
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
-OUT.write_text("\n".join(lines) + "\n")
-print("wrote %s with %d kits" % (OUT, len(kits)))
+OUT.write_text("\n".join(lines)+"\n")
+print("wrote %s with %d kits"%(OUT,len(kit_names)))
