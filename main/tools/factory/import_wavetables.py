@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Extract single-cycle waves from supplied Absynth banks (plus Linn raw slices)."""
-import os, struct, sys
+"""Hybrid wavetable extractor: Absynth banks + Linn + generic EPROM scans."""
+import os, struct, sys, zipfile, math
 
-NTABLES = 100
+NTABLES = 128
 WT_SIZE = 2048
 HDR = 48
 
@@ -38,34 +38,95 @@ def extract_linn(path):
         out.append(("Linn 9000", "%s %d" % (base, i), pcm))
     return out
 
+def extract_generic(path, limit=8):
+    try:
+        if zipfile.is_zipfile(path):
+            z = zipfile.ZipFile(path)
+            targets = [n for n in z.namelist() if n.lower().endswith(".bin") and z.getinfo(n).file_size >= WT_SIZE*2]
+        else:
+            targets = [path]; z = None
+    except Exception:
+        return []
+    out = []
+    seen = set()
+    for key in targets:
+        try:
+            d = z.read(key) if z else open(key,"rb").read()
+        except Exception:
+            continue
+        cands = []
+        for off in range(0, len(d)-WT_SIZE, WT_SIZE):
+            chunk = d[off:off+WT_SIZE]
+            vals = struct.unpack("<%dh"%(WT_SIZE//2), chunk)
+            mn, mx = min(vals), max(vals)
+            mean = sum(vals) / len(vals)
+            rms = (sum(v*v for v in vals)/len(vals))**0.5
+            # avoid ramps/code: must be zero-centred, dynamic, not monotonic code
+            if abs(mean) >= 200: continue
+            if mn > -500 or mx < 500: continue
+            # rough monotonicity: reject arrays sorted nearly increasing
+            inc = sum(1 for a,b in zip(vals,vals[1:]) if b>a)
+            if inc > len(vals)*0.9: continue
+            if b"\x00"*8 in chunk: continue
+            cands.append((rms, off, vals))
+        cands.sort(reverse=True)
+        taken=0
+        for rms, off, vals in cands:
+            if taken >= limit: break
+            key = bytes(str(vals[:32]).encode()) # crude de-dup
+            if key in seen: continue
+            seen.add(key)
+            name = os.path.basename(key if not isinstance(key,str) else key).split("\\")[-1] if False else os.path.basename(path)
+            if z: name = "%s - %s @%06x" % (os.path.basename(path), os.path.basename(key.replace("\\","/")), off) if False else os.path.basename(path)
+            label = "%s @%06x" % (os.path.basename(path), off)
+            out.append((os.path.basename(path), label, tuple(vals)))
+            taken += 1
+    return out
+
 def main():
-    if len(sys.argv) < 2:
-        print("usage: import_wavetables.py OUT_PATH [ABSYNTH_DIR [LINN_DIR]]")
-        sys.exit(1)
     out = sys.argv[1]
     abs_dir = sys.argv[2] if len(sys.argv) > 2 else "/home/maltomare/new absynth banks"
     linn_dir = sys.argv[3] if len(sys.argv) > 3 else "/home/maltomare/eeproms/Linn 9000 roms 2"
+    rom_files = sys.argv[4:] or [
+        "/home/maltomare/eeproms/KorgTrinity.zip",
+        "/home/maltomare/eeproms/Nord Lead 1 (27c4001 or 27c040 EPROM) (2.70 is final version_ 2002-11-05).zip",
+        "/home/maltomare/eeproms/DX7_Voice_Rom2.zip",
+        "/home/maltomare/eeproms/Oberheim - DX v3.01.zip",
+        "/home/maltomare/eeproms/Roland D-50 1.9 PA decoder v1.9.zip",
+        "/home/maltomare/eeproms/Sequential Circuits (SCI) Prophet VS v1.2 [High and Low].zip",
+    ]
+
     waves = []
-    abs_banks = sorted(f for f in os.listdir(abs_dir) if not f.endswith("Zone.Identifier"))
-    for bank in abs_banks:
+    # 1. Absynth banks
+    banks = sorted(f for f in os.listdir(abs_dir) if not f.endswith("Zone.Identifier"))
+    for bank in banks:
         if len(waves) >= NTABLES: break
         try:
-            for name, wave_name, pcm in extract_absynth(os.path.join(abs_dir, bank)):
+            for b, name, pcm in extract_absynth(os.path.join(abs_dir, bank)):
                 if len(waves) >= NTABLES: break
-                waves.append((bank, wave_name, pcm))
+                waves.append((b, name, pcm))
         except OSError:
             continue
 
+    # 2. Linn raw 8-bit waves
     if os.path.isdir(linn_dir):
-        linn_files = sorted(os.path.join(linn_dir, f) for f in os.listdir(linn_dir) if f.endswith(".bin"))
-        for fn in linn_files:
+        for fn in sorted(os.path.join(linn_dir, f) for f in os.listdir(linn_dir) if f.endswith(".bin")):
             if len(waves) >= NTABLES: break
             try:
-                for bank, wave_name, pcm in extract_linn(fn):
+                for bank, name, pcm in extract_linn(fn):
                     if len(waves) >= NTABLES: break
-                    waves.append((bank, wave_name, pcm))
+                    waves.append((bank, name, pcm))
             except OSError:
                 continue
+
+    # 3. Generic EPROM scan
+    for rf in rom_files:
+        if len(waves) >= NTABLES: break
+        if not os.path.exists(rf): continue
+        for items in [extract_generic(rf, limit=4)]:
+            for bank, name, pcm in items:
+                if len(waves) >= NTABLES: break
+                waves.append((bank, name, pcm))
 
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w") as f:
