@@ -31,6 +31,7 @@ static void app_idle(void);
 #include "factory_catalog.h"      /* the authentic factory preset names/authors/genres */
 #include "factory_drum_kits.h"    /* kit bank: APP + 909; see import_drum_kits.py */
 #include "factory_wavetables.h"   /* imported single-cycle waves (import_wavetables.py) */
+#include "factory_patches.h"      /* synth engine patches (patch helper) */
 
 #ifdef DINGHY_HOST
 #define DBG(...) printf(__VA_ARGS__)
@@ -109,6 +110,7 @@ static uint8_t part_prm[8][4];
 
 static drm_t drum[NDRUM];
 static uint8_t drum_kit;
+static uint8_t patch_sel;
 
 static void drum_trigger(uint32_t d, uint32_t vel)
 {
@@ -540,12 +542,24 @@ static void app_tick(void)
                 part_sel = (uint8_t)(c < 0 ? 0 : c > 7 ? 7 : c);
                 dirty = 1;
             }
-            if ((e = fm1_enc_take(ENC_PRESETS)) != 0) {
-                int32_t c = (int32_t)pat_sel + e;
-                if (c < 0) c = N_CATALOG - 1;
-                if (c >= (int32_t)N_CATALOG) c = 0;
-                pat_sel = (uint8_t)c;
-                if (pat_sel < (int32_t)N_DEMO_PAT) { pattern_load(pat_sel); memcpy(&S.pat, &pat, sizeof pat); }
+            e = fm1_enc_take(ENC_PRESETS);
+            if (e) {
+                if (glomode) {
+                    uint32_t i, q;
+                    int32_t c = (int32_t)patch_sel + (e > 0 ? 1 : -1);
+                    if (c < 0) c = N_PATCHES - 1;
+                    if (c >= (int32_t)N_PATCHES) c = 0;
+                    patch_sel = (uint8_t)c;
+                    for (i = 0u; i < 3u; i++)
+                        for (q = 0u; q < 4u; q++)
+                            part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM[patch_sel][i][q];
+                } else {
+                    int32_t c = (int32_t)pat_sel + e;
+                    if (c < 0) c = N_CATALOG - 1;
+                    if (c >= (int32_t)N_CATALOG) c = 0;
+                    pat_sel = (uint8_t)c;
+                    if (pat_sel < (int32_t)N_DEMO_PAT) { pattern_load(pat_sel); memcpy(&S.pat, &pat, sizeof pat); }
+                }
                 dirty = 1;
             }
             if ((e = fm1_enc_take(ENC_ALGORITHM)) != 0) {
