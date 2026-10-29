@@ -29,7 +29,7 @@ static void app_idle(void);
 #endif
 
 #include "factory_catalog.h"      /* the authentic factory preset names/authors/genres */
-#include "factory_drums.h"        /* authentic the app drum one-shots (make_drum_bank.py) */
+#include "factory_drum_kits.h"    /* kit bank: APP + 909; see import_drum_kits.py */
 #include "factory_wavetables.h"   /* imported single-cycle waves (import_wavetables.py) */
 
 #ifdef DINGHY_HOST
@@ -108,6 +108,7 @@ typedef struct {
 static uint8_t part_prm[8][4];
 
 static drm_t drum[NDRUM];
+static uint8_t drum_kit;
 
 static void drum_trigger(uint32_t d, uint32_t vel)
 {
@@ -125,8 +126,8 @@ static void drum_trigger(uint32_t d, uint32_t vel)
 static int32_t drum_tick(uint32_t d)
 {
     drm_t *k = &drum[d];
-    uint32_t n = DRUM_BANK[d].n, idx;
-    const int16_t *smp = DRUM_BANK[d].p;
+    uint32_t n = DRUM_BANKS[drum_kit][d].n, idx;
+    const int16_t *smp = DRUM_BANKS[drum_kit][d].p;
     int32_t s, e;
     uint32_t inc = k->inc, pos = k->pos;
     if (!k->active) return 0;
@@ -408,6 +409,9 @@ static void draw_footer(uint32_t playing)
         }
     } else {
         p = ap(p, PNAME[part_sel]);
+        if (part_sel < NDRUM) {
+            p = ap(p, "  ["); p = ap(p, DRUM_KIT_NAMES[drum_kit]); p = ap(p, "]");
+        }
         for (q = 0; q < 4u; q++) {
             *p++ = ' '; *p++ = (char)('A' + q);
             p = apu(p, part_prm[part_sel][q]);
@@ -492,6 +496,7 @@ static void app_init(void)
     memcpy(&pat, &S.pat, sizeof pat);
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
     step_ms = 15000u / (bpm ? bpm : 128u);
+    drum_kit = 0;
     prev_keys = 0;
     for (k = 0; k < 27u; k++) held[k] = 0;
 
@@ -553,6 +558,8 @@ static void app_tick(void)
             else if (e) { int32_t c = part_prm[part_sel][0] + e; part_prm[part_sel][0] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB2);
             if (glomode && e) { int32_t c = swing + e; swing = (uint8_t)(c < 0 ? 0 : c > 100 ? 100 : c); dirty = 1; }
+            else if (e && part_sel < NDRUM) { int32_t c = drum_kit + (e > 0 ? 1 : -1);
+                drum_kit = (uint8_t)(c < 0 ? 0 : c >= (int32_t)N_DRUM_KITS ? N_DRUM_KITS - 1 : c); dirty = 1; }
             else if (e) { int32_t c = part_prm[part_sel][1] + e; part_prm[part_sel][1] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB3);
             if (glomode && e) { int32_t c = accent + e; accent = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
