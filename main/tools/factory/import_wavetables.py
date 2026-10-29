@@ -2,7 +2,7 @@
 """Extract 2048-sample single-cycle wavetable waves from supplied Absynth-style banks."""
 import os, struct, sys
 
-NTABLES = 32
+NTABLES = 48
 WT_SIZE = 2048
 HDR = 48
 

@@ -13,6 +13,13 @@ APP = {
     "CHH": "main/assets/drums/drum_00_snare_tom.wav",
     "OHH": "main/assets/drums/drum_04_hihat.wav",
 }
+FB808 = {
+    "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808bd3.wav",
+    "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808sd2.wav",
+    "CLAP": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808cp.wav",
+    "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/funk808chat.wav",
+    "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr808oh2.wav",
+}
 FB909 = {
     "KICK": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909bd1.wav",
     "SNARE": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909sd1.wav",
@@ -20,7 +27,7 @@ FB909 = {
     "CHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/funk909chat.wav",
     "OHH": "/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app/tr909oh1.wav",
 }
-KITS = {"APP": APP, "FUNK909": FB909}
+KITS = {"APP": APP, "TR808": FB808, "TR909": FB909}
 PARTS = ("KICK","SNARE","CLAP","CHH","OHH")
 
 def load16(path):
