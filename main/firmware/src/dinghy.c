@@ -32,6 +32,8 @@ static void app_idle(void);
 #include "factory_catalog.h"      /* the authentic factory preset names/authors/genres */
 #include "factory_drum_kits.h"    /* kit bank: APP + 909; see import_drum_kits.py */
 #include "factory_wavetables.h"   /* imported single-cycle waves (import_wavetables.py) */
+#include "mined_roms.h"           /* EPROM-mined waves from rare synth dumps */
+#define TOTAL_WT_COUNT (WT_COUNT + MWT_COUNT)   /* combined wavetable pool */
 #include "factory_patchbanks.h"   /* APP, DX7, ROM banks (melting-pot patches) */
 
 #ifdef DINGHY_HOST
@@ -167,7 +169,8 @@ static int32_t drum_tick(uint32_t d)
 typedef struct {
     uint32_t cph, mph, cinc, minc;
     int32_t modidx, gate, amp;
-    uint8_t note, age, wave;
+    uint8_t note, age;
+    uint16_t wave;
 } sv_t;
 static sv_t sv[NV];
 static uint32_t sv_ages;
@@ -197,7 +200,7 @@ static void sv_trigger(uint8_t note, uint8_t vel, uint32_t ratio, uint32_t mod, 
     sv[pick].cph = 0; sv[pick].mph = 0;
     sv[pick].gate = (int32_t)(vel * 70u);         /* 127 -> 8890 */
     sv[pick].amp = sv[pick].gate;
-    sv[pick].wave = (uint8_t)(wave % WT_COUNT);
+    sv[pick].wave = (uint16_t)(wave % TOTAL_WT_COUNT);
 }
 static void sv_release(uint8_t note)
 {
@@ -246,7 +249,7 @@ static void app_audio(int32_t *out, uint32_t n)
         case EV_NOTEON:
             if (e.p >= NDRUM) {
                 uint32_t pr = e.p - NDRUM, ratio = 65536 + (uint32_t)part_prm[pr][1] * 512u;
-                uint8_t wv = (uint8_t)(((WT_COUNT <= 1) ? 0 : (uint32_t)part_prm[pr][0] * (WT_COUNT - 1u) / 127u));
+                uint8_t wv = (uint8_t)(((TOTAL_WT_COUNT <= 1) ? 0 : (uint32_t)part_prm[pr][0] * (TOTAL_WT_COUNT - 1u) / 127u));
                 sv_trigger(e.note, e.vel, ratio, part_prm[pr][2] + 1u, wv);
                 if (midi_out) midi_send(0x90u + (uint8_t)pr, e.note, (uint32_t)(e.vel < 127 ? e.vel : 127));
             }
@@ -285,7 +288,9 @@ static void app_audio(int32_t *out, uint32_t n)
                 uint32_t ci = cinc + (uint32_t)(((int64_t)cinc * (m * (mod >> 1)) >> 12) >> 16);
                 cph += ci;
             }
-            s = ((int32_t)WT_DATA[sv[v].wave][cph >> WT_SHIFT] * amp) >> 15;
+            s = ((int32_t)(sv[v].wave < WT_COUNT
+                ? WT_DATA[sv[v].wave][cph >> WT_SHIFT]
+                : MINED_WAVES[sv[v].wave - WT_COUNT][cph >> WT_SHIFT]) * amp) >> 15;
             out[2u * i] += s; out[2u * i + 1u] += s;
         }
         sv[v].cph = cph; sv[v].mph = mph; sv[v].amp = amp; sv[v].age++;
@@ -533,7 +538,7 @@ static void draw_sys_page(void)
     cv_text(2, 2, &FONT_S, "SYSTEM PAGE", C_TEXT2);
     p = ap(s, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, N_DRUM_KITS);
     cv_text(2, 16, &FONT_S, s, C_TEXT);
-    p = s; p = ap(p, "Wave banks: "); p = apu(p, WT_COUNT);
+    p = s; p = ap(p, "Waves: "); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ("); p = apu(p, WT_COUNT); p = ap(p, "+"); p = apu(p, MWT_COUNT); p = ap(p, " EPROM)");
     cv_text(2, 30, &FONT_S, s, C_TEXT);
     p = s; p = ap(p, "Patch banks: "); p = apu(p, N_PATCHBANKS);
     cv_text(2, 44, &FONT_S, s, C_TEXT);
