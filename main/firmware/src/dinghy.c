@@ -111,6 +111,7 @@ static uint8_t part_prm[8][4];
 static drm_t drum[NDRUM];
 static uint8_t drum_kit;
 static uint8_t patch_sel;
+static uint8_t midi_out;
 static uint8_t fx_mode; /* 0 off, 1 chorus, 2 delay, 3 chorus+delay */
 
 static void drum_trigger(uint32_t d, uint32_t vel)
@@ -225,15 +226,29 @@ static void app_audio(int32_t *out, uint32_t n)
         ev_t e = eq[eqr];
         eqr = (eqr + 1u) % EVQN;
         switch (e.kind) {
-        case EV_DRUM: if (e.p < NDRUM) drum_trigger(e.p, e.vel); break;
+        case EV_DRUM:
+            if (e.p < NDRUM) {
+                if (midi_out) {
+                    static const uint8_t GM_DRUM[NDRUM] = { 36, 38, 39, 42, 46 };
+                    midi_send(0x9A, GM_DRUM[e.p], (uint32_t)(e.vel < 127 ? e.vel : 127));
+                }
+                drum_trigger(e.p, e.vel);
+            }
+            break;
         case EV_NOTEON:
             if (e.p >= NDRUM) {
                 uint32_t pr = e.p - NDRUM, ratio = 65536 + (uint32_t)part_prm[pr][1] * 512u;
                 uint8_t wv = (uint8_t)(((part_prm[pr][0] >> 3)) % WT_COUNT);
                 sv_trigger(e.note, e.vel, ratio, part_prm[pr][2] + 1u, wv);
+                if (midi_out) midi_send(0x90u + (uint8_t)pr, e.note, (uint32_t)(e.vel < 127 ? e.vel : 127));
             }
             break;
-        case EV_NOTEOFF: if (e.p >= NDRUM) sv_release(e.note); break;
+        case EV_NOTEOFF:
+            if (e.p >= NDRUM) {
+                sv_release(e.note);
+                if (midi_out) midi_send(0x80u + (uint8_t)(e.p - NDRUM), e.note, 0);
+            }
+            break;
         default: break;
         }
     }
@@ -349,6 +364,7 @@ static void pattern_load(uint8_t i)
 struct set {
     uint8_t magic[4];
     uint8_t bpm, swing, page, part_sel, pat_sel, accent;
+    uint8_t midi_out;
     uint8_t mute[NPART];
     uint8_t prm[8][4];
     struct pat pat;
@@ -358,7 +374,7 @@ static struct set S;
 static void set_defaults(void)
 {
     S.magic[0] = 'R'; S.magic[1] = 'I'; S.magic[2] = 'P'; S.magic[3] = '1';
-    S.bpm = 128; S.swing = 0; S.page = 0; S.part_sel = 0; S.pat_sel = 0; S.accent = 40;
+    S.bpm = 128; S.swing = 0; S.page = 0; S.part_sel = 0; S.pat_sel = 0; S.accent = 40; S.midi_out = 0;
     memset(S.mute, 0, sizeof S.mute);
     memset(S.prm, 64, sizeof S.prm);
     pattern_load(0); memcpy(&S.pat, &pat, sizeof pat);
@@ -520,7 +536,7 @@ static void app_init(void)
         if (!settings_save(&S, sizeof S)) { /* keep defaults */ }
     }
     bpm = S.bpm; swing = S.swing; page = S.page; part_sel = S.part_sel;
-    pat_sel = S.pat_sel; accent = S.accent; memcpy(mute, S.mute, sizeof mute);
+    pat_sel = S.pat_sel; accent = S.accent; midi_out = S.midi_out; memcpy(mute, S.mute, sizeof mute);
     memcpy(part_prm, S.prm, sizeof part_prm);
     memcpy(&pat, &S.pat, sizeof pat);
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
@@ -557,6 +573,10 @@ static void app_tick(void)
         if (b & (1u << BTN_FX)) {
             fx_mode = (uint8_t)((fx_mode + 1u) % 4u);
             dirty = 1;
+        }
+        if (b & (1u << BTN_OCT_UP)) {
+            midi_out = !midi_out;
+           dirty = 1;
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
         if (b & (1u << BTN_REC)) { write_arm = !write_arm; dirty = 1; }
@@ -654,7 +674,7 @@ static void app_tick(void)
         /* --- save when quiet & 2 s after a change --- */
         if (dirty && fm1_ms - saved_ms > 2000u && !run) {
             S.bpm = bpm; S.swing = swing; S.page = page; S.part_sel = part_sel;
-            S.pat_sel = pat_sel; S.accent = accent;
+            S.pat_sel = pat_sel; S.accent = accent; S.midi_out = midi_out;
             memcpy(S.mute, mute, sizeof mute);
             memcpy(S.prm, part_prm, sizeof part_prm);
             memcpy(&S.pat, &pat, sizeof pat);
