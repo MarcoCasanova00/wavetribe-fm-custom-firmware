@@ -9,7 +9,7 @@ Chorus→Echo→Combo FX bus.**
 
 - **Web emulator:** `https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/`
 - **GitHub:** `https://github.com/MarcoCasanova00/wavetribe-fm-custom-firmware`
-- **Documentation:** [GUIDE.md](GUIDE.md), [PATCHES.md](PATCHES.md), [main/docs/PORT.md](main/docs/PORT.md)
+- **Documentation:** [GUIDE.md](GUIDE.md), [PATCHES.md](PATCHES.md), [docs/ROM_SOURCES.md](docs/ROM_SOURCES.md), [main/docs/PORT.md](main/docs/PORT.md)
 
 ## Highlights
 
