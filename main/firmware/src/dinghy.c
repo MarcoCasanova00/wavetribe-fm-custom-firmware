@@ -111,6 +111,7 @@ static uint8_t part_prm[8][4];
 static drm_t drum[NDRUM];
 static uint8_t drum_kit;
 static uint8_t patch_sel;
+static uint8_t fx_mode; /* 0 off, 1 chorus, 2 delay, 3 chorus+delay */
 
 static void drum_trigger(uint32_t d, uint32_t vel)
 {
@@ -166,6 +167,12 @@ typedef struct {
 } sv_t;
 static sv_t sv[NV];
 static uint32_t sv_ages;
+
+/* simple mono effect chain (cheap integer DSP, no FPU) */
+static int16_t fx_buf[8192];
+static uint32_t fx_w;
+#define FX_MASK 8191u
+static int16_t lfo_phase;
 
 static void sv_trigger(uint8_t note, uint8_t vel, uint32_t ratio, uint32_t mod, uint8_t wave)
 {
@@ -259,6 +266,26 @@ static void app_audio(int32_t *out, uint32_t n)
             out[2u * i] += s; out[2u * i + 1u] += s;
         }
         sv[v].cph = cph; sv[v].mph = mph; sv[v].amp = amp; sv[v].age++;
+    }
+    /* --- simple global effect chain (no FPU) --- */
+    if (fx_mode) {
+        uint32_t i;
+        for (i = 0; i < n; i++) {
+            int32_t x = (int32_t)out[2u * i];
+            int32_t lfo = (sine((uint32_t)lfo_phase << 16) + 32767) >> 14; /* 0..31 */
+            uint32_t tap1 = (fx_w + FX_MASK + 1u - (200u + (uint32_t)lfo)) & FX_MASK;
+            uint32_t tap2 = (fx_w + FX_MASK + 1u - 600u) & FX_MASK;
+            int32_t wet = 0;
+            if (fx_mode >= 2) wet += (int32_t)fx_buf[tap2];
+            if (fx_mode == 1 || fx_mode == 3) wet += (int32_t)fx_buf[tap1];
+            fx_buf[fx_w] = (int16_t)x;
+            fx_w = (fx_w + 1u) & FX_MASK;
+            lfo_phase = (uint16_t)(lfo_phase + 1u);
+            x += wet >> 1;
+            if (x > 32767) x = 32767; else if (x < -32768) x = -32768;
+            out[2u * i] = (int16_t)x;
+            out[2u * i + 1u] = (int16_t)x;
+        }
     }
 }
 
@@ -525,6 +552,10 @@ static void app_tick(void)
             if (glomode) { }
             else if (run) seq_stop();
             else { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; }
+            dirty = 1;
+        }
+        if (b & (1u << BTN_FX)) {
+            fx_mode = (uint8_t)((fx_mode + 1u) % 4u);
             dirty = 1;
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
