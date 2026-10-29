@@ -553,6 +553,38 @@ static void app_init(void)
 static void app_tick(void)
 {
     uint32_t keys, down, up, b, rel, k;
+    uint8_t midi_st, midi_d1, midi_d2; int src;
+    while ((src = midi_get(&midi_st,&midi_d1,&midi_d2)) != 0) {
+        if (midi_st >= 0x90u && midi_st <= 0x9Fu) {
+            if (midi_d1 >= 36u && midi_d1 <= 62u) {
+                uint8_t kk = (uint8_t)(midi_d1 - 36u);
+                if (midi_d2 > 0) {
+                    if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, (uint8_t)(midi_d2 > 127u ? 127u : midi_d2));
+                    else { held[kk] = midi_d1; eq_put(EV_NOTEON, part_sel, midi_d1, (uint8_t)(midi_d2 > 127u ? 127u : midi_d2)); }
+                } else {
+                    if (part_sel >= NDRUM && held[kk]) { eq_put(EV_NOTEOFF, part_sel, held[kk], 0); held[kk]=0; }
+                }
+            }
+        } else if (midi_st >= 0xB0u && midi_st <= 0xBFu) {
+            uint8_t cc = midi_d1, v = midi_d2;
+            switch (cc) {
+                case 1: if (part_sel >= NDRUM) { part_prm[part_sel][0] = (uint8_t)(v >> 2); dirty = 1; } break;
+                case 2: if (part_sel >= NDRUM) { part_prm[part_sel][1] = v; dirty = 1; } break;
+                case 5: if (part_sel >= NDRUM) { part_prm[part_sel][2] = (uint8_t)(v >> 1); dirty = 1; } break;
+                case 7: if (part_sel >= NDRUM) { part_prm[part_sel][3] = v; dirty = 1; } break;
+                case 91: fx_mode = (uint8_t)((v * 4) / 128); if (fx_mode > 3) fx_mode = 3; dirty = 1; break;
+                case 92: drum_kit = (uint8_t)((v * N_DRUM_KITS) / 128); if (drum_kit >= N_DRUM_KITS) drum_kit = N_DRUM_KITS-1; dirty = 1; break;
+                case 93: {
+                    uint8_t ps = (uint8_t)((v * N_PATCHES) / 128); if (ps >= N_PATCHES) ps = N_PATCHES-1;
+                    patch_sel = ps;
+                    for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM[patch_sel][i][q];
+                    dirty = 1; break;
+                }
+                default: break;
+            }
+        } else if (midi_st == 0xFAu) { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; dirty = 1; }
+        else if (midi_st == 0xFB || midi_st == 0xFC) { run = 0; step_cur = 0; dirty = 1; }
+    }
 
     seq_tick();
 
