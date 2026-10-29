@@ -2,7 +2,7 @@
 """Hybrid wavetable extractor: Absynth banks + Linn + generic EPROM scans."""
 import os, struct, sys, zipfile, math
 
-NTABLES = 128
+NTABLES = 160
 WT_SIZE = 2048
 HDR = 48
 
@@ -36,6 +36,28 @@ def extract_linn(path):
         chunk = chunk + b"\x00"*(WT_SIZE-len(chunk))
         pcm = tuple((u - 128) * 256 for u in chunk)
         out.append(("Linn 9000", "%s %d" % (base, i), pcm))
+    return out
+
+def extract_wav_single(directory, limit=32):
+    import wave, os
+    out=[]
+    tried=0
+    for fn in sorted(os.listdir(directory)):
+        if len(out)>=limit: break
+        if not (fn.lower().endswith(".wav")): continue
+        path=os.path.join(directory,fn)
+        try:
+            w=wave.open(path)
+            if w.getnchannels()!=1: w.close(); continue
+            n=w.getnframes();
+            if n<WT_SIZE:
+                w.close()
+                continue
+            fr=w.readframes(WT_SIZE); w.close()
+            pcm=struct.unpack("<%dh"%WT_SIZE,fr)
+            out.append(("FunkBox wav", fn[:-4][:28], tuple(pcm)))
+        except Exception:
+            continue
     return out
 
 def extract_generic(path, limit=8):
@@ -119,7 +141,14 @@ def main():
             except OSError:
                 continue
 
-    # 3. Generic EPROM scan
+    # 3. FunkBox single-cycle extracts
+    fb_dir="/tmp/ipa_funkbox/Payload/FunkBox Drum Machine.app"
+    if os.path.isdir(fb_dir) and len(waves) < NTABLES:
+        for bank,name,pcm in extract_wav_single(fb_dir, limit=32):
+            if len(waves) >= NTABLES: break
+            waves.append((bank,name,pcm))
+
+    # 4. Generic EPROM scan
     for rf in rom_files:
         if len(waves) >= NTABLES: break
         if not os.path.exists(rf): continue

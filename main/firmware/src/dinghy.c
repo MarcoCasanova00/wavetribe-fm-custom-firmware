@@ -246,7 +246,7 @@ static void app_audio(int32_t *out, uint32_t n)
         case EV_NOTEON:
             if (e.p >= NDRUM) {
                 uint32_t pr = e.p - NDRUM, ratio = 65536 + (uint32_t)part_prm[pr][1] * 512u;
-                uint8_t wv = (uint8_t)(((part_prm[pr][0] * WT_COUNT) / 128u) % WT_COUNT);
+                uint8_t wv = (uint8_t)(((WT_COUNT <= 1) ? 0 : (uint32_t)part_prm[pr][0] * (WT_COUNT - 1u) / 127u));
                 sv_trigger(e.note, e.vel, ratio, part_prm[pr][2] + 1u, wv);
                 if (midi_out) midi_send(0x90u + (uint8_t)pr, e.note, (uint32_t)(e.vel < 127 ? e.vel : 127));
             }
