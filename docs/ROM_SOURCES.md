@@ -18,6 +18,12 @@ archives (DBWBP.com) and processed for sound extraction.
 | **Yamaha TG77** | Japanese/FM | 8 | PCM ROM portion, digital artifacts |
 | **Prophet VS** | US/Vector | 8 | Wave ROM, wavetable-friendly content |
 
+> **Caveat on mined waves:** most EPROM dumps are *firmware code*, not audio
+> samples. The `mine_eprom.py` tool extracts statistically wave-like regions; these
+> are experimental wavetables (indices 256–319) with a harsh, digital character and
+> are **not** selected by default. Verified, musical sources are the factory
+> wavetables (indices 0–255) and the six WAV-derived drum kits.
+
 ### Downloaded but not mined (small firmware-only ROMs, 0 waves extracted)
 - **Jen Synx 508** (3.7KB) — Italian poly, firmware ROM only
 - **AAC Tiracon 6V** (7.3KB) — German digital, firmware/OS ROM only
@@ -28,11 +34,11 @@ archives (DBWBP.com) and processed for sound extraction.
 
 ## Obscure drum machines
 
-### Extracted (in `epl_drum.h`, 2 new kits)
-| Source | Kit name | Samples | Origin |
-|--------|----------|---------|--------|
-| Emu Drumulator (Rock Drums) | **ROCK** | 5 sounds | US/sample-based |
-| Emu Drumulator (Alt kit) | **ALT** | 5 sounds | US/Stock Set + Jazz |
+### Extracted
+| Source | Result | Notes |
+|--------|--------|-------|
+| Emu Drumulator (Rock + Alt sets) | ❌ Removed | The archive is **u-Law encoded**, not linear PCM; decoding as PCM produced heavy DC bias (clicks/noise). These kits were dropped to keep audio clean. |
+| Linn 9000 raw EPROMs | ❌ Removed | Raw 8-bit bins mis-decoded (DC-biased); dropped for the same reason. |
 
 ### Downloaded but not yet processed
 - **MXR 185 Drum Computer** — CONTROL 10 + CONTROL 11 BOOT ROM (mechanical rhythm data)

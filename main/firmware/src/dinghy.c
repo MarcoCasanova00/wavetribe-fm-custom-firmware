@@ -31,20 +31,19 @@ static void app_idle(void);
 
 #include "factory_catalog.h"      /* the authentic factory preset names/authors/genres */
 #include "factory_drum_kits.h"    /* kit bank: APP + 909; see import_drum_kits.py */
-#include "epl_drum.h"             /* 2 extra kits: ROCK (Emu Drumulator), ALT (Stock Set) */
 #include "factory_wavetables.h"   /* imported single-cycle waves (import_wavetables.py) */
 #include "mined_roms.h"           /* EPROM-mined waves from rare synth dumps */
 #define TOTAL_WT_COUNT (WT_COUNT + MWT_COUNT)   /* combined wavetable pool */
-#define TOTAL_DRUMS (N_DRUM_KITS + N_EPL_KITS)  /* combined drum kit count */
+#define TOTAL_DRUMS N_DRUM_KITS                 /* verified factory kits only */
 static const char *drum_kit_name(uint8_t k) {
-    return (k < N_DRUM_KITS) ? DRUM_KIT_NAMES[k] : EPL_KIT_NAMES[k - N_DRUM_KITS];
+    return DRUM_KIT_NAMES[k];
 }
 static drum_smp_t drum_kit_smp(uint8_t k, uint8_t d) {
-    return (k < N_DRUM_KITS) ? DRUM_BANKS[k][d] : (drum_smp_t){ EPL_KITS[(k - N_DRUM_KITS) * NDRUM + d].n, EPL_KITS[(k - N_DRUM_KITS) * NDRUM + d].p };
+    return DRUM_BANKS[k][d];
 }
 /* instrument category tags for UI distinction */
 static const char *drum_kit_cat(uint8_t k) {
-    return (k < N_DRUM_KITS) ? "FACTORY" : "EPROM-MINED";
+    (void)k; return "FACTORY";
 }
 static const char *wt_category(uint16_t w) {
     if (w < WT_COUNT) return "FACTORY";
@@ -202,7 +201,7 @@ static uint32_t fx_w;
 #define FX_MASK 8191u
 static int16_t lfo_phase;
 
-static void sv_trigger(uint8_t note, uint8_t vel, uint32_t ratio, uint32_t mod, uint8_t wave)
+static void sv_trigger(uint8_t note, uint8_t vel, uint32_t ratio, uint32_t mod, uint16_t wave)
 {
     uint32_t pick = 0, best = 0xFFFFFFFFu, v;
     if (note > 127u || !vel) return;
@@ -268,7 +267,7 @@ static void app_audio(int32_t *out, uint32_t n)
         case EV_NOTEON:
             if (e.p >= NDRUM) {
                 uint32_t pr = e.p - NDRUM, ratio = 65536 + (uint32_t)part_prm[pr][1] * 512u;
-                uint8_t wv = (uint8_t)(((TOTAL_WT_COUNT <= 1) ? 0 : (uint32_t)part_prm[pr][0] * (TOTAL_WT_COUNT - 1u) / 127u));
+                uint16_t wv = (uint16_t)(((TOTAL_WT_COUNT <= 1) ? 0 : (uint32_t)part_prm[pr][0] * (TOTAL_WT_COUNT - 1u) / 127u));
                 sv_trigger(e.note, e.vel, ratio, part_prm[pr][2] + 1u, wv);
                 if (midi_out) midi_send(0x90u + (uint8_t)pr, e.note, (uint32_t)(e.vel < 127 ? e.vel : 127));
             }
