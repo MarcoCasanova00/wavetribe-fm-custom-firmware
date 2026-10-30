@@ -247,7 +247,29 @@ void fm_note_off(uint8_t voice, uint8_t note);
 void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames);
 void fm_load_patch(uint8_t voice, const fm_patch_t *patch);
 
-/* forward declarations used by app_audio before their later definitions */
+/* TX81Z patch loading (bank 3) */
+static void fm_load_tx81z_patch(uint8_t patch_ix)
+{
+    if (patch_ix >= FM_PATCH_TX81Z_COUNT) return;
+    fm_patch_t p;
+    uint8_t o;
+    p.alg = PATCH_TX81Z_ALG[patch_ix];
+    p.fb = PATCH_TX81Z_FB[patch_ix];
+    for (o = 0; o < FM_OPS_PER_VOICE; o++) {
+        p.ar[o] = PATCH_TX81Z_AR[patch_ix][o];
+        p.dr[o] = PATCH_TX81Z_DR[patch_ix][o];
+        p.sr[o] = PATCH_TX81Z_SR[patch_ix][o];
+        p.rr[o] = PATCH_TX81Z_RR[patch_ix][o];
+        p.sl[o] = PATCH_TX81Z_SL[patch_ix][o];
+        p.tl[o] = PATCH_TX81Z_TL[patch_ix][o];
+        p.coarse[o] = PATCH_TX81Z_COARSE[patch_ix][o];
+        p.fine[o] = PATCH_TX81Z_FINE[patch_ix][o];
+        p.detune[o] = PATCH_TX81Z_DETUNE[patch_ix][o];
+    }
+    /* Apply to all FM voices */
+    for (o = 0; o < FM_OPS_PER_VOICE; o++)
+        fm_load_patch(o, &p);
+}
 static uint8_t run, bpm;
 
 /* --- the event queue between the main loop and the audio ISR --- */
@@ -780,9 +802,13 @@ static void app_tick(void)
                 case 91: fx_mode = (uint8_t)((v * 4) / 128); if (fx_mode > 3) fx_mode = 3; dirty = 1; break;
                 case 92: drum_kit = (uint8_t)((v * TOTAL_DRUMS) / 128); if (drum_kit >= TOTAL_DRUMS) drum_kit = TOTAL_DRUMS-1; dirty = 1; break;
                 case 93: {
-                    uint8_t ps = (uint8_t)((v * 13) / 128); if (ps >= 13) ps = 12;
-                    patch_ix = ps; patchbank = 0;
-                    for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[0][patch_ix][i][q];
+                    uint8_t ps = (uint8_t)((v * PATCHBANK_COUNT[patchbank]) / 128); if (ps >= PATCHBANK_COUNT[patchbank]) ps = PATCHBANK_COUNT[patchbank] - 1;
+                    patch_ix = ps;
+                    if (patchbank == 3) {
+                        fm_load_tx81z_patch(patch_ix);
+                    } else {
+                        for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
+                    }
                     dirty = 1; break;
                 }
                 default: break;
@@ -832,7 +858,11 @@ static void app_tick(void)
             patchbank = (uint8_t)((patchbank + 1u) % N_PATCHBANKS);
             patch_ix = 0;
             dx7bank_sel = (patchbank == 1u);
-            for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
+            if (patchbank == 3) {
+                fm_load_tx81z_patch(0);
+            } else {
+                for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
+            }
             dirty = 1;
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
@@ -859,9 +889,13 @@ static void app_tick(void)
                     if (c < 0) c = (int32_t)count - 1;
                     if (c >= (int32_t)count) c = 0;
                     patch_ix = (uint8_t)c;
-                    for (i = 0u; i < 3u; i++)
-                        for (q = 0u; q < 4u; q++)
-                            part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
+                    if (patchbank == 3) {
+                        fm_load_tx81z_patch(patch_ix);
+                    } else {
+                        for (i = 0u; i < 3u; i++)
+                            for (q = 0u; q < 4u; q++)
+                                part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
+                    }
                 } else {
                     int32_t c = (int32_t)pat_sel + e;
                     if (c < 0) c = N_CATALOG - 1;

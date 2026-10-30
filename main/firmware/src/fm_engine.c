@@ -203,6 +203,8 @@ void fm_init(void)
     }
 }
 
+uint32_t env_rate_to_inc(uint8_t rate);
+
 void fm_load_patch(uint8_t voice, const fm_patch_t *patch)
 {
     uint8_t o;
@@ -210,10 +212,15 @@ void fm_load_patch(uint8_t voice, const fm_patch_t *patch)
     fm_voices[voice].algorithm = patch->alg & 7;
     for (o = 0; o < FM_OPS_PER_VOICE; o++) {
         fm_op_t *op = &fm_voices[voice].ops[o];
-        op->freq_base = patch->coarse ? patch->coarse * 128 : 0;
-        op->detune = patch->detune * 8;
-        op->mod_index = 64;  /* default (patched on note-on) */
+        op->freq_base = patch->coarse[o] ? patch->coarse[o] * 128 : 0;
+        op->detune = patch->detune[o] * 8;
+        op->mod_index = patch->tl[o];  /* use total level as mod index base */
         op->feedback = patch->fb & 7;
+        /* Store envelope rates for use in fm_process */
+        op->env_inc_attack = env_rate_to_inc(patch->ar[o]);
+        op->env_inc_decay = env_rate_to_inc(patch->dr[o]);
+        op->env_inc_release = env_rate_to_inc(patch->rr[o]);
+        op->sustain_level = patch->sl[o];
     }
 }
 
@@ -307,17 +314,17 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                     mod_in += (op->last_output * (int32_t)op->feedback) >> 8;
                 /* envelope */
                 if (op->env_state == 1) {
-                    op->env_level += (int32_t)env_rate_to_inc(99) * 2;
+                    op->env_level += (int32_t)op->env_inc_attack * 2;
                     if (op->env_level >= 32767) op->env_level = 32767;
                     if (op->env_level >= 32767) { op->env_state = 2; }
                 } else if (op->env_state == 2) {
-                    op->env_level -= (int32_t)env_rate_to_inc(60) / 2;
+                    op->env_level -= (int32_t)op->env_inc_decay / 2;
                     if (op->env_level <= (int32_t)(32767 * 30 / 100)) op->env_state = 3;
                 } else if (op->env_state == 3) {
-                    op->env_level -= (int32_t)env_rate_to_inc(80) / 4;
+                    op->env_level -= (int32_t)op->env_inc_decay / 4;
                     if (op->env_level <= 0) { op->env_level = 0; op->env_state = 0; }
                 } else if (op->env_state == 4) {
-                    op->env_level -= (int32_t)env_rate_to_inc(70) / 4;
+                    op->env_level -= (int32_t)op->env_inc_release / 4;
                     if (op->env_level <= 0) { op->env_level = 0; op->env_state = 0; op->active = 0; }
                 }
                 /* phase modulation */

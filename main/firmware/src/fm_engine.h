@@ -97,27 +97,27 @@ typedef struct {
 } fm_voice_t;
 
 typedef struct {
-    /* Envelope rates (0-99) */
-    uint8_t ar;     /* Attack Rate */
-    uint8_t dr;     /* Decay Rate */
-    uint8_t sr;     /* Sustain Rate */
-    uint8_t rr;     /* Release Rate */
-    uint8_t sl;     /* Sustain Level (0-99) */
-    uint8_t tl;     /* Total Level (0-99) */
+    /* Envelope rates (0-99) per operator */
+    uint8_t ar[4];     /* Attack Rate */
+    uint8_t dr[4];     /* Decay Rate */
+    uint8_t sr[4];     /* Sustain Rate */
+    uint8_t rr[4];     /* Release Rate */
+    uint8_t sl[4];     /* Sustain Level (0-99) */
+    uint8_t tl[4];     /* Total Level (0-99) */
     
-    /* Frequency */
-    int16_t coarse;     /* coarse tune (0-31) */
-    int16_t fine;       /* fine tune (0-99) */
-    int16_t detune;     /* detune (-7..+7) */
+    /* Frequency per operator */
+    int16_t coarse[4];     /* coarse tune (0-31) */
+    int16_t fine[4];       /* fine tune (0-99) */
+    int16_t detune[4];     /* detune (-7..+7) */
     
-    /* Modulation */
-    uint8_t am;         /* AM enable */
-    uint8_t vib;        /* Vibrato enable */
-    uint8_t eg_bias;    /* EG Bias */
-    uint8_t ks;         /* Key Scale */
-    uint8_t ars;        /* Attack Rate Scaling */
-    uint8_t ams;        /* AM Sensitivity */
-    uint8_t fms;        /* FM Sensitivity */
+    /* Modulation per operator */
+    uint8_t am[4];         /* AM enable */
+    uint8_t vib[4];        /* Vibrato enable */
+    uint8_t eg_bias[4];    /* EG Bias */
+    uint8_t ks[4];         /* Key Scale */
+    uint8_t ars[4];        /* Attack Rate Scaling */
+    uint8_t ams[4];        /* AM Sensitivity */
+    uint8_t fms[4];        /* FM Sensitivity */
     
     /* Feedback */
     uint8_t fb;         /* Feedback (0-7) */
