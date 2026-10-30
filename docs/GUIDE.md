@@ -32,6 +32,12 @@ and mixes in a palette of oscillator modes. This guide covers the whole system.
 **Encoders / knobs:** SELECT = part, ALGORITHM = loop length, PRESETS = browse,
 KNOB1–4 = contextual (per page).
 
+The skin is the **Frankentribe lab look**: a bolt-yellow → slime-green header
+band, a colored page banner + accent rail per page (FX yellow, WAVE blue,
+LFO green, ENV flesh, HOME orange, SAVE yellow, SOUNDS blue, ARP green,
+COMPOSE red, EUCLID orange), color-coded part rows, and a status pill in the
+footer.
+
 ---
 
 ## 2. Transport & tempo

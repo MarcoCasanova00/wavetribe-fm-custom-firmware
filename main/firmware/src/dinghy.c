@@ -158,6 +158,60 @@ static void cv_text_wrap(int32_t x, int32_t y, int32_t maxw,
 #define UI_HI     C_HI                    /* brightest: selection, playhead */
 #define UI_MUTE   C_MUTE
 
+/* ================= Parappa-style paint =================
+ * A loud, friendly, multi-colour skin: deep ink canvas, paper white text,
+ * and a handful of saturated accents (yellow / red / blue / green /
+ * pink / orange).  Drawn with the same primitives, no extra memory. */
+#define PP_INK    RGB(20, 14, 38)     /* deep ink purple canvas */
+#define PP_PANEL  RGB(38, 30, 62)     /* raised panel fill */
+#define PP_W      RGB(255, 252, 235)  /* paper white */
+#define PP_Y      RGB(255, 228, 70)   /* yellow */
+#define PP_R      RGB(255, 74, 58)    /* red */
+#define PP_F      RGB(66, 168, 255)   /* blue */
+#define PP_G      RGB(86, 220, 118)   /* green */
+#define PP_FS     RGB(255, 168, 128)  /* flesh */
+#define PP_O      RGB(255, 150, 50)   /* orange */
+#define PP_SKIN   RGB(120, 220, 96)   /* frank face skin */
+
+/* vertical gradient fill (cheap integer blend, 256 steps) */
+static void cv_grad_v(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t top, uint16_t bot)
+{
+    int32_t r;
+    if (h <= 0) return;
+    for (r = 0; r < h; r++) {
+        uint32_t f = ((uint32_t)r * 256u) / (uint32_t)h, uf = 256u - f;
+        uint16_t c = (uint16_t)(
+            ((((top >> 11) * uf + (bot >> 11) * f) >> 8) << 11) |
+            (((((top >> 5) & 63u) * uf + ((bot >> 5) & 63u) * f) >> 8) << 5) |
+            ((((top & 31u) * uf + (bot & 31u) * f) >> 8)));
+        cv_rect(x, y + r, w, 1, c);
+    }
+}
+
+/* outlined panel with a top shine line */
+static void pp_panel(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t fill, uint16_t line)
+{
+    cv_rect(x, y, w, h, fill);
+    cv_rect(x, y, w, 1, line);
+    cv_rect(x, y + h - 1, w, 1, line);
+    cv_rect(x, y, 1, h, line);
+    cv_rect(x + w - 1, y, 1, h, line);
+}
+
+/* page title: gradient band + thick accent rule (Parappa-style header) */
+static void pp_title(const char *t, uint16_t acc)
+{
+    int32_t r;
+    cv_grad_v(0, 0, 240, 18, acc, PP_INK);
+    cv_text(4, 3, &FONT_S, t, PP_INK);
+    cv_rect(0, 18, 240, 3, acc);
+    cv_rect(0, 21, 240, 1, C_LINE);
+    /* left accent rail down the page body, with a lighter inner tick */
+    cv_rect(0, 24, 3, 164, acc);
+    for (r = 24; r < 188; r += 8)
+        cv_rect(3, r, 1, 3, C_LINE);
+}
+
 
 /* a clear, scalable Frankenstein-head glyph drawn with primitives */
 static void draw_franken(uint32_t x, uint32_t y, uint32_t w, uint32_t h)
@@ -165,23 +219,23 @@ static void draw_franken(uint32_t x, uint32_t y, uint32_t w, uint32_t h)
     int32_t hx = (int32_t)x, hy = (int32_t)y, hw = (int32_t)w, hh = (int32_t)h;
     int32_t bw = hw / 4, bh = hh / 5, ey = hy + hh * 2 / 5;
     /* head body: flat top, an arch of the jaw */
-    cv_rect(hx + 1, hy, hw - 2, hh - 1, UI_PANEL);
+    cv_rect(hx + 1, hy, hw - 2, hh - 1, PP_SKIN);
     /* outline */
-    cv_rect(hx + 1, hy, hw - 2, 1, UI_LABEL);
-    cv_rect(hx, hy + 1, 1, hh - 2, UI_LABEL);
-    cv_rect(hx + hw - 1, hy + 1, 1, hh - 2, UI_LABEL);
+    cv_rect(hx + 1, hy, hw - 2, 1, PP_INK);
+    cv_rect(hx, hy + 1, 1, hh - 2, PP_INK);
+    cv_rect(hx + hw - 1, hy + 1, 1, hh - 2, PP_INK);
     /* the two bolts on the jaw */
-    cv_rect(hx - 1, hy + hh * 3 / 5, 3, 3, UI_LABEL);
-    cv_rect(hx + hw - 2, hy + hh * 3 / 5, 3, 3, UI_LABEL);
+    cv_rect(hx - 1, hy + hh * 3 / 5, 3, 3, PP_Y);
+    cv_rect(hx + hw - 2, hy + hh * 3 / 5, 3, 3, PP_Y);
     /* brow stitches above the eyes */
-    cv_rect(hx + hw / 4, hy + hh / 5, 1, hh / 6, UI_LABEL);
-    cv_rect(hx + hw * 3 / 4 - 1, hy + hh / 5, 1, hh / 6, UI_LABEL);
+    cv_rect(hx + hw / 4, hy + hh / 5, 1, hh / 6, PP_INK);
+    cv_rect(hx + hw * 3 / 4 - 1, hy + hh / 5, 1, hh / 6, PP_INK);
     /* eyes: two bright blocks */
-    cv_rect(hx + hw / 4, ey, bw, bh, UI_HI);
-    cv_rect(hx + hw * 3 / 4 - bw, ey, bw, bh, UI_HI);
+    cv_rect(hx + hw / 4, ey, bw, bh, PP_W);
+    cv_rect(hx + hw * 3 / 4 - bw, ey, bw, bh, PP_W);
     /* the scar / mouth */
-    cv_rect(hx + hw / 3, hy + hh * 4 / 5, hw / 3, hh / 12, UI_LABEL);
-    cv_rect(hx + hw / 2 - 1, hy + hh * 4 / 5, 1, hh / 6, UI_LABEL);
+    cv_rect(hx + hw / 3, hy + hh * 4 / 5, hw / 3, hh / 12, PP_INK);
+    cv_rect(hx + hw / 2 - 1, hy + hh * 4 / 5, 1, hh / 6, PP_INK);
 }
 
 /* part names (8 = 5 drums + 3 tonal) */
@@ -1196,15 +1250,19 @@ static void draw_header(uint32_t playing)
     uint32_t i, k = 0;
     const char *nm, *g;
     int32_t tx;
-    cv_begin(240, 34, C_BG);
-    /* line 1: face badge + brand (left), tempo (right) */
-    draw_franken(3, 3, 15, 18);
-    cv_text(23, 1, &FONT_S, "FRANKENTRIBE OS", UI_HI);
+    cv_begin(240, 34, PP_INK);
+    /* top banner strip: bolt-yellow -> slime-green (mad-lab console) */
+    cv_grad_v(0, 0, 240, 12, PP_Y, PP_G);
+    /* face badge (left) + brand on the strip */
+    draw_franken(3, 2, 15, 18);
+    cv_text(23, 1, &FONT_S, "FRANKENTRIBE OS", PP_INK);
+    /* tempo pill (right) */
     {
         char *p = ap(s, "");
         p = apu(p, bpm);
         p = ap(p, "BPM");
-        cv_text(188, 1, &FONT_S, s, playing ? UI_HI : UI_LABEL);
+        pp_panel(184, 1, 52, 10, playing ? PP_W : PP_PANEL, PP_INK);
+        cv_text(188, 2, &FONT_S, s, playing ? PP_INK : PP_W);
     }
     /* line 2: pattern name + genre, centred and clamped to the width */
     i = pat_sel < N_CATALOG ? pat_sel : N_CATALOG - 1u;
@@ -1218,20 +1276,29 @@ static void draw_header(uint32_t playing)
     if (tx < 0) tx = 0;
     cv_text((uint32_t)tx, 18, &FONT_S, s, UI_AMB);
     /* separator rule */
-    cv_rect(0, 33, 240, 1, UI_PANEL);
+    cv_rect(0, 33, 240, 1, PP_PANEL);
+    cv_rect(0, 32, 240, 1, PP_Y);
     cv_blit(0, 0);
 }
 
 static void draw_parts(void)
 {
     uint32_t p, s, x, y, w, h, cw = 11, labw = 52, top = 34, rh = 20;
-    cv_begin(240, 8u * rh, UI_BG);
+    static const uint16_t PC[8] = { PP_R, PP_O, PP_Y, PP_FS, PP_O, PP_F, PP_G, PP_FS };
+    cv_begin(240, 8u * rh, PP_INK);
     for (p = 0; p < NPART; p++) {
         uint32_t y0 = p * rh, sel = (p == part_sel), mut = mute[p];
+        uint16_t pc = PC[p];
         /* label cell: mute mark, accent bar, then the part name */
         if (mut) cv_text(1, y0 + 2, &FONT_S, "M", UI_MUTE);
-        if (sel && !mut) cv_rect(2, y0 + 3, 3, rh - 6, UI_HI);
-        cv_text(mut ? 12 : 8, y0 + 2, &FONT_S, PNAME[p], sel ? UI_HI : UI_LABEL);
+        if (sel) {
+            cv_rect(2, y0 + 2, 48, rh - 4, pc);
+            cv_text(6, y0 + 2, &FONT_S, PNAME[p], PP_INK);
+            cv_rect(50, y0 + 2, 2, rh - 4, PP_W);
+        } else {
+            cv_rect(2, y0 + 2, 3, rh - 4, pc);
+            cv_text(mut ? 12 : 8, y0 + 2, &FONT_S, PNAME[p], mut ? UI_MUTE : pc);
+        }
         /* step cells: 16 columns of the visible page */
         for (s = 0; s < 16u; s++) {
             uint32_t st = (step_cur / 16u) * 16u + s;
@@ -1239,11 +1306,12 @@ static void draw_parts(void)
             uint32_t cur = (s == step_cur % 16u);
             x = labw + s * cw; y = y0 + 2;
             w = cw - 2; h = rh - 5;
-            if (mut) { cv_rect(x, y, w, h, UI_DIM); continue; }
+            if (mut) { cv_rect(x, y, w, h, PP_PANEL); continue; }
             if (lit)
-                cv_rect(x, y, w, h, cur ? UI_HI : UI_AMB);
+                cv_rect(x, y, w, h, cur ? PP_W : pc);
             else
-                cv_rect(x, y, w, h, cur ? UI_HI : UI_PANEL);
+                cv_rect(x, y, w, h, PP_PANEL);
+            if (cur) cv_rect(x, y, w, 1, PP_W);
         }
     }
     cv_blit(0, top);
@@ -1255,8 +1323,9 @@ static void draw_footer(uint32_t playing)
     char *p = s;
     uint32_t q;
     /* status-bar rule */
-    cv_begin(240, 2, C_BG);
-    cv_rect(0, 1, 240, 1, UI_PANEL);
+    cv_begin(240, 2, PP_INK);
+    cv_rect(0, 0, 240, 1, PP_PANEL);
+    cv_rect(0, 1, 240, 1, PP_Y);
     cv_blit(0, 208);
     if (write_arm) {
         p = ap(p, "REC "); p = ap(p, PNAME[part_sel]); p = ap(p, " keys:steps");
@@ -1280,16 +1349,22 @@ static void draw_footer(uint32_t playing)
         *p = 0;
     }
     fit_text(s, 232);
-    draw_text_box(2, 210, 236, &FONT_S, s,
-                  (write_arm || glomode) ? UI_HI : (playing ? UI_AMB : UI_LABEL), 0);
+    cv_begin(236, 10, PP_PANEL);
+    cv_rect(0, 0, 236, 1, PP_INK);
+    cv_rect(0, 9, 236, 1, PP_INK);
+    cv_rect(0, 0, 1, 10, PP_INK);
+    cv_rect(235, 0, 1, 10, PP_INK);
+    cv_rect(0, 0, 4, 10, (write_arm || glomode) ? PP_R : (playing ? PP_G : PP_PANEL));
+    cv_text(8, 1, &FONT_S, s,
+            (write_arm || glomode) ? PP_W : (playing ? PP_W : C_GRAY));
+    cv_blit(2, 210);
 }
 
 static void draw_fx_page(void)
 {
     char s[48]; char *p = s;
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "FX", UI_HI);
-    cv_rect(0, 18, 240, 1, UI_PANEL);
+    cv_begin(240, 206, PP_INK);
+    pp_title("FX", PP_Y);
     p = ap(s, "FX mode: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO","STUT"}[fx_mode]);
     cv_text(4, 24, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "MIDI OUT: "); p = ap(p, midi_out ? "ON" : "OFF");
@@ -1304,9 +1379,8 @@ static void draw_fx_page(void)
 static void draw_wave_page(void)
 {
     char s[48]; char *p = s;
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "WAVES / PATCH", UI_HI);
-    cv_rect(0, 18, 240, 1, UI_PANEL);
+    cv_begin(240, 206, PP_INK);
+    pp_title("WAVES / PATCH", PP_F);
     if (part_sel < NDRUM) {
         p = ap(s, "Part "); p = apu(p, part_sel); p = ap(p, "  kit "); p = ap(p, drum_kit_name(drum_kit));
         p = ap(p, " ["); p = ap(p, drum_kit_cat(drum_kit)); p = ap(p, "]");
@@ -1345,9 +1419,8 @@ static void draw_wave_page(void)
 static void draw_sounds_page(void)
 {
     char s[48]; char *p = s;
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "SOUNDS", UI_HI);
-    cv_rect(0, 18, 240, 1, UI_PANEL);
+    cv_begin(240, 206, PP_INK);
+    pp_title("SOUNDS", PP_F);
     /* category (bank) */
     p = s; p = ap(p, "Cat "); p = ap(p, PATCHBANK_NAME[patchbank]);
     p = ap(p, "  "); p = apu(p, patchbank + 1); p = ap(p, "/"); p = apu(p, N_PATCHBANKS);
@@ -1401,8 +1474,8 @@ static int32_t lfo_sample(uint8_t w, uint32_t ph)
 static void draw_wave_plot(int32_t x, int32_t y, int32_t w, int32_t h, uint8_t wave)
 {
     int32_t px, lx = -1, ly = 0;
-    cv_rect(x - 1, y - 1, w + 2, h + 2, C_LINE);
-    cv_rect(x, y + h / 2, w, 1, C_DIM);            /* centre axis */
+    cv_rect(x - 1, y - 1, w + 2, h + 2, PP_PANEL);
+    cv_rect(x, y + h / 2, w, 1, PP_Y);            /* centre axis */
     for (px = 0; px < w; px++) {
         uint32_t ph = (uint32_t)(((uint64_t)px * 0x100000000ull) / (uint32_t)w);
         int32_t v = lfo_sample(wave, ph);
@@ -1423,8 +1496,8 @@ static void draw_env_plot(int32_t x, int32_t y, int32_t w, int32_t h, const fm_p
     int32_t x1, x2, x3;
     if (rw < 0) rw = 0;
     x1 = x + aw; x2 = x1 + dw; x3 = x2 + sw;
-    cv_rect(x - 1, y - 1, w + 2, h + 2, C_LINE);
-    cv_rect(x, base, w, 1, C_DIM);                 /* baseline */
+    cv_rect(x - 1, y - 1, w + 2, h + 2, PP_PANEL);
+    cv_rect(x, base, w, 1, PP_Y);                 /* baseline */
     cv_line(x, base, x1, top, C_HI);               /* attack */
     cv_line(x1, top, x2, susY, C_HI);              /* decay */
     cv_line(x2, susY, x3, susY, C_HI);             /* sustain */
@@ -1456,9 +1529,8 @@ static void draw_lfo_page(void)
 {
     char s[48]; char *p = s;
     fm_patch_t pp;
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "LFO / MODULATION", UI_HI);
-    page_rule(18);
+    cv_begin(240, 206, PP_INK);
+    pp_title("LFO / MODULATION", PP_G);
     abuse_mascot_draw(214, 20, C_HI);
     if (part_sel < NDRUM) {
         cv_text(4, 24, &FONT_S, "drum part - no LFO", UI_AMB);
@@ -1485,9 +1557,8 @@ static void draw_env_page(void)
 {
     char s[48]; char *p = s;
     fm_patch_t pp;
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "ENVELOPE / VCA", UI_HI);
-    page_rule(18);
+    cv_begin(240, 206, PP_INK);
+    pp_title("ENVELOPE / VCA", PP_FS);
     abuse_mascot_draw(214, 20, C_HI);
     if (part_sel < NDRUM) {
         cv_text(4, 24, &FONT_S, "drum part - no envelope", UI_AMB);
@@ -1510,9 +1581,8 @@ static void draw_env_page(void)
 static void draw_sys_page(void)
 {
     char s[48]; char *p = s;
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "HOME", UI_HI);
-    page_rule(18);
+    cv_begin(240, 206, PP_INK);
+    pp_title("HOME", PP_O);
     p = s; p = ap(p, "Colour: "); p = ap(p, fm_palette_name(pal_idx));
     fit_text(s, 232);
     cv_text(4, 24, &FONT_S, s, UI_HI);
@@ -1553,9 +1623,8 @@ static void draw_arp_page(void)
     char s[48]; char *p = s;
     uint8_t r = arp_rate[part_sel], ridx = r == 1 ? 0u : (r == 2 ? 1u : 2u);
     static const char *const RL[3] = { "x1", "x2", "x4" };
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "ARPEGGIATOR", UI_HI);
-    cv_rect(0, 18, 240, 1, UI_PANEL);
+    cv_begin(240, 206, PP_INK);
+    pp_title("ARPEGGIATOR", PP_G);
     p = s; p = ap(p, PNAME[part_sel]); p = ap(p, ": "); p = ap(p, arp_on[part_sel] ? "ON" : "OFF");
     fit_text(s, 232);
     cv_text(4, 24, &FONT_S, s, UI_AMB);
@@ -1578,9 +1647,8 @@ static void draw_compose_page(void)
 {
     char s[48]; char *p = s;
     static const char *const OCTLAB[3] = { "LO", "MID", "HI" };
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "COMPOSE", UI_HI);
-    cv_rect(0, 18, 240, 1, UI_PANEL);
+    cv_begin(240, 206, PP_INK);
+    pp_title("COMPOSE", PP_R);
     p = s; p = ap(p, "Genre: "); p = ap(p, genre_name(gen_genre));
     fit_text(s, 232);
     cv_text(4, 24, &FONT_S, s, UI_AMB);
@@ -1608,9 +1676,8 @@ static void draw_compose_page(void)
 static void draw_euclid_page(void)
 {
     char s[48]; char *p = s;
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "EUCLID RHYTHM", UI_HI);
-    cv_rect(0, 18, 240, 1, UI_PANEL);
+    cv_begin(240, 206, PP_INK);
+    pp_title("EUCLID RHYTHM", PP_O);
     p = s; p = ap(p, PNAME[part_sel]); p = ap(p, " | steps "); p = apu(p, eu_steps);
     fit_text(s, 232);
     cv_text(4, 24, &FONT_S, s, UI_AMB);
@@ -1628,9 +1695,8 @@ static void draw_save_page(void)
 {
     char s[48]; char *p = s;
     static const char *const ACT[3] = { "LOAD", "SAVE", "CLEAR" };
-    cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "SAVE / SOUNDS", UI_HI);
-    page_rule(18);
+    cv_begin(240, 206, PP_INK);
+    pp_title("SAVE / SOUNDS", PP_Y);
     p = s; p = ap(p, "Slot: "); p = apu(p, slot_sel + 1); p = ap(p, "/"); p = apu(p, NSLOT);
     p = ap(p, slot_in_use(slot_sel) ? "   [USED]" : "   [empty]");
     fit_text(s, 232);
