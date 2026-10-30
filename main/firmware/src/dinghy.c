@@ -782,6 +782,148 @@ static void pattern_load(uint8_t i)
         }
 }
 
+/* ================= generative genre engine ================= */
+/* A seeded rule-based generator: each genre profile describes a tonic, a scale,
+ * a chord progression and 16-step bass/lead grids.  genre_generate() fills the
+ * three synth rows (bass/chord/lead parts 5-7) and loads the lead part's arp
+ * bank, so the arpeggiator plays the generated harmony for free.  Same seed =>
+ * same pattern (deterministic, testable). */
+#define N_GENRE 5u
+#define GEN_BASS  5u    /* part index: bass row */
+#define GEN_LEAD  6u    /* part index: lead row (also feeds the arp bank) */
+#define GEN_CHORD 7u    /* part index: chord/pad row */
+
+static uint8_t gen_genre;     /* current genre (0..N_GENRE-1) */
+static uint8_t gen_seed;      /* variation seed (0..255) */
+static uint8_t gen_density;   /* lead density 0..127 */
+static uint8_t gen_oct;       /* octave spread 0..2 */
+static uint32_t gen_rng;
+
+static uint32_t gen_rng_next(void)
+{
+    gen_rng ^= gen_rng << 13; gen_rng ^= gen_rng >> 17; gen_rng ^= gen_rng << 5;
+    return gen_rng;
+}
+static uint8_t gen_rnd(uint8_t n) { return n ? (uint8_t)(gen_rng_next() % n) : 0; }
+
+static const uint8_t SCALE_MINOR_PENT[] = { 0, 3, 5, 7, 10 };
+static const uint8_t SCALE_DORIAN[]     = { 0, 2, 3, 5, 7, 9, 10 };
+static const uint8_t SCALE_NAT_MINOR[]  = { 0, 2, 3, 5, 7, 8, 10 };
+static const uint8_t SCALE_PHRYGIAN[]   = { 0, 1, 3, 5, 7, 8, 10 };
+
+struct genre_profile {
+    const char *name;
+    uint8_t tonic;            /* MIDI root for the bass row */
+    const uint8_t *scale;     /* semitone offsets from the tonic */
+    uint8_t nscale;
+    const uint8_t *prog;      /* chord roots as scale degrees (triads), groups of 3 */
+    uint8_t nprog;
+    const uint8_t *bass_grid; /* 16-step gate mask for the bass row */
+    const uint8_t *lead_grid; /* 16-step gate mask for the lead row */
+    uint8_t bass_oct, lead_oct;
+    uint8_t bpm, swing, accent;        /* transport defaults (P3) */
+    uint8_t fx, arp_mode, arp_rate;    /* FX + arp flavour defaults */
+};
+
+static const uint8_t PROG_TECHNO[] = { 0, 6, 0, 4 };   /* i - bVII - i - VI */
+static const uint8_t PROG_HOUSE[]  = { 0, 5, 3, 4 };   /* I - vi - IV - V */
+static const uint8_t PROG_DUBSTEP[]= { 0, 5, 2, 6 };   /* i - VI - III - VII */
+static const uint8_t PROG_DANDB[]  = { 0, 6, 3, 4 };   /* i - VII - iv - V */
+static const uint8_t PROG_ELECTRO[]= { 0, 6, 3, 5 };   /* i - bVII - iv - bVI */
+
+static const uint8_t GRID_TECHNO_BASS[] = { 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0 };
+static const uint8_t GRID_HOUSE_BASS[]  = { 0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,0,1 };
+static const uint8_t GRID_DUBSTEP_BASS[]= { 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0 };
+static const uint8_t GRID_DANDB_BASS[]  = { 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1 };
+static const uint8_t GRID_ELECTRO_BASS[]= { 1,0,0,0, 1,0,1,0, 0,0,1,0, 0,1,0,0 };
+
+static const uint8_t GRID_TECHNO_LEAD[] = { 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0 };
+static const uint8_t GRID_HOUSE_LEAD[]  = { 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0 };
+static const uint8_t GRID_DUBSTEP_LEAD[]= { 1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0 };
+static const uint8_t GRID_DANDB_LEAD[]  = { 1,0,1,0, 1,1,1,0, 1,0,1,0, 1,1,1,0 };
+static const uint8_t GRID_ELECTRO_LEAD[]= { 1,0,1,0, 0,1,0,1, 1,0,1,0, 0,1,0,1 };
+
+/* demo slot -> genre index (matches DEMO_PAT order) */
+static const uint8_t DEMO_GENRE[N_DEMO_PAT] = { 0, 1, 2, 3, 4, 0, 1, 2 };
+
+static void genre_generate(uint8_t g)
+{
+    static const struct genre_profile P[N_GENRE] = {
+        { "TECHNO", 33, SCALE_MINOR_PENT, 5, PROG_TECHNO,   4, GRID_TECHNO_BASS,  GRID_TECHNO_LEAD,  0, 1, 132, 12, 40, 2, ARP_UD,   1 },
+        { "HOUSE",  29, SCALE_DORIAN,     7, PROG_HOUSE,    4, GRID_HOUSE_BASS,   GRID_HOUSE_LEAD,   0, 1, 124, 50, 36, 1, ARP_UP,   2 },
+        { "DUBSTEP",34, SCALE_NAT_MINOR,  7, PROG_DUBSTEP,  4, GRID_DUBSTEP_BASS, GRID_DUBSTEP_LEAD, 0, 0, 140, 35, 44, 3, ARP_DOWN, 2 },
+        { "D&B",    26, SCALE_NAT_MINOR,  7, PROG_DANDB,    4, GRID_DANDB_BASS,   GRID_DANDB_LEAD,   0, 1, 174, 30, 48, 2, ARP_UP,   1 },
+        { "ELECTRO",28, SCALE_PHRYGIAN,   7, PROG_ELECTRO,  4, GRID_ELECTRO_BASS, GRID_ELECTRO_LEAD, 0, 1, 128, 25, 40, 1, ARP_RAND, 2 },
+    };
+    const struct genre_profile *q;
+    uint8_t base[4], bar, s, k, note, cidx, den;
+    uint32_t seed;
+
+    if (g >= N_GENRE) g = 0;
+    q = &P[g];
+    gen_genre = g;
+
+    seed = (uint32_t)pat_sel << 20 | (uint32_t)g << 12 | (uint32_t)gen_density << 5
+         | (gen_seed & 31u) | 0x9E3779B9u;
+    gen_rng = seed ? seed : 1u;
+
+    /* genre defaults: transport, FX and the lead arp flavour */
+    bpm = q->bpm;
+    step_ms = 15000u / (bpm ? bpm : 128u);
+    swing = q->swing;
+    accent = q->accent;
+    fx_mode = q->fx;
+    arp_mode[GEN_LEAD] = q->arp_mode;
+    arp_rate[GEN_LEAD] = q->arp_rate;
+
+    /* clear the three synth rows first */
+    for (k = NDRUM; k < NPART; k++)
+        for (s = 0; s < NSTEP; s++) pat.notes[k][s] = 0;
+
+    for (bar = 0; bar < NSTEP / 16u; bar++) {
+        uint16_t st;
+        /* triad rooted at prog[bar % nprog] (scale degree), voiced in the bass register */
+        cidx = q->prog[(bar % q->nprog) * 3u];
+        base[0] = (uint8_t)(q->tonic + q->scale[cidx % q->nscale]);
+        base[1] = (uint8_t)(q->tonic + q->scale[(cidx + 2u) % q->nscale]);
+        base[2] = (uint8_t)(q->tonic + q->scale[(cidx + 4u) % q->nscale]);
+        base[3] = (uint8_t)(base[0] + 12);
+
+        /* lead arp bank: play the generated chord an octave up */
+        for (k = 0; k < 4; k++) arp_notes[GEN_LEAD][k] = (uint8_t)(base[k] + 12);
+        arp_n[GEN_LEAD] = 4;
+        arp_pos[GEN_LEAD] = arp_step[GEN_LEAD] = 0;
+
+        /* chord/pad row: block triad across the bar's first three steps */
+        for (k = 0; k < 3; k++) pat.notes[GEN_CHORD][bar * 16u + k] = (uint8_t)(base[k] + 12);
+
+        for (s = 0; s < 16u; s++) {
+            st = (uint16_t)(bar * 16u + s);
+            if (q->bass_grid[s]) {
+                uint8_t r = gen_rnd(100);
+                note = (uint8_t)(q->tonic + 12u * q->bass_oct);
+                if (r < 65) note += q->scale[0];
+                else if (r < 85) note += q->scale[gen_rnd(q->nscale)];
+                else note = (uint8_t)(note + q->scale[gen_rnd(q->nscale)] + 12);
+                while (note > 48) note -= 12;
+                pat.notes[GEN_BASS][st] = note;
+            }
+            if (q->lead_grid[s]) {
+                den = (uint8_t)(32 + gen_density);
+                if (den > 127) den = 127;
+                if (gen_rnd(128) < den) {
+                    uint8_t loct = gen_oct == 0 ? 0u : (gen_oct == 2 ? 2u : q->lead_oct);
+                    note = (uint8_t)(base[gen_rnd(3)] + 12);
+                    if (loct && gen_rnd(100) < loct * 25u) note += 12;
+                    while (note > 62) note -= 12;
+                    pat.notes[GEN_LEAD][st] = note;
+                }
+            }
+        }
+    }
+    dirty = 1;
+}
+
 /* ================= settings (flash) ================= */
 struct set {
     uint8_t magic[4];
@@ -1007,10 +1149,10 @@ static void draw_fx_page(void)
     cv_text(4, 24, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "MIDI OUT: "); p = ap(p, midi_out ? "ON" : "OFF");
     cv_text(4, 42, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "Clock: "); p = apu(p, bpm); p = ap(p, " BPM · 1/16 · sw"); p = apu(p, swing); p = ap(p, "%");
+    p = s; p = ap(p, "Clock: "); p = apu(p, bpm); p = ap(p, " BPM | 1/16 | sw"); p = apu(p, swing); p = ap(p, "%");
     fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_LABEL);
-    p = s; p = ap(p, "FX key (btn 3) cycles modes."); fit_text(s, 232);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 tempo | K2 swing | K3 accent | K4 page | FX key cycles modes", UI_DIM);
     cv_text(4, 188, &FONT_S, s, UI_DIM);
     cv_blit(0, 34);
 }
@@ -1038,14 +1180,14 @@ static void draw_wave_page(void)
         p = s;
         if (patchbank < N_PATCHBANKS) {
             p = ap(p, PATCHBANK_NAME[patchbank]);
-            p = ap(p, " · "); p = ap(p, patch_display_name(patchbank, patch_ix));
+            p = ap(p, " | "); p = ap(p, patch_display_name(patchbank, patch_ix));
         }
         fit_text(s, 232);
         cv_text(4, 60, &FONT_S, s, UI_HI);
     }
     if (patchbank < N_PATCHBANKS) {
         p = s; p = ap(p, "sound "); p = apu(p, patch_ix + 1); p = ap(p, "/"); p = apu(p, PATCHBANK_COUNT[patchbank]);
-        p = ap(p, " · "); p = ap(p, PATCHBANK_NAME[patchbank]);
+        p = ap(p, " | "); p = ap(p, PATCHBANK_NAME[patchbank]);
         fit_text(s, 232);
         cv_text(4, 82, &FONT_S, s, UI_LABEL);
         cv_text_wrap(4, 188, 232, &FONT_S, "A: wave | PRESETS browses sound | GLO+EDIT: SOUNDS", UI_DIM);
@@ -1248,6 +1390,39 @@ static const char *arp_mode_name(uint8_t m)
     return m < 5 ? M[m] : "??";
 }
 
+/* generative genre names (match GENRE_PROFILE order) */
+static const char *genre_name(uint8_t g)
+{
+    static const char *const N[N_GENRE] = { "TECHNO", "HOUSE", "DUBSTEP", "D&B", "ELECTRO" };
+    return g < N_GENRE ? N[g] : "??";
+}
+
+static void draw_gen_page(void)
+{
+    char s[48]; char *p = s;
+    static const char *const OCTLAB[3] = { "LO", "MID", "HI" };
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "GENERATIVE", UI_HI);
+    cv_rect(0, 18, 240, 1, UI_PANEL);
+    p = s; p = ap(p, "Genre: "); p = ap(p, genre_name(gen_genre));
+    fit_text(s, 232);
+    cv_text(4, 24, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "Seed: "); p = apu(p, gen_seed);
+    p = ap(p, "  Density: "); p = apu(p, gen_density); p = ap(p, "/127");
+    fit_text(s, 232);
+    cv_text(4, 42, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "Octave: "); p = ap(p, OCTLAB[gen_oct % 3u]);
+    p = ap(p, "  BPM "); p = apu(p, bpm); p = ap(p, " sw"); p = apu(p, swing); p = ap(p, "%");
+    fit_text(s, 232);
+    cv_text(4, 60, &FONT_S, s, UI_LABEL);
+    p = s; p = ap(p, "FX "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
+    p = ap(p, "  Arp "); p = ap(p, arp_mode_name(arp_mode[GEN_LEAD]));
+    fit_text(s, 232);
+    cv_text(4, 78, &FONT_S, s, UI_LABEL);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 octave | OCT+ new | OCT- back", UI_DIM);
+    cv_blit(0, 34);
+}
+
 static void draw_save_page(void)
 {
     char s[48]; char *p = s;
@@ -1260,7 +1435,7 @@ static void draw_save_page(void)
     fit_text(s, 232);
     cv_text(4, 24, &FONT_S, s, UI_HI);
     p = s; p = ap(p, "Source: "); p = ap(p, PATCHBANK_NAME[patchbank]);
-    p = ap(p, " · "); p = ap(p, patch_display_name(patchbank, patch_ix)); fit_text(s, 232);
+    p = ap(p, " | "); p = ap(p, patch_display_name(patchbank, patch_ix)); fit_text(s, 232);
     cv_text(4, 42, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "Action: "); p = ap(p, ACT[action_sel]);
     fit_text(s, 232);
@@ -1285,6 +1460,8 @@ static void draw_screen(uint32_t playing)
         draw_save_page();
     } else if (view_page == 7) {
         draw_sounds_page();
+    } else if (view_page == 8) {
+        draw_gen_page();
     } else {
         draw_parts();
         draw_footer(playing);
@@ -1430,6 +1607,8 @@ static void app_init(void)
     snd_mem_reset();
     fm_sync_macros();
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
+    gen_genre = DEMO_GENRE[pat_sel % N_DEMO_PAT];
+    gen_seed = 0; gen_density = 60; gen_oct = 1;
     step_ms = 15000u / (bpm ? bpm : 128u);
     drum_kit = 1;   /* default to the TR-808 kit (full-bodied); APP is thinner */
     view_page = 0;
@@ -1489,6 +1668,19 @@ static void app_tick(void)
                     snd_apply(patchbank, ps);
                     dirty = 1; break;
                 }
+                case 94: {   /* genre select (0..N_GENRE-1) + live generate */
+                    uint8_t ng = (uint8_t)((v * N_GENRE) / 128);
+                    if (ng >= N_GENRE) ng = (uint8_t)(N_GENRE - 1);
+                    genre_generate(ng);
+                    dirty = 1; break;
+                }
+                case 95:   /* seed + generate (v=0: no-op) */
+                    if (v) { gen_seed = v; genre_generate(gen_genre); }
+                    dirty = 1; break;
+                case 96:   /* density 0..127 + live generate */
+                    gen_density = (uint8_t)(v > 127 ? 127 : v);
+                    genre_generate(gen_genre);
+                    dirty = 1; break;
                 default: break;
             }
         } else if (midi_st == 0xFAu) { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; dirty = 1; }
@@ -1533,6 +1725,8 @@ static void app_tick(void)
                 if (action_sel == 0) user_load_slot(slot_sel);
                 else if (action_sel == 1) user_save_slot(slot_sel);
                 else user_clear_slot(slot_sel);
+            } else if (view_page == 8) {
+                genre_generate(gen_genre);   /* GEN: OCT+ generates */
             } else {
                 midi_out = !midi_out;
             }
@@ -1543,6 +1737,9 @@ static void app_tick(void)
         }
         if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 6) {
             goto_page(5);               /* back out to HOME */
+        }
+        if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 8) {
+            goto_page(0);               /* back out to SEQ */
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
         if (b & (1u << BTN_REC) && glomode) {
@@ -1559,6 +1756,10 @@ static void app_tick(void)
         }
         if (b & (1u << BTN_HOME)) {
             goto_page(5);               /* HOME: system + colour selector */
+        }
+        if (b & (1u << BTN_ARP)) {
+            if (glomode) genre_generate(gen_genre);   /* GLO+ARP generates */
+            else goto_page(8);                         /* ARP alone: open the GEN page */
         }
 
         /* --- encoders --- */
@@ -1579,6 +1780,7 @@ static void app_tick(void)
                     if (c >= (int32_t)N_CATALOG) c = 0;
                     pat_sel = (uint8_t)c;
                     if (pat_sel < (int32_t)N_DEMO_PAT) { pattern_load(pat_sel); memcpy(&S.pat, &pat, sizeof pat); }
+                    gen_genre = DEMO_GENRE[pat_sel % N_DEMO_PAT];
                 } else {
                     /* Sound browsing across the whole list, from this part's cursor */
                     int32_t cur = (int32_t)snd_mem[part_sel] + (int32_t)e;
@@ -1597,10 +1799,21 @@ static void app_tick(void)
                 dirty = 1;
             }
             e = fm1_enc_take(ENC_KNOB1);
-            if (e && view_page == 7) {   /* SOUNDS: KNOB1 picks the bank/category */
+            if (e && view_page == 8) {   /* GEN: KNOB1 picks the genre (live) */
+                int32_t ng = (int32_t)gen_genre + e;
+                gen_genre = (uint8_t)((ng % N_GENRE + N_GENRE) % N_GENRE);
+                genre_generate(gen_genre);
+            }
+            else if (e && view_page == 7) {   /* SOUNDS: KNOB1 picks the bank/category */
                 int32_t b = (int32_t)patchbank + (e > 0 ? 1 : -1);
                 uint8_t nb = (uint8_t)((b % N_PATCHBANKS + N_PATCHBANKS) % N_PATCHBANKS);
                 snd_apply(nb, patch_ix);
+            }
+            else if (e && view_page == 1) {   /* FX: KNOB1 tempo */
+                int32_t c = bpm + e;
+                bpm = (uint8_t)(c < 60 ? 60 : c > 250 ? 250 : c);
+                step_ms = 15000u / bpm;
+                dirty = 1;
             }
             else if (glomode && e) { int32_t c = bpm + e; bpm = (uint8_t)(c < 60 ? 60 : c > 250 ? 250 : c); step_ms = 15000u / bpm; dirty = 1; }
             else if (e && view_page == 5) {
@@ -1618,12 +1831,21 @@ static void app_tick(void)
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(0, e);
             else if (e) { int32_t c = part_prm[part_sel][0] + e; part_prm[part_sel][0] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB2);
-            if (e && view_page == 7) {   /* SOUNDS: KNOB2 picks the sound in the category */
+            if (e && view_page == 8) {   /* GEN: KNOB2 bumps the seed (live) */
+                gen_seed = (uint8_t)(gen_seed + (int32_t)e);
+                genre_generate(gen_genre);
+            }
+            else if (e && view_page == 7) {   /* SOUNDS: KNOB2 picks the sound in the category */
                 int32_t c = (int32_t)patch_ix + (e > 0 ? 1 : -1);
                 int32_t n = (int32_t)PATCHBANK_COUNT[patchbank];
                 if (c < 0) c = n - 1;
                 if (c >= n) c = 0;
                 snd_apply(patchbank, (uint8_t)c);
+            }
+            else if (e && view_page == 1) {   /* FX: KNOB2 swing */
+                int32_t c = swing + e;
+                swing = (uint8_t)(c < 0 ? 0 : c > 100 ? 100 : c);
+                dirty = 1;
             }
             else if (glomode && e) { int32_t c = swing + e; swing = (uint8_t)(c < 0 ? 0 : c > 100 ? 100 : c); dirty = 1; }
             else if (e && part_sel < NDRUM) { int32_t c = drum_kit + (e > 0 ? 1 : -1);
@@ -1632,12 +1854,32 @@ static void app_tick(void)
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(1, e);
             else if (e) { int32_t c = part_prm[part_sel][1] + e; part_prm[part_sel][1] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB3);
-            if (glomode && e) { int32_t c = accent + e; accent = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
+            if (e && view_page == 8) {   /* GEN: KNOB3 density (live) */
+                int32_t d = (int32_t)gen_density + e;
+                gen_density = (uint8_t)(d < 0 ? 0 : d > 127 ? 127 : d);
+                genre_generate(gen_genre);
+            }
+            else if (e && view_page == 1) {   /* FX: KNOB3 accent */
+                int32_t c = accent + e;
+                accent = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c);
+                dirty = 1;
+            }
+            else if (glomode && e) { int32_t c = accent + e; accent = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             else if (e && view_page == 3 && part_sel >= NDRUM) edit_lfo(2, e);
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(2, e);
             else if (e) { int32_t c = part_prm[part_sel][2] + e; part_prm[part_sel][2] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB4);
-            if (glomode && e) { int32_t c = (int32_t)page + (e > 0 ? 1 : -1); page = (uint8_t)(c < 0 ? 0 : c > 3 ? 3 : c); dirty = 1; }
+            if (e && view_page == 8) {   /* GEN: KNOB4 octave spread */
+                int32_t oc = (int32_t)gen_oct + e;
+                gen_oct = (uint8_t)((oc % 3 + 3) % 3);
+                dirty = 1;
+            }
+            else if (e && view_page == 1) {   /* FX: KNOB4 page length */
+                int32_t c = (int32_t)page + (e > 0 ? 1 : -1);
+                page = (uint8_t)(c < 0 ? 0 : c > 3 ? 3 : c);
+                dirty = 1;
+            }
+            else if (glomode && e) { int32_t c = (int32_t)page + (e > 0 ? 1 : -1); page = (uint8_t)(c < 0 ? 0 : c > 3 ? 3 : c); dirty = 1; }
             else if (e && view_page == 6) {
                 action_sel = (uint8_t)((action_sel + (e > 0 ? 1u : 2u)) % 3u);
                 dirty = 1;

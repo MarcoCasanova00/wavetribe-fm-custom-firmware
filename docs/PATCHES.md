@@ -27,6 +27,9 @@ Each patch controls 3 FM parts × 4 params (`A` wavetable, `B` ratio, `C` mod, `
 | 91 | FX mode (0..3) |
 | 92 | Drum kit (0..N) |
 | 93 | Patch selector — cycles current bank (0..N-1) |
+| 94 | Genre select (0..N_GENRE-1) — generates live |
+| 95 | Seed (1..255) — generates live (0 = no-op) |
+| 96 | Density (0..127) — generates live |
 | 123 | All notes off |
 
 MIDI out (notes + clock) on **OCT+** toggle (USB + TRS).

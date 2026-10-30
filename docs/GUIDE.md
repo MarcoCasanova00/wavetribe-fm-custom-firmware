@@ -77,6 +77,15 @@ Stop (0xFC) on the USB + TRS outlets.
 - **FX** (key `1`) opens the FX page: mode (OFF / CHORUS / ECHO / COMBO),
   MIDI OUT toggle, and the clock readout (BPM · 1/16 · swing%).
 
+## 10. GEN — generative genre engine
+- Open the **GEN** page with the **ARP** key, or hold **GLO + ARP** to generate instantly without leaving the page you're on.
+- **KNOB1** picks the genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO — and regenerates live.
+- **KNOB2** bumps the variation seed (regenerates live). **KNOB3** adjusts note density.
+  **KNOB4** sets the octave spread (LO / MID / HI).
+- **OCT+** generates a fresh pattern; **OCT−** returns to SEQ.
+- Generating also applies **genre-appropriate defaults**: BPM, swing, accent, FX mode, and the lead part's arp mode/rate — the generated chord is fed into the arpeggiator automatically, so switching on ARP arpeggiates it.
+- The engine is **deterministic**: the same genre/seed/density always yields the same pattern, so you can find a variation you like and return to it.
+
 ---
 ## Shortcut map
 | Key | Action |

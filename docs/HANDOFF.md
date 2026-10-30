@@ -24,6 +24,7 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - **Save/load slots**: 8 flash slots (`SAVE` store, `GLO+SAVE` pick, `GLO+REC` load).
 - HOME system page: theme palettes ("default"/AMBER/CYAN/RED/ALIEN/LAVA + more).
 - Web emulator (Shift+click latches buttons for combos).
+- **Generative genre engine** (GEN page + `GLO+ARP`): seeded, deterministic rules fill the three synth rows (bass/chord/lead) per genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO — and apply genre defaults (BPM, swing, accent, FX, arp flavour).
 
 ## Sources
 - `INFLUENCES.md` — full source/attribution table (EPROMs, ipa, Abuse, etc.).

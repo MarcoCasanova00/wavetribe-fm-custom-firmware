@@ -1,77 +1,100 @@
-# RIPTIDE Web Emulator — Quick Guide (v0.1)
+# Frankentribe OS — Web Emulator Quick Guide
 
-A fast hands-on guide to the browser build of the RIPTIDE firmware.
-Build the beat, shape the sounds, listen.
+A hands-on guide to the browser build of the Frankentribe OS firmware (the
+Wavetribe FM-1 groovebox as a web emulator). Build the beat, shape the sound, save it.
 
-> Live: https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
+> **Live:** https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
+> Hard-refresh (**Ctrl+Shift+R**) to pick up the latest build.
 
 ## 1. Boot
 1. Open the live link in a modern Chromium, Firefox or Safari.
 2. Click **Switch on**.
 3. The 240×240 screen lights up and the sequencer starts.
-
-(If audio stays silent, click again — some browsers suspend the context.)
+   (If audio stays silent, click once more — some browsers suspend the context.)
 
 ## 2. Transport
-- **PLAY / STOP** (or `1` on the keyboard) — start / stop the sequencer.
-- **REC** (`2`) — arms write mode. When lit, the 16 keys write steps instead of playing sounds.
-- **GLO** (`5`) — enters global mode: the knobs become **Tempo / Swing / Accent / Page**.
-- **HOME** (`8`) held + a key — mutes / unmutes a part.
+- **PLAY / STOP** (key `-`) — start / stop the sequencer.
+- **REC** (key `=`) — arms write mode: while lit, the keys write steps instead of playing.
+- **GLO** (key `6`) — enters global mode (knobs become Tempo / Swing / Accent / Page).
+- **HOME** (key `7`) — opens the HOME system page (theme, kit, save slots).
 
 ## 3. Sequencing
-- The bottom of the screen shows 16 step slots and a moving play-cursor.
-- Hold **REC** and tap a key (F3 to G5) to toggle a step for the selected part.
-- Repeat for all 8 parts to build a full 16-step pattern.
-- **PART − / PART +** (`Digit1`/`Digit2` base) selects which part you edit.
-- **PAGE** changes loop length (16 / 32 / 48 / 64 steps).
+- The screen shows 16 step slots and a moving play-cursor for the visible page.
+- Hold **REC**, tap a key (F3…G5) to toggle a step for the selected part.
+- Repeat for all 8 parts to build a pattern.
+- **PART − / PART +** (`↑` / `↓`) selects the part you edit.
+- **PAGE** (`←` / `→`) changes loop length (16 / 32 / 48 / 64 steps).
+- **Clear the sequence:** hold **SEQ** and press **F3** — the whole current pattern
+  is erased (the screen shows `SEQ TOOLS · F3=CLEAR` while SEQ is held).
 
 ## 4. Shaping the sound (your four knobs)
-The four right-hand knobs (Knob 1–4) affect whatever part is selected.
+Knobs 1–4 edit whichever part is selected:
 
 - **Knob 1 (A) — Decay / Muffle** — how long it rings.
-- **Knob 2 (B) — Pitch / Tone** — bright vs. dark.
-- **Knob 3 (C) — Modulation / Body** — the part's voice.
-- **Knob 4 (D) — Level** — how loud this part is in the mix.
+- **Knob 2 (B) — Pitch / Tone** (with a drum part: cycles the drum kit).
+- **Knob 3 (C) — Modulation / Body**.
+- **Knob 4 (D) — Level** — how loud this part is.
 
-Idle knobs stay idle until you move them; every move lands on the selected part.
+On the **LFO** and **Envelope** pages, the knobs edit the selected sound, and
+the changes apply to **all three synth parts** (the sound is shared) — so you'll
+hear them whichever part you play. These tweaks are saved with your sound — a
+**SAVE / LOAD** slot keeps them.
 
-## 5. Presets
-- **PRESET + / PRESET −** cycles through 97 factory presets.
-- The screen shows the preset's name and the part bank it loads (drums for banks 1–5, FM parts for 6–8).
+Held keyboard notes release when you switch page, part, or mode — so a note
+can't keep ringing after you move elsewhere.
 
-## 6. Playing live
-- With REC off, tapping a key triggers it in real time.
-- The keybed (F3 → G5) maps to 27 notes — good for triggering one-shot layers over the pattern.
+## 5. Patch banks & presets (GR!MM-style sound browsing)
+- **Browse sounds:** turn **PRESETS** on any page except SEQ — it steps the the
+  whole list (each bank acts as a category) and shows the patch name. Each part
+  remembers its own browse position.
+- **Cycle category/bank:** latch **GLO** (Shift+click, or hold key `6`) then tap
+  **OCT-**** (`[`) — cycles APP → DX7 → ROM → TX81Z → FB01.
+- **SOUNDS page:** press **GLO + EDIT** — a full browse page: **KNOB1** picks the
+  category, **KNOB2** the sound. Press **EDIT** again to leave.
+- On the **SEQ** page, **PRESETS** cycles the demo pattern (as before).
+- The screen shows the category (bank) name + patch name + `sound n/count`.
+- Changing a sound releases any ringing note (GR!MM-style): the old patch can't
+  keep sustaining after the switch.
 
-## 7. Known limits (v0.1)
-- FX, SAVE, ARP, SEQ, KNOB BANK, FADER BANK are wired in the browser panel but are
-  not backed by firmware behavior in this build.
-- No project save to disk yet (settings persist in-browser for the session only).
-- Audio works best in Chromium; Firefox / Safari are fine but the latency is a little higher.
+## 6. Global mode (holding GLO)
+With GLO active, the four knobs become:
+- **Tempo** · **Swing** (0–100%, deeper MPC-style feel) · **Accent** · **Page**.
 
+## 7. Save / load slots (8 slots)
+- **SAVE** (key `8`) opens the **SAVE / SOUNDS** page.
+- On that page: **KNOB 1** picks the slot (1–8, shows `[USED]`/`[empty]`),
+  **KNOB 4** picks the action (**LOAD / SAVE / CLEAR**), and **OCT+** confirms
+  (OCT− backs out).
+- Quick combos: **GLO + REC** loads the current slot directly.
+- In the browser emulator the 8 slots are **persisted to localStorage**, so your
+  saves survive reloads.
+
+## 8. MIDI OUT
+With MIDI out toggled, the sequencer emits clock (24 ppqn), Start (0xFA) and
+Stop (0xFC) on the USB + TRS outlets.
+
+## 9. FX
+- **FX** (key `1`) opens the FX page: mode (OFF / CHORUS / ECHO / COMBO),
+  MIDI OUT toggle, and the clock readout (BPM · 1/16 · swing%).
+
+## 10. GEN — generative genre engine
+- Open the **GEN** page with the **ARP** key, or hold **GLO + ARP** to generate instantly without leaving the page you're on.
+- **KNOB1** picks the genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO — and regenerates live.
+- **KNOB2** bumps the variation seed (regenerates live). **KNOB3** adjusts note density.
+  **KNOB4** sets the octave spread (LO / MID / HI).
+- **OCT+** generates a fresh pattern; **OCT−** returns to SEQ.
+- Generating also applies **genre-appropriate defaults**: BPM, swing, accent, FX mode, and the lead part's arp mode/rate — the generated chord is fed into the arpeggiator automatically, so switching on ARP arpeggiates it.
+- The engine is **deterministic**: the same genre/seed/density always yields the same pattern, so you can find a variation you like and return to it.
+
+---
 ## Shortcut map
-| Key         | Action                 |
-|-------------|------------------------|
-| `Z`–`'`     | white keys (F3..G5)    |
-| `S,D,..,`   | black keys             |
-| `1`–`=`     | FX…REC buttons         |
-| `[` / `]`   | OCT − / OCT +          |
-| `↑` / `↓`   | PART selection         |
-| `←` / `→`   | PAGE selection         |
+| Key | Action |
+|-----|--------|
+| `Z`…`;` | white keys (F3…G5) |
+| `S,D,F,H,J,L` `; '` | black keys |
+| `1`…`=` | FX SEL ENV LFO EDIT GLO / HOME SAVE ARP SEQ PLAY REC |
+| `[` / `]` | OCT − / OCT + |
+| `↑` / `↓` | PART selection |
+| `←` / `→` | PAGE selection |
 
-Enjoy. Tag your feedback on the repository issues.
-## 8. Wave banks (experimental)
-- The three right-hand FM parts now read their carrier wave from a 32-entry embedded
-  wavetable bank (single-cycle waves extracted from the supplied Absynth-format banks).
-- Knob A (KNOB 1) now also steps through those 32 wave shapes for whichever part you
-  have selected (step by 8 gives a full cycle of 32 values).
-
-## 8. Wave banks (experimental)
-- The three right-hand FM parts now read their carrier wave from a 32-entry embedded
-  wavetable bank (single-cycle waves extracted from the supplied Absynth-format banks).
-  Knob A (KNOB 1) now also steps through those 32 wave shapes for whichever part you
-  have selected (each click advances; hold to sweep).
-
-## 9. Drum kits
-- With a drum part selected (parts 1-5), turning Knob B (B) cycles available drum kits.
-  Two kits ship: the original authentic APP kit and a FunkBox-style 909 kit.
+Enjoy — tag feedback on the repository issues.
