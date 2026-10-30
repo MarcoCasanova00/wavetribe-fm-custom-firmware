@@ -45,7 +45,7 @@ See [`INFLUENCES.md`](INFLUENCES.md) for per-source fidelity notes (bytes / para
 Host (test): `cc -DDINGHY_HOST ...`
 Web: `sh tools/build_web.sh` → `/docs/` → GitHub Pages.
 
-Live (hard-refresh `Ctrl+Shift+R`): https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
+Live (hard-refresh `Ctrl+Shift+R`): https://MarcoCasanova00.github.io/frankentribe-os/
 
 ---
 *Brand: FRA N K E N T R I B E OS — built from scraps, redeems nothing.*

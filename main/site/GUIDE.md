@@ -4,7 +4,7 @@ The Frankentribe OS is a 4-operator FM groovebox firmware (the Wavetribe FM-1)
 with a generative soul: it composes from genres, writes Euclidean drum patterns,
 and mixes in a palette of oscillator modes. This guide covers the whole system.
 
-> **Live:** https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
+> **Live:** https://MarcoCasanova00.github.io/frankentribe-os/
 > Hard-refresh (**Ctrl+Shift+R**) to pick up the latest build.
 
 ---

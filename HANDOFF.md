@@ -32,7 +32,7 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 ## Build verification
 - Host: `cc -DDINGHY_HOST …` clean; `sh tests/run_host.sh` scripts pass.
 - Web: `EMSDK=$HOME/emsdk sh tools/build_web.sh` → `docs/` → GitHub Pages.
-- Live: https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
+- Live: https://MarcoCasanova00.github.io/frankentribe-os/
 
 ## Known limitations
 - FB-01 algorithm *topology* mapped by carrier-set (not a bit-exact hardware clone).

@@ -3,7 +3,7 @@
 A hands-on guide to the browser build of the Frankentribe OS firmware (the
 Wavetribe FM-1 groovebox as a web emulator). Build the beat, shape the sound, save it.
 
-> **Live:** https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
+> **Live:** https://MarcoCasanova00.github.io/frankentribe-os/
 > Hard-refresh (**Ctrl+Shift+R**) to pick up the latest build.
 
 ## 1. Boot

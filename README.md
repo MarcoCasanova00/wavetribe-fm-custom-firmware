@@ -1,5 +1,11 @@
 # Frankentribe OS — FM-1 Groovebox Firmware
 
+<p align="center">
+  <img src="docs/logo.png" width="192" height="208" alt="Frankentribe OS logo — the Abuse ANT enemy silhouette">
+  <br>
+  <em>the Frankentribe mascot: the ANT from Abuse (Crack dot Com, 1995)</em>
+</p>
+
 **Experimental. Unrefined by design.**
 
 A single-file sequencer / 4-operator FM synth / drum kit hybrid. Sounds pulled from EPROM dumps, game SFX, and third-party banks — no studio polish, deliberate grit.
@@ -74,7 +80,7 @@ record survives; a damaged package leaves the loader waiting). `bootguard.h`
 adds a recovery/ROM fallback after repeated failed boots. Rollback to stock
 remains possible (its resources are kept and protected).
 
-Live (hard-refresh `Ctrl+Shift+R`): https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
+Live (hard-refresh `Ctrl+Shift+R`): https://MarcoCasanova00.github.io/frankentribe-os/
 
 ---
 *Brand: FRA N K E N T R I B E OS — built from scraps, redeems nothing.*

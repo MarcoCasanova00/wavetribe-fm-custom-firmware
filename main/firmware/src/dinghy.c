@@ -1666,6 +1666,37 @@ static void abuse_mascot_draw(int32_t x, int32_t y, uint16_t c)
     }
 }
 
+#ifndef APP_VER
+#define APP_VER "0.0"
+#endif
+static const uint32_t SPLASH_MS = 1500u;
+static uint8_t boot_interact;          /* any key/button press skips the splash */
+
+/* Boot splash: the Abuse ANT logo (scaled) + name, version and author. */
+static void draw_splash(void)
+{
+    char s[48]; char *p = s;
+    int32_t i, j, sx = 6, ox = (240 - ABUSE_MASCOT_W * 6) >> 1, oy = 10;
+    int32_t tx;
+    cv_begin(240, 240, PP_INK);
+    for (j = 0; j < ABUSE_MASCOT_H; j++) {
+        const uint8_t *row = abuse_mascot[j];
+        for (i = 0; i < ABUSE_MASCOT_W; i++)
+            if (row[i >> 3] & (0x80u >> (i & 7)))
+                cv_rect(ox + i * sx, oy + j * sx, sx, sx, PP_G);
+    }
+    p = ap(s, "FRANKENTRIBE OS");
+    tx = (240 - text_w(&FONT_B, s)) >> 1; if (tx < 0) tx = 0;
+    cv_text(tx, 198, &FONT_B, s, PP_W);
+    p = s; p = ap(p, "v"); p = ap(p, APP_VER);
+    tx = (240 - text_w(&FONT_S, s)) >> 1;
+    cv_text(tx, 214, &FONT_S, s, C_GRAY);
+    p = ap(s, "by MarcoCasanova00");
+    tx = (240 - text_w(&FONT_S, s)) >> 1;
+    cv_text(tx, 228, &FONT_S, s, PP_Y);
+    cv_blit(0, 0);
+}
+
 /* a decorative double rule under a page title, ABUSE-style corner ticks */
 static void page_rule(int32_t y)
 {
@@ -1861,6 +1892,7 @@ static void draw_save_page(void)
 }
 static void draw_screen(uint32_t playing)
 {
+    if (!boot_interact && fm1_ms < SPLASH_MS) { draw_splash(); return; }
     draw_header(playing);
     if (view_page == 1) {
         draw_fx_page();
@@ -2142,6 +2174,7 @@ static void app_tick(void)
     prev_keys = keys;
 
         b = fm1_input_edges(&rel);
+        if (down || b) boot_interact = 1;
 
         /* --- buttons --- */
         if (b & (1u << BTN_PLAY)) {
