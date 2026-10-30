@@ -1,0 +1,4 @@
+# Show the HOME page (btn 8) to verify colour selector + bottom footer text.
+100 btn 8
+300 shot
+400 end

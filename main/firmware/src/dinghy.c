@@ -23,7 +23,7 @@
 
 static void app_idle(void);
 #define LCD_IDLE app_idle
-#define CV_MAX (240u * 192u)           /* a taller canvas for the 8-row step grid */
+#define CV_MAX (240u * 210u)           /* full page canvas (footer hints at y188 + glyph height) */
 #ifndef APP_NAME
 #define APP_NAME "FRANKENTRIBE OS"
 #endif
@@ -178,9 +178,10 @@ static uint8_t patchbank, patch_ix;
 static uint8_t dx7bank_sel;
 static uint8_t midi_out;
 static uint8_t fx_mode; /* 0 off, 1 chorus, 2 delay, 3 chorus+delay */
-static uint8_t view_page;   /* 0 Seq, 1 FX, 2 wave/patch, 3 LFO, 4 Env */
+static uint8_t view_page;   /* 0 Seq, 1 FX, 2 wave/patch, 3 LFO, 4 Env, 5 Home */
 static uint32_t dirty;
 static uint8_t part_sel;    /* declared here so the edit helpers can use it */
+static uint8_t pal_idx = 1; /* current screen palette (default AMBER) */
 
 static void drum_trigger(uint32_t d, uint32_t vel)
 {
@@ -953,20 +954,20 @@ static void draw_sys_page(void)
 {
     char s[48]; char *p = s;
     cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "SYSTEM", UI_HI);
-    cv_rect(0, 18, 240, 1, UI_PANEL);
-    p = ap(s, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, TOTAL_DRUMS); fit_text(s, 232);
-    cv_text(4, 24, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "Waves: "); p = apu(p, TOTAL_WT_COUNT); p = ap(p, " ("); p = apu(p, WT_COUNT); p = ap(p, "+"); p = apu(p, MWT_COUNT); p = ap(p, ")"); fit_text(s, 232);
+    cv_text(4, 2, &FONT_S, "HOME", UI_HI);
+    page_rule(18);
+    p = s; p = ap(p, "Colour: "); p = ap(p, fm_palette_name(pal_idx));
+    fit_text(s, 232);
+    cv_text(4, 24, &FONT_S, s, UI_HI);
+    p = s; p = ap(p, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, TOTAL_DRUMS); fit_text(s, 232);
     cv_text(4, 42, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "Patch banks: "); p = apu(p, N_PATCHBANKS); fit_text(s, 232);
+    p = s; p = ap(p, "Patch banks: "); p = apu(p, N_PATCHBANKS);
+    p = ap(p, "  Waves: "); p = apu(p, TOTAL_WT_COUNT); fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "MIDI I/O: "); p = ap(p, (midi_out ? "ON" : "OFF")); fit_text(s, 232);
+    p = s; p = ap(p, "MIDI I/O: "); p = ap(p, (midi_out ? "ON" : "OFF"));
+    p = ap(p, "  FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]); fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]); fit_text(s, 232);
-    cv_text(4, 96, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "SEQ/FX/EDIT/ENV switch pages. OCT+ toggles MIDI."); fit_text(s, 232);
-    cv_text(4, 188, &FONT_S, s, UI_DIM);
+    cv_text(4, 188, &FONT_S, "A: colour  pages: SEQ FX EDIT LFO ENV  OCT+ MIDI", UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_screen(uint32_t playing)
@@ -980,6 +981,8 @@ static void draw_screen(uint32_t playing)
         draw_lfo_page();
     } else if (view_page == 4) {
         draw_env_page();
+    } else if (view_page == 5) {
+        draw_sys_page();
     } else {
         draw_parts();
         draw_footer(playing);
@@ -1161,8 +1164,8 @@ static void app_tick(void)
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
         if (b & (1u << BTN_REC)) { write_arm = !write_arm; dirty = 1; }
         if (b & (1u << BTN_HOME)) {
-            for (k = 0; k < 8u; k++) if (down >> k & 1u) mute[k] = !mute[k];
-            seq_stop(); write_arm = 0; dirty = 1;
+            view_page = 5;          /* HOME: system + colour selector */
+            dirty = 1;
         }
 
         /* --- encoders --- */
@@ -1198,6 +1201,13 @@ static void app_tick(void)
             }
             e = fm1_enc_take(ENC_KNOB1);
             if (glomode && e) { int32_t c = bpm + e; bpm = (uint8_t)(c < 60 ? 60 : c > 250 ? 250 : c); step_ms = 15000u / bpm; dirty = 1; }
+            else if (e && view_page == 5) {
+                int32_t c = (int32_t)pal_idx + (e > 0 ? 1 : -1);
+                int32_t n = (int32_t)fm_palette_count();
+                pal_idx = (uint8_t)((c % n + n) % n);
+                fm_palette_set(pal_idx);
+                dirty = 1;
+            }
             else if (e && view_page == 3 && part_sel >= NDRUM) edit_lfo(0, e);
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(0, e);
             else if (e) { int32_t c = part_prm[part_sel][0] + e; part_prm[part_sel][0] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }

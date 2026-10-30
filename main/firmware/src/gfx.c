@@ -15,7 +15,7 @@ typedef struct {               /* proportional, see tools/gen_font.py */
 #include "felucca_font.h"
 
 #ifndef CV_MAX
-#define CV_MAX (240u * 124u)      /* the graph strip is 240 x 124 */
+#define CV_MAX (240u * 206u)      /* the graph strip is 240 x 206 (full page) */
 #endif
 static uint16_t cv_px[CV_MAX] __attribute__((section(".pool")));
 static uint32_t cv_w, cv_h;
@@ -55,6 +55,11 @@ static void palette_set(uint32_t i)
     for (k = 0; k < 5u; k++)
         pal[k] = PALETTES[i % NPALETTES].c[k];
 }
+
+/* expose the palette list to the app (HOME screen colour selector) */
+uint32_t fm_palette_count(void) { return NPALETTES; }
+const char *fm_palette_name(uint32_t i) { return PALETTES[i % NPALETTES].name; }
+void fm_palette_set(uint32_t i) { palette_set(i); }
 
 static inline uint16_t swap16(uint32_t c) { return (uint16_t)(((c >> 8) & 0xFFu) | ((c & 0xFFu) << 8)); }
 
