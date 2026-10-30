@@ -680,6 +680,32 @@ static void app_audio(int32_t *out, uint32_t n)
 #define NPART 8u
 #define NSTEP 64u
 
+/* ================= arpeggiator ================= */
+/* Per-part arpeggiator state for synth parts (5-7). */
+enum { ARP_UP = 0, ARP_DOWN, ARP_UD, ARP_RAND, ARP_CHORD };
+static uint8_t arp_on[NPART];        /* arp enabled per part */
+static uint8_t arp_mode[NPART];      /* UP/DOWN/UD/RAND/CHORD (0=UP) */
+static uint8_t arp_oct[NPART];       /* octaves (0-3) */
+static uint8_t arp_step[NPART];      /* internal step counter */
+static uint8_t arp_rate[NPART];      /* 1=every step, 2=every 2 steps, etc */
+static uint8_t arp_pos[NPART];       /* current position in note list */
+static uint8_t arp_n[NPART];         /* number of notes in list */
+static uint8_t arp_notes[NPART][4];  /* collected notes (max 4) */
+
+static void arp_collate_note(uint8_t p, uint8_t note)
+{    /* add note to arp list, keeping sorted for UP/DOWN modes */
+    uint8_t *n = arp_notes[p], cnt = arp_n[p];
+    if (note == 0) return;
+    /* check if already in list (remove duplicates) */
+    for (uint8_t i = 0; i < cnt; i++) if (n[i] == note) return;
+    if (cnt < 4) n[cnt++] = note, arp_n[p] = cnt;
+    /* sort for UP/DOWN modes */
+    for (uint8_t i = 0; i < cnt-1; i++)
+        for (uint8_t j = i+1; j < cnt; j++)
+            if (n[i] > n[j]) { uint8_t t = n[i]; n[i] = n[j]; n[j] = t; }
+    arp_pos[p] = 0;  /* restart arpeggio from beginning */
+}
+
 #include "factory_patterns.h"     /* authentic the source app gates (make_patterns.py) */
 
 /* The working pattern: gates come from the factory grids; the synth parts get note
@@ -1211,9 +1237,17 @@ static void draw_sys_page(void)
     p = s; p = ap(p, "Slot: "); p = apu(p, slot_sel + 1); p = ap(p, "/"); p = apu(p, NSLOT);
     p = ap(p, "  SAVE=page  GLO+REC=load"); fit_text(s, 232);
     cv_text(4, 96, &FONT_S, s, UI_HI);
-    cv_text_wrap(4, 188, 232, &FONT_S, "A: colour | pages: SEQ FX EDIT LFO ENV | OCT+ MIDI", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "A: colour | pages: SEQ FX EDIT LFO ENV HOME | OCT+ MIDI", UI_DIM);
     cv_blit(0, 34);
 }
+
+/* arpeggiator mode name helper */
+static const char *arp_mode_name(uint8_t m)
+{
+    static const char *const M[] = { "UP", "DN", "UD", "RND", "CHD" };
+    return m < 5 ? M[m] : "??";
+}
+
 static void draw_save_page(void)
 {
     char s[48]; char *p = s;
@@ -1266,11 +1300,13 @@ static void seq_stop(void)
     uint32_t p;
     if (midi_out) midi_send(0xFC, 0, 0);
     run = 0;
-    for (p = NDRUM; p < NPART; p++)
+    for (p = 0; p < NPART; p++) {
         if (hold_note[p]) {
             eq_put(EV_NOTEOFF, p, hold_note[p], 0);
             hold_note[p] = 0;
         }
+        arp_step[p] = arp_pos[p] = 0;
+    }
     step_cur = 0;
 }
 
@@ -1283,7 +1319,43 @@ static void fire_step(void)
             if (pat.gates[p][step_cur])
                 eq_put(EV_DRUM, p, 0, 100 + (accent ? (step_cur % 4u == 0u ? accent : 0) : 0));
         } else {
-            uint8_t old = hold_note[p], note = pat.notes[p][step_cur];
+            uint8_t old = hold_note[p];
+            uint8_t note = pat.notes[p][step_cur];
+            /* if arp is enabled and there are notes, override pattern note */
+            if (arp_on[p] && arp_n[p] > 0 && (step_cur & (arp_rate[p] - 1)) == 0) {
+                /* apply octave offset */
+                switch (arp_mode[p]) {
+                    case ARP_CHORD:  /* chord mode: play lowest note */
+                        note = arp_notes[p][0];
+                        break;
+                    case ARP_DOWN: { /* descending */
+                        uint8_t idx = (arp_pos[p] < arp_n[p]) ? arp_n[p] - 1 - arp_pos[p] : arp_n[p] - 1;
+                        note = arp_notes[p][idx];
+                        if (++arp_pos[p] >= arp_n[p] * 2) arp_pos[p] = 0;  /* 2x for down */
+                        break;
+                    }
+                    case ARP_UD: { /* up-down (ping-pong) */
+                        if (arp_pos[p] >= arp_n[p]) { arp_pos[p] = arp_n[p] - 1; break; }
+                        note = arp_notes[p][arp_pos[p]];
+                        if (++arp_pos[p] >= arp_n[p]) { arp_pos[p] = arp_n[p] - 2; }
+                        else if (arp_pos[p] == 0 && arp_n[p] > 1) { /* wrap and reverse */
+                            for (uint8_t k = 1; k < arp_n[p]/2; k++) {
+                                uint8_t t = arp_notes[p][k];
+                                arp_notes[p][k] = arp_notes[p][arp_n[p]-1-k];
+                                arp_notes[p][arp_n[p]-1-k] = t;
+                            }
+                        }
+                        break;
+                    }
+                    default: { /* ARP_UP */
+                        if (arp_pos[p] >= arp_n[p]) arp_pos[p] = 0;
+                        note = arp_notes[p][arp_pos[p]];
+                        if (++arp_pos[p] >= arp_n[p]) arp_pos[p] = 0;
+                        break;
+                    }
+                }
+                if (arp_oct[p] > 0) note = (uint8_t)(note + 12 * arp_oct[p]);
+            }
             if (old) eq_put(EV_NOTEOFF, p, old, 0);
             hold_note[p] = note;
             if (note) eq_put(EV_NOTEON, p, note, 110);
@@ -1382,9 +1454,25 @@ static void app_tick(void)
                 uint8_t kk = (uint8_t)(midi_d1 - 36u);
                 if (midi_d2 > 0) {
                     if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, (uint8_t)(midi_d2 > 127u ? 127u : midi_d2));
-                    else { held[kk] = midi_d1; heldp[kk] = part_sel; eq_put(EV_NOTEON, part_sel, midi_d1, (uint8_t)(midi_d2 > 127u ? 127u : midi_d2)); }
+                    else {
+                        held[kk] = midi_d1; heldp[kk] = part_sel;
+                        if (arp_on[part_sel]) arp_collate_note(part_sel, midi_d1);
+                        eq_put(EV_NOTEON, part_sel, midi_d1, (uint8_t)(midi_d2 > 127u ? 127u : midi_d2));
+                    }
                 } else {
                     if (part_sel >= NDRUM && held[kk]) { eq_put(EV_NOTEOFF, heldp[kk], held[kk], 0); held[kk]=0; heldp[kk]=0; }
+                    else if (part_sel >= NDRUM) {
+                        if (held[kk]) eq_put(EV_NOTEOFF, heldp[kk], held[kk], 0);
+                        held[kk] = 0; heldp[kk] = 0;
+                        /* remove from arp notes */
+                        for (uint8_t i = 0; i < arp_n[part_sel]; i++)
+                            if (arp_notes[part_sel][i] == midi_d1) {
+                                for (uint8_t j = i; j < arp_n[part_sel]-1; j++)
+                                    arp_notes[part_sel][j] = arp_notes[part_sel][j+1];
+                                arp_n[part_sel]--;
+                                break;
+                            }
+                    }
                 }
             }
         } else if (midi_st >= 0xB0u && midi_st <= 0xBFu) {
@@ -1576,13 +1664,24 @@ static void app_tick(void)
                 if (down >> k & 1u) {
                     if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, 110);
                     else {
-                        held[k] = (uint8_t)(36 + k);
-                        heldp[k] = part_sel;
+                        held[k] = (uint8_t)(36 + k); heldp[k] = part_sel;
+                        if (arp_on[part_sel]) arp_collate_note(part_sel, held[k]);
                         eq_put(EV_NOTEON, part_sel, held[k], 110);
                     }
                 }
                 if (up >> k & 1u) {
-                    if (part_sel >= NDRUM && held[k]) eq_put(EV_NOTEOFF, heldp[k], held[k], 0), held[k] = 0, heldp[k] = 0;
+                    if (part_sel >= NDRUM && held[k]) { eq_put(EV_NOTEOFF, heldp[k], held[k], 0); held[k] = 0; heldp[k] = 0; }
+                    else if (part_sel >= NDRUM) {
+                        if (held[k]) { eq_put(EV_NOTEOFF, heldp[k], held[k], 0); }
+                        for (uint8_t i = 0; i < arp_n[part_sel]; i++)
+                            if (arp_notes[part_sel][i] == held[k]) {
+                                for (uint8_t j = i; j < arp_n[part_sel]-1; j++)
+                                    arp_notes[part_sel][j] = arp_notes[part_sel][j+1];
+                                arp_n[part_sel]--;
+                                break;
+                            }
+                        held[k] = 0; heldp[k] = 0;
+                    }
                 }
             }
         }
