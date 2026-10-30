@@ -203,7 +203,7 @@ static void pp_title(const char *t, uint16_t acc)
 {
     int32_t r;
     cv_grad_v(0, 0, 240, 18, acc, PP_INK);
-    cv_text(4, 3, &FONT_S, t, PP_INK);
+    cv_text(4, 3, &FONT_B, t, PP_INK);
     cv_rect(0, 18, 240, 3, acc);
     cv_rect(0, 21, 240, 1, C_LINE);
     /* left accent rail down the page body, with a lighter inner tick */
@@ -1255,7 +1255,7 @@ static void draw_header(uint32_t playing)
     cv_grad_v(0, 0, 240, 12, PP_Y, PP_G);
     /* face badge (left) + brand on the strip */
     draw_franken(3, 2, 15, 18);
-    cv_text(23, 1, &FONT_S, "FRANKENTRIBE OS", PP_INK);
+    cv_text(23, 1, &FONT_B, "FRANKENTRIBE OS", PP_INK);
     /* tempo pill (right) */
     {
         char *p = ap(s, "");
@@ -1293,7 +1293,7 @@ static void draw_parts(void)
         if (mut) cv_text(1, y0 + 2, &FONT_S, "M", UI_MUTE);
         if (sel) {
             cv_rect(2, y0 + 2, 48, rh - 4, pc);
-            cv_text(6, y0 + 2, &FONT_S, PNAME[p], PP_INK);
+            cv_text(6, y0 + 2, &FONT_B, PNAME[p], PP_INK);
             cv_rect(50, y0 + 2, 2, rh - 4, PP_W);
         } else {
             cv_rect(2, y0 + 2, 3, rh - 4, pc);

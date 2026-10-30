@@ -36,7 +36,8 @@ The skin is the **Frankentribe lab look**: a bolt-yellow → slime-green header
 band, a colored page banner + accent rail per page (FX yellow, WAVE blue,
 LFO green, ENV flesh, HOME orange, SAVE yellow, SOUNDS blue, ARP green,
 COMPOSE red, EUCLID orange), color-coded part rows, and a status pill in the
-footer.
+footer. Type is the **Terminus 16** family — regular for body text, a bold
+face for page titles, the brand and the selected part.
 
 ---
 

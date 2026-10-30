@@ -32,6 +32,7 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - **LOST bank:** sixth curated bank (16 hand-authored "lost ROMpler" patches).
 - **Stutter FX:** SP-202/303-style loop-roll stutter (FX mode 4).
 - **Frankentribe lab skin:** full visual refresh — gradient header band, per-page color banner + accent rail (FX Y / WAVE B / LFO G / ENV flesh / HOME O / SAVE Y / SOUNDS B / ARP G / COMPOSE R / EUCLID O), color-coded part rows, status-pill footer. Still 240×240, same primitives.
+- **Font:** normalized to Terminus 16 — regular body + a generated bold face (FONT_B) for titles/brand/selected part (same metrics, no reflow). Nerd Fonts are not compatible with the 1-bit BDF bitmap pipeline.
 - Transport knobs live on the **FX page** (tempo / swing / accent / loop length), so tempo changes don't require entering GLO.
 
 ## Sources

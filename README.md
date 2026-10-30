@@ -13,6 +13,7 @@ A single-file sequencer / 4-operator FM synth / drum kit hybrid. Sounds pulled f
 - **LOST bank:** a sixth curated bank of hand-authored "lost ROMpler" patches (FM-EP, Motown Bass, Glass Pad, …).
 - **Stutter FX:** SP-202/303-style loop-roll stutter as a fourth FX mode (OFF/CHORUS/ECHO/COMBO/STUT).
 - **Frankentribe lab skin:** colorful multi-accent UI — yellow→green header band, per-page color banners and accent rails, color-coded part rows, status-pill footer.
+- **Font:** normalized to Terminus 16 (regular body + generated bold for titles/brand/selected part); Nerd Fonts not compatible with the 1-bit BDF bitmap pipeline.
 - **Volca-style FUNC keys:** with GLO latched, the first 16 white keys act as grid-key shortcuts (clear / save / load / pattern ± / copy / paste / step mode).
 - **Patch/sound selection:** category-first browsing (GLO+PRESET = sound, GLO+OCT- = category). **SAVE** opens a SOUNDS page: `SLOT / SOURCE / ACTION (LOAD|SAVE|CLEAR)` with OCT+ to confirm.
 - **Transport on the FX page:** KNOB1 = tempo (60–250 BPM), KNOB2 = swing, KNOB3 = accent, KNOB4 = loop length — no need to enter GLO.
