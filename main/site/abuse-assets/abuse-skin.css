@@ -1,0 +1,17 @@
+/* Abuse skin (extracted from Abuse by Crack dot Com; source is public domain). */
+:root {
+  --bg:       #040504;
+  --fg:       #e6dcd8;
+  --dim:      #8a8f80;
+  --rule:     #2b352e;
+  --body:     #101a16;
+  --tray:     #1d2b24;
+  --part:     #263b2e;
+  --edge:     #4e6a50;
+  --label:    #a6c08a;
+  --lit:      #ff7ff7;
+  --green:    #7fe08a;
+  --amber:    #ff9d1f;
+  --santo-red:#5e0909;
+  --santo-rose:#8a1010;
+}

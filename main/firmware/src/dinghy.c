@@ -814,6 +814,63 @@ static const char *wave_label_direct(uint8_t w)
     };
     return W[w & 7u];
 }
+
+/* Sample one of the eight operator/LFO waveforms at a full 32-bit phase.
+ * Mirrors fm_wave() in the engine, but only needs the exported fm_sine. */
+static int32_t lfo_sample(uint8_t w, uint32_t ph)
+{
+    int32_t s = fm_sine(ph);
+    uint32_t i = ph >> 22;
+    switch (w & 7u) {
+    case 0: return s;
+    case 1: return i < 512u ? s : 0;
+    case 2: return s < 0 ? -s : s;
+    case 3: return (i < 256u || (i >= 512u && i < 768u)) ? s : 0;
+    case 4: {
+        int32_t t = (int32_t)(ph >> 16) & 0xFFFF;
+        return t < 32768 ? (t * 2 - 32768) : (32767 - (t - 32768) * 2);
+    }
+    case 5: return (int32_t)(ph >> 16) - 32768;
+    case 6: return (ph & 0x80000000u) ? -28000 : 28000;
+    default: {
+        int32_t s3 = fm_sine(((uint32_t)((i * 3u) & 1023u)) << 22);
+        return (s * 2 + s3) / 3;
+    }
+    }
+}
+
+static void draw_wave_plot(int32_t x, int32_t y, int32_t w, int32_t h, uint8_t wave)
+{
+    int32_t px, lx = -1, ly = 0;
+    cv_rect(x - 1, y - 1, w + 2, h + 2, C_LINE);
+    cv_rect(x, y + h / 2, w, 1, C_DIM);            /* centre axis */
+    for (px = 0; px < w; px++) {
+        uint32_t ph = (uint32_t)(((uint64_t)px * 0x100000000ull) / (uint32_t)w);
+        int32_t v = lfo_sample(wave, ph);
+        int32_t py = y + h / 2 - (int32_t)((int64_t)v * h / 2 / 32767);
+        if (lx >= 0) cv_line(lx, ly, x + px, py, C_HI);
+        lx = x + px; ly = py;
+    }
+}
+
+static void draw_env_plot(int32_t x, int32_t y, int32_t w, int32_t h, const fm_patch_t *pp)
+{
+    int32_t base = y + h - 2, top = y + 2;
+    int32_t susY = base - (h - 4) * (int32_t)pp->vca_sus / 127;
+    int32_t aw = 4 + w * (int32_t)(31 - pp->vca_ar) / 96;
+    int32_t dw = 6 + w * (int32_t)(31 - pp->vca_dr) / 80;
+    int32_t sw = w / 4;
+    int32_t rw = w - aw - dw - sw;
+    int32_t x1, x2, x3;
+    if (rw < 0) rw = 0;
+    x1 = x + aw; x2 = x1 + dw; x3 = x2 + sw;
+    cv_rect(x - 1, y - 1, w + 2, h + 2, C_LINE);
+    cv_rect(x, base, w, 1, C_DIM);                 /* baseline */
+    cv_line(x, base, x1, top, C_HI);               /* attack */
+    cv_line(x1, top, x2, susY, C_HI);              /* decay */
+    cv_line(x2, susY, x3, susY, C_HI);             /* sustain */
+    cv_line(x3, susY, x3 + rw, base, C_HI);        /* release */
+}
 static void draw_lfo_page(void)
 {
     char s[48]; char *p = s;
@@ -837,6 +894,7 @@ static void draw_lfo_page(void)
         p = ap(p, "  tremolo "); p = apu(p, pp.amd);
         fit_text(s, 232);
         cv_text(4, 42, &FONT_S, s, UI_AMB);
+        draw_wave_plot(8, 64, 224, 72, pp.lfo_on ? pp.lfo_wave : 0u);
         cv_text(4, 188, &FONT_S, "A: wave/off  B: speed  C: vibrato  D: tremolo", UI_DIM);
     }
     cv_blit(0, 34);
@@ -861,6 +919,7 @@ static void draw_env_page(void)
         p = ap(p, " R "); p = apu(p, pp.vca_rr);
         fit_text(s, 232);
         cv_text(4, 24, &FONT_S, s, UI_AMB);
+        draw_env_plot(8, 54, 224, 80, &pp);
         cv_text(4, 188, &FONT_S, "A: attack  B: decay  C: sustain  D: release", UI_DIM);
     }
     cv_blit(0, 34);

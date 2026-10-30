@@ -37,6 +37,7 @@ static const palette_t PALETTES[] = {
     {"RED", {RGB(52, 8, 8), RGB(100, 18, 14), RGB(170, 36, 26), RGB(226, 64, 48), RGB(255, 112, 92)}},
     {"MONO", {RGB(40, 40, 40), RGB(80, 80, 80), RGB(130, 130, 130), RGB(186, 186, 186), RGB(226, 226, 226)}},
     {"DX", {RGB(16, 46, 46), RGB(26, 90, 92), RGB(40, 150, 152), RGB(56, 210, 212), RGB(66, 245, 245)}},   /* sloopDX: cyan */
+    {"ABUSE", {RGB(12, 20, 18), RGB(38, 59, 46), RGB(78, 106, 80), RGB(166, 192, 138), RGB(255, 127, 247)}}, /* Abuse (Crack dot Com): olive + magenta glow */
 };
 #define NPALETTES (sizeof(PALETTES) / sizeof(PALETTES[0]))
 static uint16_t pal[5];
