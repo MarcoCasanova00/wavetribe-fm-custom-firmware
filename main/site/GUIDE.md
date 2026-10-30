@@ -97,6 +97,9 @@ Hold **GLO + ARP** (press **GLO**, then **ARP**) to open the COMPOSE page:
 - Building applies **genre defaults**: BPM, swing, accent, FX mode and the lead arp flavour
   (the bottom line previews them).
 - Deterministic: the same genre/seed/density always yields the same pattern.
+- **Live drift:** while playing, hold **GLO + PLAY** to toggle drift — the pattern gently
+  re-rolls every bar (notes only, transport untouched). It follows the same seed rule, so a
+  given drift session is reproducible.
 - Notes: generated chord tones are a block triad across three consecutive steps (parts are
   monophonic); genre state (genre/seed/density) is NOT persisted — it resets on boot.
 

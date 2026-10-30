@@ -800,6 +800,7 @@ static uint8_t gen_oct;       /* octave spread 0..2 */
 static uint32_t gen_rng;
 static uint8_t gen_undo[NPART][NSTEP];  /* last pattern snapshot (OCT- undo) */
 static uint8_t gen_undo_ok;
+static uint8_t gen_drift;               /* live per-bar mutation (GLO+PLAY) */
 
 static uint32_t gen_rng_next(void)
 {
@@ -862,45 +863,22 @@ static const uint8_t GRID_ACID_LEAD[]    = { 1,0,0,0, 1,0,0,1, 0,0,1,0, 1,0,0,0 
 /* demo slot -> genre index (matches DEMO_PAT order) */
 static const uint8_t DEMO_GENRE[N_DEMO_PAT] = { 0, 1, 2, 3, 4, 0, 1, 2 };
 
-static void genre_generate(uint8_t g)
+/* genre profiles: tonic/scale/progression/grids + defaults per genre */
+static const struct genre_profile GENRE_PROFILE[N_GENRE] = {
+    { "TECHNO", 33, SCALE_MINOR_PENT, 5, PROG_TECHNO,   4, GRID_TECHNO_BASS,  GRID_TECHNO_LEAD,  0, 1, 132, 12, 40, 2, ARP_UD,   1 },
+    { "HOUSE",  29, SCALE_DORIAN,     7, PROG_HOUSE,    4, GRID_HOUSE_BASS,   GRID_HOUSE_LEAD,   0, 1, 124, 50, 36, 1, ARP_UP,   2 },
+    { "DUBSTEP",34, SCALE_NAT_MINOR,  7, PROG_DUBSTEP,  4, GRID_DUBSTEP_BASS, GRID_DUBSTEP_LEAD, 0, 0, 140, 35, 44, 3, ARP_DOWN, 2 },
+    { "D&B",    26, SCALE_NAT_MINOR,  7, PROG_DANDB,    4, GRID_DANDB_BASS,   GRID_DANDB_LEAD,   0, 1, 174, 30, 48, 2, ARP_UP,   1 },
+    { "ELECTRO",28, SCALE_PHRYGIAN,   7, PROG_ELECTRO,  4, GRID_ELECTRO_BASS, GRID_ELECTRO_LEAD, 0, 1, 128, 25, 40, 1, ARP_RAND, 2 },
+    { "AMBIENT",36, SCALE_MAJOR,      7, PROG_AMBIENT, 4, GRID_AMBIENT_BASS, GRID_AMBIENT_LEAD, 0, 1,  80, 20, 20, 3, ARP_CHORD, 4 },
+    { "LOFI",   33, SCALE_MINOR_PENT, 5, PROG_LOFI,    4, GRID_LOFI_BASS,    GRID_LOFI_LEAD,    0, 1,  85, 40, 30, 1, ARP_UP,   2 },
+    { "ACID",   31, SCALE_HARMONIC_MINOR, 7, PROG_ACID, 4, GRID_ACID_BASS,    GRID_ACID_LEAD,    0, 0, 140, 18, 60, 2, ARP_UD,   1 },
+};
+
+/* Fill the three synth rows + the lead arp bank from a profile (notes only). */
+static void genre_fill(const struct genre_profile *q)
 {
-    static const struct genre_profile P[N_GENRE] = {
-        { "TECHNO", 33, SCALE_MINOR_PENT, 5, PROG_TECHNO,   4, GRID_TECHNO_BASS,  GRID_TECHNO_LEAD,  0, 1, 132, 12, 40, 2, ARP_UD,   1 },
-        { "HOUSE",  29, SCALE_DORIAN,     7, PROG_HOUSE,    4, GRID_HOUSE_BASS,   GRID_HOUSE_LEAD,   0, 1, 124, 50, 36, 1, ARP_UP,   2 },
-        { "DUBSTEP",34, SCALE_NAT_MINOR,  7, PROG_DUBSTEP,  4, GRID_DUBSTEP_BASS, GRID_DUBSTEP_LEAD, 0, 0, 140, 35, 44, 3, ARP_DOWN, 2 },
-        { "D&B",    26, SCALE_NAT_MINOR,  7, PROG_DANDB,    4, GRID_DANDB_BASS,   GRID_DANDB_LEAD,   0, 1, 174, 30, 48, 2, ARP_UP,   1 },
-        { "ELECTRO",28, SCALE_PHRYGIAN,   7, PROG_ELECTRO,  4, GRID_ELECTRO_BASS, GRID_ELECTRO_LEAD, 0, 1, 128, 25, 40, 1, ARP_RAND, 2 },
-        { "AMBIENT",36, SCALE_MAJOR,      7, PROG_AMBIENT, 4, GRID_AMBIENT_BASS, GRID_AMBIENT_LEAD, 0, 1,  80, 20, 20, 3, ARP_CHORD, 4 },
-        { "LOFI",   33, SCALE_MINOR_PENT, 5, PROG_LOFI,    4, GRID_LOFI_BASS,    GRID_LOFI_LEAD,    0, 1,  85, 40, 30, 1, ARP_UP,   2 },
-        { "ACID",   31, SCALE_HARMONIC_MINOR, 7, PROG_ACID, 4, GRID_ACID_BASS,    GRID_ACID_LEAD,    0, 0, 140, 18, 60, 2, ARP_UD,   1 },
-    };
-    const struct genre_profile *q;
     uint8_t base[4], bar, s, k, note, cidx, den;
-    uint32_t seed;
-
-    if (g >= N_GENRE) g = 0;
-    q = &P[g];
-    gen_genre = g;
-
-    seed = (uint32_t)pat_sel << 20 | (uint32_t)g << 12 | (uint32_t)gen_density << 5
-         | (gen_seed & 31u) | 0x9E3779B9u;
-    gen_rng = seed ? seed : 1u;
-
-    /* genre defaults: transport, FX and the lead arp flavour */
-    bpm = q->bpm;
-    step_ms = 15000u / (bpm ? bpm : 128u);
-    swing = q->swing;
-    accent = q->accent;
-    fx_mode = q->fx;
-    arp_mode[GEN_LEAD] = q->arp_mode;
-    arp_rate[GEN_LEAD] = q->arp_rate;
-
-    /* snapshot the current rows (OCT- undo), then clear them */
-    for (k = NDRUM; k < NPART; k++)
-        for (s = 0; s < NSTEP; s++) gen_undo[k][s] = pat.notes[k][s];
-    gen_undo_ok = 1;
-    for (k = NDRUM; k < NPART; k++)
-        for (s = 0; s < NSTEP; s++) pat.notes[k][s] = 0;
 
     for (bar = 0; bar < NSTEP / 16u; bar++) {
         uint16_t st;
@@ -944,6 +922,54 @@ static void genre_generate(uint8_t g)
         }
     }
     dirty = 1;
+}
+
+static void genre_generate(uint8_t g)
+{
+    const struct genre_profile *q;
+    uint32_t k, s, seed;
+
+    if (g >= N_GENRE) g = 0;
+    q = &GENRE_PROFILE[g];
+    gen_genre = g;
+
+    seed = (uint32_t)pat_sel << 20 | (uint32_t)g << 12 | (uint32_t)gen_density << 5
+         | (gen_seed & 31u) | 0x9E3779B9u;
+    gen_rng = seed ? seed : 1u;
+
+    /* genre defaults: transport, FX and the lead arp flavour */
+    bpm = q->bpm;
+    step_ms = 15000u / (bpm ? bpm : 128u);
+    swing = q->swing;
+    accent = q->accent;
+    fx_mode = q->fx;
+    arp_mode[GEN_LEAD] = q->arp_mode;
+    arp_rate[GEN_LEAD] = q->arp_rate;
+
+    /* snapshot the current rows (OCT- undo), then clear them */
+    for (k = NDRUM; k < NPART; k++)
+        for (s = 0; s < NSTEP; s++) gen_undo[k][s] = pat.notes[k][s];
+    gen_undo_ok = 1;
+    for (k = NDRUM; k < NPART; k++)
+        for (s = 0; s < NSTEP; s++) pat.notes[k][s] = 0;
+
+    genre_fill(q);
+}
+
+/* Live drift: bump the seed and re-fill the notes only, once per bar while
+ * running.  Transport/FX/arp settings are left alone; explicit builds keep
+ * their OCT- undo snapshot. */
+static void genre_drift(void)
+{
+    const struct genre_profile *q;
+    uint32_t seed;
+    if (!gen_undo_ok) return;        /* only drift a built pattern */
+    gen_seed++;
+    q = &GENRE_PROFILE[gen_genre];
+    seed = (uint32_t)pat_sel << 20 | (uint32_t)gen_genre << 12
+         | (uint32_t)gen_density << 5 | (gen_seed & 31u) | 0x9E3779B9u;
+    gen_rng = seed ? seed : 1u;
+    genre_fill(q);
 }
 
 /* Restore the last generated pattern (one-step undo). */
@@ -1480,7 +1506,10 @@ static void draw_compose_page(void)
     p = ap(p, "% | FX "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
     fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_LABEL);
-    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 octave | OCT+ build | OCT- undo/back", UI_DIM);
+    p = s; p = ap(p, "Drift: "); p = ap(p, gen_drift ? "ON" : "OFF");
+    p = ap(p, "  (GLO+PLAY)"); fit_text(s, 232);
+    cv_text(4, 96, &FONT_S, s, UI_LABEL);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 oct | OCT+ build | OCT- undo | GLO+PLAY drift", UI_DIM);
     cv_blit(0, 34);
 }
 
@@ -1607,6 +1636,7 @@ static void seq_tick(void)
 {
     if (!run) { next_step_ms = fm1_ms + step_ms; return; }
     while (next_step_ms <= fm1_ms) {
+        if (gen_drift && (step_cur & 15u) == 0) genre_drift();   /* morph each bar */
         fire_step();
         step_cur++;
         if (step_cur >= 16u * (page + 1u)) step_cur = 0;
@@ -1671,7 +1701,7 @@ static void app_init(void)
     fm_sync_macros();
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
     gen_genre = DEMO_GENRE[pat_sel % N_DEMO_PAT];
-    gen_seed = 0; gen_density = 60; gen_oct = 1;
+    gen_seed = 0; gen_density = 60; gen_oct = 1; gen_drift = 0;
     step_ms = 15000u / (bpm ? bpm : 128u);
     drum_kit = 1;   /* default to the TR-808 kit (full-bodied); APP is thinner */
     view_page = 0;
@@ -1761,7 +1791,7 @@ static void app_tick(void)
 
         /* --- buttons --- */
         if (b & (1u << BTN_PLAY)) {
-            if (glomode) { }
+            if (glomode) { gen_drift = !gen_drift; }   /* GLO+PLAY toggles drift */
             else if (run) seq_stop();
             else { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; if (midi_out) midi_send(0xFA, 0, 0); }
             dirty = 1;
