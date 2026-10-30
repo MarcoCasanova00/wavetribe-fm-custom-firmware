@@ -29,6 +29,7 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - **EUCLID page** (`GLO+SEQ`): Euclidean rhythm generator (steps/hits/rotation) writes gates to the selected part; drift has an OFF/ON/LOCK cycle (`GLO+PLAY`).
 - **Osc modes** per synth part: hard sync, ring/AM, phase distortion and vector synthesis (WAVE page OCT+ / CC 98).
 - **Volca-style FUNC keys:** with GLO latched, the first 16 white keys run grid-key shortcuts (clear / save / load / pattern ± / copy / paste / step mode).
+- **LOST bank:** sixth curated bank (16 hand-authored "lost ROMpler" patches).
 - Transport knobs live on the **FX page** (tempo / swing / accent / loop length), so tempo changes don't require entering GLO.
 
 ## Sources

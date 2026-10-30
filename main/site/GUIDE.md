@@ -75,7 +75,10 @@ On **WAVE/EDIT**, **OCT+** cycles the oscillator mode for the selected synth par
 
 ## 5. Patch banks & presets
 
-Five banks: **APP** · **DX7** · **ROM** · **4OP-A** · **4OP-B**.
+Six banks: **APP** · **DX7** · **ROM** · **4OP-A** · **4OP-B** · **LOST**.
+The LOST bank is a curated set of hand-authored "lost ROMpler" bread-and-butter
+patches (FM-EP, Motown Bass, Glass Pad, Breath Brass, …) with a 90s workstation
+identity.
 
 - **PRESETS** browses sounds on any page except SEQ (SEQ browses demo patterns).
 - **GLO + OCT−** cycles category; **GLO+EDIT** opens the SOUNDS browse page

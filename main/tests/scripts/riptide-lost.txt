@@ -1,0 +1,24 @@
+# LOST ROMpler bank: cycle categories via GLO+OCT- to LOST, browse its first
+# sound, then play a synth note on part 6 (MIDI OUT on).
+
+100 enc 0 6        # SELECT -> part 6 (synth)
+200 btn 1          # OCT_UP -> MIDI OUT on
+300 btn 12         # PLAY
+
+400 btn 7          # GLO latch
+500 btn 0          # OCT- -> DX7
+600 btn 0          # -> ROM
+700 btn 0          # -> 4OP-A
+800 btn 0          # -> 4OP-B
+900 btn 0          # -> LOST
+1000 btn 7         # GLO unlatch
+
+1100 midi 0xB0 93 0   # browse first LOST sound (FM-EP)
+1300 shot
+
+1500 midi 0x90 60 100 # play C4 on selected part (6, synth)
+1700 midi 0x80 60 0
+1800 shot
+
+2200 btn 12        # STOP
+2700 end

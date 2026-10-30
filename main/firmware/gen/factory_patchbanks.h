@@ -4,9 +4,10 @@
 #include <stdint.h>
 #include "fm_patches_tx81z.h"
 #include "fm_patches_fb01.h"
-#define N_PATCHBANKS 5
-static const uint8_t PATCHBANK_COUNT[N_PATCHBANKS] = { 13, 64, 32, FM_PATCH_TX81Z_COUNT, FM_PATCH_FB01_COUNT };
-static const char *const PATCHBANK_NAME[N_PATCHBANKS] = { "APP", "DX7", "ROM", "4OP-A", "4OP-B" };
+#include "factory_rompler.h"
+#define N_PATCHBANKS 6
+static const uint8_t PATCHBANK_COUNT[N_PATCHBANKS] = { 13, 64, 32, FM_PATCH_TX81Z_COUNT, FM_PATCH_FB01_COUNT, N_LOST_PATCHES };
+static const char *const PATCHBANK_NAME[N_PATCHBANKS] = { "APP", "DX7", "ROM", "4OP-A", "4OP-B", "LOST" };
 static const char *const PATCH_NAME3[N_PATCHBANKS][128] = {
   { /* APP */
     "Init",
@@ -466,8 +467,14 @@ static const char *const PATCH_NAME3[N_PATCHBANKS][128] = {
     "EOrgan4",
     "EOrgan5",
   },
+  { /* LOST */
+    "FM-EP", "Motown Bass", "Finger Bass", "Glass Pad",
+    "Warm Strings", "Breath Brass", "Tine Clav", "Space Bell",
+    "Chiff Organ", "Airy Choir", "Pulse Lead", "Saw Stack",
+    "Deep Pluck", "Shimmer", "Sub Drop", "Magic Marimba",
+  },
 };
-static const uint8_t PATCH_PRM3[3][64][3][4] = {
+static const uint8_t PATCH_PRM3[N_PATCHBANKS][64][3][4] = {
   { /* APP */
     {
       { 0, 64, 20, 90 },
@@ -1101,6 +1108,24 @@ static const uint8_t PATCH_PRM3[3][64][3][4] = {
     { {0,64,20,90},{0,55,25,85},{0,70,30,80} },
     { {0,64,20,90},{0,55,25,85},{0,70,30,80} },
     { {0,64,20,90},{0,55,25,85},{0,70,30,80} },
+  },
+  [5] = { /* LOST */
+    { {64,70,30,80},{64,64,28,78},{64,58,26,76} },   /* FM-EP */
+    { {66,40,20,95},{66,45,22,90},{66,50,24,88} },   /* Motown Bass */
+    { {70,50,18,92},{70,55,20,90},{70,60,22,86} },   /* Finger Bass */
+    { {60,74,34,70},{60,70,32,68},{60,66,30,66} },   /* Glass Pad */
+    { {62,60,28,72},{62,58,26,70},{62,56,24,68} },   /* Warm Strings */
+    { {68,52,30,82},{68,56,32,80},{68,60,34,78} },   /* Breath Brass */
+    { {72,42,24,84},{72,46,26,82},{72,50,28,80} },   /* Tine Clav */
+    { {58,84,40,76},{58,80,38,74},{58,76,36,72} },   /* Space Bell */
+    { {74,36,16,86},{74,40,18,84},{74,44,20,82} },   /* Chiff Organ */
+    { {61,64,30,74},{61,62,29,72},{61,60,28,70} },   /* Airy Choir */
+    { {76,44,22,88},{76,48,24,86},{76,52,26,84} },   /* Pulse Lead */
+    { {77,46,26,90},{77,50,28,88},{77,54,30,86} },   /* Saw Stack */
+    { {80,30,34,92},{80,36,36,90},{80,42,38,88} },   /* Deep Pluck */
+    { {57,80,36,72},{57,78,34,70},{57,76,32,68} },   /* Shimmer */
+    { {82,26,18,94},{82,32,20,92},{82,38,22,90} },   /* Sub Drop */
+    { {56,72,32,78},{56,70,30,76},{56,68,28,74} },   /* Magic Marimba */
   },
 };
 
