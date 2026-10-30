@@ -1268,7 +1268,7 @@ static void draw_wave_page(void)
         }
         fit_text(s, 232);
         cv_text(4, 60, &FONT_S, s, UI_HI);
-        p = s; p = ap(p, "Osc "); p = ap(p, (const char *[]){"NORM","SYNC","RING"}[part_oscmode[part_sel] % 3u]);
+        p = s; p = ap(p, "Osc "); p = ap(p, (const char *[]){"NORM","SYNC","RING","PD"}[part_oscmode[part_sel] % 4u]);
         p = ap(p, " | OCT+ cycles"); fit_text(s, 232);
         cv_text(4, 100, &FONT_S, s, UI_LABEL);
     }
@@ -1824,9 +1824,9 @@ static void app_tick(void)
                     gen_density = (uint8_t)(v > 127 ? 127 : v);
                     genre_generate(gen_genre);
                     dirty = 1; break;
-                case 98:   /* osc mode for the selected part: 0 normal, 1 sync, 2 ring */
-                    part_oscmode[part_sel] = (uint8_t)((v * 3u) / 128u);
-                    if (part_oscmode[part_sel] > 2u) part_oscmode[part_sel] = 2u;
+                case 98:   /* osc mode for the selected part: 0 NORM, 1 SYNC, 2 RING, 3 PD */
+                    part_oscmode[part_sel] = (uint8_t)((v * 4u) / 128u);
+                    if (part_oscmode[part_sel] > 3u) part_oscmode[part_sel] = 3u;
                     if (part_sel >= NDRUM)
                         fm_set_oscmode((uint8_t)(part_sel - NDRUM), part_oscmode[part_sel]);
                     dirty = 1; break;
@@ -1881,7 +1881,7 @@ static void app_tick(void)
             } else if (view_page == 10) {
                 euclid_apply();                         /* EUCLID: OCT+ applies */
             } else if (view_page == 2 && part_sel >= NDRUM) {
-                part_oscmode[part_sel] = (uint8_t)((part_oscmode[part_sel] + 1u) % 3u);
+                part_oscmode[part_sel] = (uint8_t)((part_oscmode[part_sel] + 1u) % 4u);
                 fm_set_oscmode((uint8_t)(part_sel - NDRUM), part_oscmode[part_sel]);
             } else {
                 midi_out = !midi_out;

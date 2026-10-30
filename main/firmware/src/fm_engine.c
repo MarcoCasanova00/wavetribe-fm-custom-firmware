@@ -106,6 +106,18 @@ int32_t fm_sine(uint32_t phase)
     return FM_SINE[phase >> 22];
 }
 
+/* Casio-CZ-style phase distortion: bend the sine read index by an amount.
+ * amt 0 = pure sine, higher = sharper (saw/square-like) shapes. */
+static uint32_t pd_warp(uint32_t idx, uint8_t amt)
+{
+    uint32_t a = idx & 1023u;
+    uint32_t b;
+    if (a >= 512u) a = 1023u - a;
+    b = a + ((((uint32_t)amt * (a * (511u - a)))) >> 17);
+    if (b > 511u) b = 511u;
+    return (idx & 512u) ? (1023u - b) : b;
+}
+
 static int32_t fm_wave(uint8_t w, uint32_t ph)
 {
     uint32_t i = ph >> 22;
@@ -417,16 +429,22 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                 mod = clamp32(mod, -32767, 32767);
 
                 {
+                    uint32_t p = op->phase + ((uint32_t)mod << 16);
                     /* hard sync: OP1 restarts whenever OP4 wraps a cycle */
                     if (o == 0u && vo->oscmode == 1u && sync_latch) op->phase = 0;
-                    int32_t s = fm_wave(wave, op->phase + ((uint32_t)mod << 16));
-                    s = (s * (op->env >> 8)) >> 15;
-                    s = (s * (int32_t)op->amp) >> 15;
-                    s = (s * (int32_t)op->kvs_scale) >> 8;
-                    /* ring/AM: scale the carrier by OP4's output */
-                    if (o == 0u && vo->oscmode == 2u) s = (s * op_out[3]) >> 15;
-                    op_out[o] = s;
-                    op->last = s;
+                    /* phase distortion (CZ-style): warp the read index by macro C */
+                    if (vo->oscmode == 3u)
+                        p = (pd_warp(p >> 22, vo->macro[2]) << 22) | (p & 0x3FFFFFu);
+                    {
+                        int32_t s = fm_wave(wave, p);
+                        s = (s * (op->env >> 8)) >> 15;
+                        s = (s * (int32_t)op->amp) >> 15;
+                        s = (s * (int32_t)op->kvs_scale) >> 8;
+                        /* ring/AM: scale the carrier by OP4's output */
+                        if (o == 0u && vo->oscmode == 2u) s = (s * op_out[3]) >> 15;
+                        op_out[o] = s;
+                        op->last = s;
+                    }
                 }
                 {
                     uint32_t ph = op->phase;

@@ -41,8 +41,9 @@ hear them whichever part you play. These tweaks are saved with your sound — a
 **SAVE / LOAD** slot keeps them.
 
 On the **WAVE/EDIT** page, **OCT+** cycles the oscillator mode for the selected
-synth part: **NORM → SYNC → RING** (hard-sync — the carrier restarts each OP4
-cycle — and ring/AM). A fast way to dial in buzzy, metallic, 80s textures.
+synth part: **NORM → SYNC → RING → PD** (hard-sync, ring/AM, and **phase
+distortion** — the CZ-style warp whose amount follows the C/mod knob). A fast way
+to dial in buzzy, metallic, 80s textures.
 
 Held keyboard notes release when you switch page, part, or mode — so a note
 can't keep ringing after you move elsewhere.

@@ -27,7 +27,7 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - **Generative genre engine** (COMPOSE page via `GLO+ARP`, build with OCT+, one-step undo with OCT-, optional per-bar **drift** with `GLO+PLAY`): seeded, deterministic rules fill the three synth rows (bass/chord/lead) per genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO / AMBIENT / LOFI / ACID — and apply genre defaults (BPM, swing, accent, FX, arp flavour). MIDI CCs 94–96 drive it externally.
 - **ARPEGGIATOR page** (ARP button): per-part on/off, mode, octaves and rate; fed by held keys / MIDI / COMPOSE chord bank.
 - **EUCLID page** (`GLO+SEQ`): Euclidean rhythm generator (steps/hits/rotation) writes gates to the selected part; drift has an OFF/ON/LOCK cycle (`GLO+PLAY`).
-- **Osc modes** per synth part: hard sync and ring/AM (WAVE page OCT+ / CC 98).
+- **Osc modes** per synth part: hard sync, ring/AM and phase distortion (WAVE page OCT+ / CC 98).
 - Transport knobs live on the **FX page** (tempo / swing / accent / loop length), so tempo changes don't require entering GLO.
 
 ## Sources

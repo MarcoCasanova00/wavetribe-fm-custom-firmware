@@ -76,7 +76,8 @@ void fm_all_off(void);
 void fm_load_patch(uint8_t voice, const fm_patch_t *patch);
 void fm_set_macro(uint8_t voice, uint8_t index, uint8_t value);
 
-/* 0 normal, 1 hard sync, 2 ring/AM (runtime voice mode, not part of a patch). */
+/* runtime voice mode (not part of a patch):
+ * 0 normal, 1 hard sync, 2 ring/AM, 3 phase distortion (amount = macro C). */
 void fm_set_oscmode(uint8_t voice, uint8_t mode);
 
 /* Live modulation edits: update the running voice's patch in place. */
