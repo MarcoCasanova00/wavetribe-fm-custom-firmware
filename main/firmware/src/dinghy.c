@@ -1428,7 +1428,7 @@ static void draw_parts(void)
 {
     uint32_t p, s, x, y, w, h, cw = 11, labw = 52, top = 34, rh = 20;
     static const uint16_t PC[8] = { PP_R, PP_O, PP_Y, PP_FS, PP_O, PP_F, PP_G, PP_FS };
-    cv_begin(240, 8u * rh, PP_INK);
+    cv_begin(240, 206u, PP_INK);   /* full page body so nothing stale is left behind */
     for (p = 0; p < NPART; p++) {
         uint32_t y0 = p * rh, sel = (p == part_sel), mut = mute[p];
         uint16_t pc = PC[p];
