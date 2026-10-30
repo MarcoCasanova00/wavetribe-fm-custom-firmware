@@ -722,6 +722,9 @@ struct set {
     uint8_t mute[NPART];
     uint8_t prm[8][4];
     struct pat pat;
+    /* shared FM sound LFO/VCA tweaks (applied over the bank patch) */
+    uint8_t lfo_on, lfo_wave, lfo_speed, pmd, amd;
+    uint8_t vca_ar, vca_dr, vca_sus, vca_rr;
 };
 static struct set S;
 
@@ -732,6 +735,8 @@ static void set_defaults(void)
     memset(S.mute, 0, sizeof S.mute);
     memset(S.prm, 64, sizeof S.prm);
     pattern_load(0); memcpy(&S.pat, &pat, sizeof pat);
+    S.lfo_on = 1; S.lfo_wave = 0; S.lfo_speed = 18; S.pmd = 6; S.amd = 0;
+    S.vca_ar = 31; S.vca_dr = 14; S.vca_sus = 112; S.vca_rr = 20;
 }
 
 static uint8_t slot_sel;   /* active user save slot (0..NSLOT-1) */
@@ -739,12 +744,30 @@ static uint8_t slot_sel;   /* active user save slot (0..NSLOT-1) */
 /* Copy live globals into the S struct (the persistent snapshot). */
 static void snapshot_state(void)
 {
+    fm_patch_t pp;
     S.bpm = bpm; S.swing = swing; S.page = page; S.part_sel = part_sel;
     S.pat_sel = pat_sel; S.accent = accent; S.midi_out = midi_out;
     S.dx7_bank = dx7bank_sel; S.patchbank = patchbank; S.patch_ix = patch_ix;
     memcpy(S.mute, mute, sizeof mute);
     memcpy(S.prm, part_prm, sizeof part_prm);
     memcpy(&S.pat, &pat, sizeof pat);
+    /* the three voices share one sound; voice 0 represents it */
+    fm_get_patch(0, &pp);
+    S.lfo_on = pp.lfo_on; S.lfo_wave = pp.lfo_wave & 7u;
+    S.lfo_speed = pp.lfo_speed; S.pmd = pp.pmd; S.amd = pp.amd;
+    S.vca_ar = pp.vca_ar; S.vca_dr = pp.vca_dr;
+    S.vca_sus = pp.vca_sus; S.vca_rr = pp.vca_rr;
+}
+
+/* Apply the saved sound's LFO/VCA tweaks over the (already loaded) bank patch,
+ * to all three voices (the sound is shared). */
+static void apply_saved_sound(void)
+{
+    uint8_t v;
+    for (v = 0; v < 3u; v++) {
+        fm_set_lfo(v, S.lfo_on, S.lfo_wave, S.lfo_speed, S.pmd, S.amd);
+        fm_set_vca(v, S.vca_ar, S.vca_dr, S.vca_sus, S.vca_rr);
+    }
 }
 
 /* Apply S to the live globals (mirrors app_init). */
@@ -761,6 +784,7 @@ static void restore_state(void)
     memcpy(&pat, &S.pat, sizeof pat);
     step_ms = 15000u / (bpm ? bpm : 128u);
     load_bank_patch(patchbank, patch_ix);
+    apply_saved_sound();
     snd_mem_reset();
     fm_sync_macros();
 }
@@ -1263,6 +1287,7 @@ static void app_init(void)
     memcpy(&pat, &S.pat, sizeof pat);
     fm_init();
     load_bank_patch(patchbank, patch_ix);
+    apply_saved_sound();
     snd_mem_reset();
     fm_sync_macros();
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);

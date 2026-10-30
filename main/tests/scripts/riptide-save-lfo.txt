@@ -1,0 +1,23 @@
+# Regression: LFO/Envelope tweaks survive a SAVE/LOAD slot round-trip.
+# Edit the LFO heavily on part 5, SAVE to slot 0, clear the tweak, then LOAD
+# the slot - the reloaded note must sound like the tweaked one (not the
+# cleared one). Verified against the rendered WAV (segments differ strongly).
+
+100 enc 0 5
+300 btn 5
+400 enc 2 3
+500 enc 3 60
+600 enc 4 127
+700 enc 5 90
+900 btn 9        # SAVE page
+1000 btn 1      # save to slot 0 (action=SAVE, slot 0)
+1200 btn 5      # back to LFO page
+1300 enc 4 -127   # clear the vibrato tweak
+1400 enc 2 -3     # wave off
+1500 midi 0x90 60 100
+4500 midi 0x80 60 0
+4600 btn 9      # SAVE page
+4700 enc 5 -1   # action -> LOAD
+4900 btn 1      # load slot 0
+5100 midi 0x90 60 100
+8100 end

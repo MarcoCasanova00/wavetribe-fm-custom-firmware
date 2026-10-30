@@ -37,7 +37,8 @@ Knobs 1–4 edit whichever part is selected:
 
 On the **LFO** and **Envelope** pages, the knobs edit the selected sound, and
 the changes apply to **all three synth parts** (the sound is shared) — so you'll
-hear them whichever part you play.
+hear them whichever part you play. These tweaks are saved with your sound — a
+**SAVE / LOAD** slot keeps them.
 
 ## 5. Patch banks & presets (GR!MM-style sound browsing)
 - **Browse sounds:** turn **PRESETS** on any page except SEQ — it steps the the
