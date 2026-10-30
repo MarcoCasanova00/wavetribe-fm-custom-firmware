@@ -56,6 +56,21 @@ See [`INFLUENCES.md`](INFLUENCES.md) for per-source fidelity notes (bytes / para
 Host (test): `cc -DDINGHY_HOST ...`
 Web: `sh tools/build_web.sh` → `/docs/` → GitHub Pages.
 
+## Device build / flashing
+
+`python3 tools/build.py` (Linux x86-64, the JieLi toolchain and AC79 SDK — see
+`tools/get_toolchain.sh`) produces `build/dinghy.fwsc` (FM-1 identity; `--board smk37`
+with `--model pro|elite|mke` for the SMK-37 family). Install it with the M-Vave
+updater or a Web-MIDI SysEx installer.
+
+The bundled update loader is conservative: it writes **only the app area**
+(never the SPL/head, calibration/BTIF, stock USR resources or key_mac), checks the
+package's key before touching flash, skips already-equal sectors, verifies each
+sector and the full-package CRC, and is resumable across power loss (the update
+record survives; a damaged package leaves the loader waiting). `bootguard.h`
+adds a recovery/ROM fallback after repeated failed boots. Rollback to stock
+remains possible (its resources are kept and protected).
+
 Live (hard-refresh `Ctrl+Shift+R`): https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
 
 ---

@@ -35,6 +35,7 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - **Font:** normalized to Terminus 16 — regular body + a generated bold face (FONT_B) for titles/brand/selected part (same metrics, no reflow). Nerd Fonts are not compatible with the 1-bit BDF bitmap pipeline.
 - **Live FX layer:** hold FX + keys (F3..C4; D4/E4 throws) = momentary whole-mix effects (stutter, reverse/echo throws, tape stop, bitcrush, gate, LP sweep, half speed). Deterministic; `riptide-perf.txt` covers it.
 - **Fix:** `fm_set_oscmode` masked `mode & 3`, silently dropping VEC (4) — now allows modes 0–4.
+- **Audio regression:** `tests/run_audio.sh` renders the deterministic scene `riptide-audio.txt` (genre build + drone + live FX STUT/SWEEP) to WAV and compares its SHA-256 against `tests/golden/audio.sha256` — catches DSP changes the MIDI-only logs cannot.
 - Transport knobs live on the **FX page** (tempo / swing / accent / loop length), so tempo changes don't require entering GLO.
 
 ## Sources

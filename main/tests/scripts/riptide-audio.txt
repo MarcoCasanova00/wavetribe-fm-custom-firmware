@@ -1,0 +1,19 @@
+# Audio-level golden regression: deterministic sonic scene rendered to WAV.
+# Covers: genre build (FM bass/chord/lead), held note drone, live FX layer
+# (STUT + SWEEP), transport. The host writes build/host/dinghy.wav; its
+# SHA-256 is compared to tests/golden/audio.sha256.
+0 btn 7          # GLO latch
+100 btn 10       # ARP -> COMPOSE
+200 btn 7        # GLO unlatch
+300 btn 1        # OCT+ -> build TECHNO pattern
+500 btn 12       # PLAY
+
+700 keys 0x2001  # hold C2+C3 drone (bits 0, 12)
+1300 btndown 2   # hold FX -> live FX layer
+1400 keys 0x0001 # F3 -> STUT
+1700 keys 0x0040 # B3 -> SWEEP (switch effect while FX held)
+2000 shot
+2300 keys 0      # release keys
+2500 btnup 2     # release FX
+3900 btn 12      # STOP
+4400 end
