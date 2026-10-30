@@ -57,6 +57,8 @@ static const char *wt_category(uint16_t w) {
 }
 #include "factory_patchbanks.h"   /* APP, DX7, ROM banks (melting-pot patches) */
 #include "fm_engine.h"
+#include "fm_patches_tx81z.h"
+#include "fm_patches_fb01.h"
 extern uint32_t env_rate_to_inc(uint8_t rate);
              /* 4-operator FM synth engine */
 
@@ -270,6 +272,31 @@ static void fm_load_tx81z_patch(uint8_t patch_ix)
     for (o = 0; o < FM_OPS_PER_VOICE; o++)
         fm_load_patch(o, &p);
 }
+
+/* FB-01 patch loading (bank 4) */
+static void fm_load_fb01_patch(uint8_t patch_ix)
+{
+    if (patch_ix >= FM_PATCH_FB01_COUNT) return;
+    fm_patch_t p;
+    uint8_t o;
+    p.alg = PATCH_FB01_ALG[patch_ix];
+    p.fb = PATCH_FB01_FB[patch_ix];
+    for (o = 0; o < FM_OPS_PER_VOICE; o++) {
+        p.ar[o] = PATCH_FB01_AR[patch_ix][o];
+        p.dr[o] = PATCH_FB01_DR[patch_ix][o];
+        p.sr[o] = PATCH_FB01_SR[patch_ix][o];
+        p.rr[o] = PATCH_FB01_RR[patch_ix][o];
+        p.sl[o] = PATCH_FB01_SL[patch_ix][o];
+        p.tl[o] = PATCH_FB01_TL[patch_ix][o];
+        p.coarse[o] = PATCH_FB01_COARSE[patch_ix][o];
+        p.fine[o] = PATCH_FB01_FINE[patch_ix][o];
+        p.detune[o] = 0;
+    }
+    /* Apply to all FM voices */
+    for (o = 0; o < FM_OPS_PER_VOICE; o++)
+        fm_load_patch(o, &p);
+}
+
 static uint8_t run, bpm;
 
 /* --- the event queue between the main loop and the audio ISR --- */
@@ -806,6 +833,8 @@ static void app_tick(void)
                     patch_ix = ps;
                     if (patchbank == 3) {
                         fm_load_tx81z_patch(patch_ix);
+                    } else if (patchbank == 4) {
+                        fm_load_fb01_patch(patch_ix);
                     } else {
                         for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
                     }
@@ -860,6 +889,8 @@ static void app_tick(void)
             dx7bank_sel = (patchbank == 1u);
             if (patchbank == 3) {
                 fm_load_tx81z_patch(0);
+            } else if (patchbank == 4) {
+                fm_load_fb01_patch(0);
             } else {
                 for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
             }
@@ -891,6 +922,8 @@ static void app_tick(void)
                     patch_ix = (uint8_t)c;
                     if (patchbank == 3) {
                         fm_load_tx81z_patch(patch_ix);
+                    } else if (patchbank == 4) {
+                        fm_load_fb01_patch(patch_ix);
                     } else {
                         for (i = 0u; i < 3u; i++)
                             for (q = 0u; q < 4u; q++)
