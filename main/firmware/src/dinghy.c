@@ -1022,7 +1022,7 @@ static void draw_wave_page(void)
         p = ap(p, " · "); p = ap(p, PATCHBANK_NAME[patchbank]);
         fit_text(s, 232);
         cv_text(4, 82, &FONT_S, s, UI_LABEL);
-        cv_text_wrap(4, 188, 232, &FONT_S, "A: wave · PRESETS browses sound · GLO+EDIT: SOUNDS", UI_DIM);
+        cv_text_wrap(4, 188, 232, &FONT_S, "A: wave | PRESETS browses sound | GLO+EDIT: SOUNDS", UI_DIM);
     }
     cv_blit(0, 34);
 }
@@ -1046,7 +1046,7 @@ static void draw_sounds_page(void)
     p = ap(p, "/"); p = apu(p, PATCHBANK_COUNT[patchbank]);
     fit_text(s, 232);
     cv_text(4, 64, &FONT_S, s, UI_LABEL);
-    cv_text_wrap(4, 188, 232, &FONT_S, "KNOB1 cat · KNOB2 sound · PRESETS browses · EDIT exits", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "KNOB1 cat | KNOB2 sound | PRESETS browses | EDIT exits", UI_DIM);
     cv_blit(0, 34);
 }
 static const char *wave_label_direct(uint8_t w)
@@ -1161,7 +1161,7 @@ static void draw_lfo_page(void)
         fit_text(s, 232);
         cv_text(4, 42, &FONT_S, s, UI_AMB);
         draw_wave_plot(8, 64, 224, 72, pp.lfo_on ? pp.lfo_wave : 0u);
-        cv_text_wrap(4, 188, 232, &FONT_S, "A: wave/off  B: speed  C: vibrato  D: tremolo", UI_DIM);
+        cv_text_wrap(4, 188, 232, &FONT_S, "A: wave/off | B: speed | C: vibrato | D: tremolo", UI_DIM);
     }
     cv_blit(0, 34);
 }
@@ -1211,7 +1211,7 @@ static void draw_sys_page(void)
     p = s; p = ap(p, "Slot: "); p = apu(p, slot_sel + 1); p = ap(p, "/"); p = apu(p, NSLOT);
     p = ap(p, "  SAVE=page  GLO+REC=load"); fit_text(s, 232);
     cv_text(4, 96, &FONT_S, s, UI_HI);
-    cv_text_wrap(4, 188, 232, &FONT_S, "A: colour  pages: SEQ FX EDIT LFO ENV  OCT+ MIDI", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "A: colour | pages: SEQ FX EDIT LFO ENV | OCT+ MIDI", UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_save_page(void)
@@ -1231,7 +1231,7 @@ static void draw_save_page(void)
     p = s; p = ap(p, "Action: "); p = ap(p, ACT[action_sel]);
     fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_HI);
-    cv_text_wrap(4, 188, 232, &FONT_S, "K1 slot · K4 action · OCT+ go · OCT- back", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 slot | K4 action | OCT+ go | OCT- back", UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_screen(uint32_t playing)
