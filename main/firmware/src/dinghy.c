@@ -1149,6 +1149,20 @@ static const struct genre_profile GENRE_PROFILE[N_GENRE] = {
     { "ACID",   31, SCALE_HARMONIC_MINOR, 7, PROG_ACID, 4, GRID_ACID_BASS,    GRID_ACID_LEAD,    0, 0, 140, 18, 60, 2, ARP_UD,   1 },
 };
 
+/* When the user overrides the scale, derive the chord progression from the
+ * scale itself instead of the genre's static one: start on the tonic and
+ * walk through the scale degrees in deterministic steps (a circle of thirds),
+ * so every chord comes from the selected scale.  Deterministic on the seed
+ * (which already mixes in the override). */
+static void prog_from_scale(uint8_t *roots, uint8_t nbars, uint8_t nsc)
+{
+    uint8_t b, deg = 0;
+    for (b = 0; b < nbars; b++) {
+        roots[b] = deg;
+        deg = (uint8_t)((deg + 2u + gen_rnd(3)) % nsc);   /* step 2..4 degrees */
+    }
+}
+
 /* Fill the three synth rows + the lead arp bank from a profile (notes only).
  * tonic may differ from the profile's (chord-follow).  sc/nsc are the
  * effective scale (user override or the profile's own). */
@@ -1156,11 +1170,15 @@ static void genre_fill(const struct genre_profile *q, uint8_t tonic,
                        const uint8_t *sc, uint8_t nsc)
 {
     uint8_t base[4], bar, s, k, note, cidx, den;
+    uint8_t roots[4], nbar = (uint8_t)(NSTEP / 16u), use_scaled_prog;
+    use_scaled_prog = (gen_scale != GEN_AUTO);
+    if (use_scaled_prog) prog_from_scale(roots, nbar, nsc);
 
-    for (bar = 0; bar < NSTEP / 16u; bar++) {
+    for (bar = 0; bar < nbar; bar++) {
         uint16_t st;
-        /* triad rooted at prog[bar % nprog] (scale degree), voiced in the bass register */
-        cidx = q->prog[(bar % q->nprog) * 3u];
+        /* triad rooted at a scale degree, voiced in the bass register: the
+         * genre's static progression (AUTO) or one derived from the chosen scale */
+        cidx = use_scaled_prog ? roots[bar] : q->prog[(bar % q->nprog) * 3u];
         base[0] = (uint8_t)(tonic + sc[cidx % nsc]);
         base[1] = (uint8_t)(tonic + sc[(cidx + 2u) % nsc]);
         base[2] = (uint8_t)(tonic + sc[(cidx + 4u) % nsc]);
@@ -2013,7 +2031,7 @@ static void draw_compose_page(void)
         p = ap(p, "  (PRESETS)"); fit_text(s, 232);
         cv_text(4, 150, &FONT_S, s, UI_LABEL);
     }
-    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 oct | SELECT key | PRESETS scale | OCT+ build | OCT- undo | GLO+PLAY drift", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 oct | SELECT key | PRESETS scale (re-harmonizes chords) | OCT+ build | OCT- undo | GLO+PLAY drift", UI_DIM);
     cv_blit(0, 34);
 }
 

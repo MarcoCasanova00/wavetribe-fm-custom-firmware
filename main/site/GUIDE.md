@@ -161,7 +161,9 @@ TECHNO · HOUSE · DUBSTEP · D&B · ELECTRO · AMBIENT · LOFI · ACID.
   **PRESETS** = scale (major · natural/harmonic/melodic minor · dorian ·
   phrygian · lydian · mixolydian · minor/major pentatonic · blues · chromatic).
   Overrides show `[auto]` until you touch them; both re-generate live and are
-  included in the deterministic seed. MIDI CC 97 = scale, CC 101 = key.
+  included in the deterministic seed. Choosing a scale **also derives a fresh
+  chord progression from it** (a deterministic circle-of-thirds walk), instead
+  of the genre's static one. MIDI CC 97 = scale, CC 101 = key.
 - **OCT+** builds; **OCT−** undoes the build, then backs out.
 - Building applies genre defaults (BPM, swing, accent, FX, arp flavour) —
   previewed on the page.
