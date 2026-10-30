@@ -10,51 +10,51 @@ A single-file sequencer / 4-operator FM synth / drum kit hybrid. Sounds pulled f
 
 ## What it is
 - **Synth:** Real 4-op FM engine (`fm_engine.c`) with 8 algorithms, 8 operator waveforms, per-op envelopes, LFO + ENV pages.
-- **Drums:** 7 factory kits (TR-808 default) + one **ABUSE** kit — 8-bit/11025 Hz DOS SFX resampled to gritty 16-bit (not polished loops).
-- **Sequencer:** Pattern + live MIDI, Shift+click button latching for combos. MPC-inspired deeper **swing** (up to ~62%), step-resolution readout, and **SAVE / SOUNDS** slots (8 flash slots, persisted to browser localStorage in the web emulator).
+- **Drums:** classic drum-machine kits (kick-heavy default) + a game-SFX kit — 8-bit DOS SFX resampled to gritty 16-bit (not polished loops).
+- **Sequencer:** Pattern + live MIDI, Shift+click button latching for combos. sampler-inspired deeper **swing** (up to ~62%), step-resolution readout, and **SAVE / SOUNDS** slots (8 flash slots, persisted to browser localStorage in the web emulator).
 - **Generative genre engine:** seeded rules fill the three synth rows (bass/chord/lead) per genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO / AMBIENT / LOFI / ACID — via the **COMPOSE** page (`GLO+ARP`; build with OCT+, one-step undo with OCT-, per-bar **drift** `GLO+PLAY` with an OFF/ON/LOCK cycle). It applies genre defaults (BPM, swing, accent, FX, arp flavour) and is deterministic (same seed → same pattern). Externally drivable over MIDI CCs 94–96. The **ARP** button opens a dedicated per-part arpeggiator page (on/off, mode, octaves, rate); **EUCLID** (`GLO+SEQ`) writes Euclidean gate rhythms to any part.
-- **Osc modes:** per-synth-part **hard sync**, **ring/AM**, **phase distortion (CZ-style)** and **vector synthesis** (OCT+ on the WAVE/EDIT page, or CC 98) for buzzy/metallic/morphing 80s textures.
-- **LOST bank:** a sixth curated bank of hand-authored "lost ROMpler" patches (FM-EP, Motown Bass, Glass Pad, …).
-- **Stutter FX:** SP-202/303-style loop-roll stutter as a fourth FX mode (OFF/CHORUS/ECHO/COMBO/STUT).
+- **Osc modes:** per-synth-part **hard sync**, **ring/AM**, **phase distortion** and **vector synthesis** (OCT+ on the WAVE/EDIT page, or CC 98) for buzzy/metallic/morphing 80s textures.
+- **LOST bank:** a sixth curated bank of hand-authored "lost ROMpler" patches (FM-EP, Round Bass, Glass Pad, …).
+- **Stutter FX:** loop-roll stutter as a fourth FX mode (OFF/CHORUS/ECHO/COMBO/STUT).
 - **Frankentribe lab skin:** colorful multi-accent UI — yellow→green header band, per-page color banners and accent rails, color-coded part rows, status-pill footer.
 - **Live FX layer:** hold FX + keys (F3..C4, D4/E4 throws) for momentary whole-mix effects — stutter, reverse/echo throws, tape stop, bitcrush, gate, filter sweep, half speed. Also triggerable by MIDI CC 99 (0–7 start / 127 stop).
 - **Quick mute:** hold HOME (≥300 ms) + F3…C4 toggles part mutes live (tap HOME still opens the system page).
 - **Bidirectional MIDI clock:** MASTER mode sends 24 PPQ clock + Start/Stop over USB; **SLAVE** mode follows external Start/Continue/Stop and steps the sequencer on incoming F8 (USB or TRS). Clock mode cycles via GLO+FX or CC 100.
 - **MORPH / VMORPH osc modes:** phase distortion and vector synthesis whose amounts follow the note envelope — crisp attack settling to a sine (MORPH) or a per-note four-wave sweep (VMORPH) — alongside SYNC/RING/PD/VEC as per-part integrated oscillator modes.
-- **Soundbook:** GLO+HOME opens a browse of every sound by name + category — patches by bank (SYNTH/DX7/ROMpler/4OP/LOST), drum samples by kit, wave libraries by origin.
+- **Soundbook:** GLO+HOME opens a browse of every sound by name + category — patches by bank, drum samples by kit, wave libraries by origin.
 - **Font:** normalized to Terminus 16 (regular body + generated bold for titles/brand/selected part); Nerd Fonts not compatible with the 1-bit BDF bitmap pipeline.
-- **Volca-style FUNC keys:** with GLO latched, the first 16 white keys act as grid-key shortcuts (clear / save / load / pattern ± / copy / paste / step mode).
+- **FUNC keys:** with GLO latched, the first 16 white keys act as grid-key shortcuts (clear / save / load / pattern ± / copy / paste / step mode).
 - **Patch/sound selection:** category-first browsing (GLO+PRESET = sound, GLO+OCT- = category). **SAVE** opens a SOUNDS page: `SLOT / SOURCE / ACTION (LOAD|SAVE|CLEAR)` with OCT+ to confirm.
 - **Transport on the FX page:** KNOB1 = tempo (60–250 BPM), KNOB2 = swing, KNOB3 = accent, KNOB4 = loop length — no need to enter GLO.
-- **UI:** HOME screen with theme palette ("default" = Abuse olive/magenta; plus AMBER, CYAN, RED, ALIEN, LAVA).
+- **UI:** HOME screen with theme palette ("default" = olive/magenta; plus AMBER, CYAN, RED, ALIEN, LAVA).
 
-## Sources — how much we took, honestly
+## Provenance — where the material came from, honestly
 
 ### FM voices (byte-level decode)
-- **Yamaha TX81Z EPROM** (`4op synths/`): 128 voices — param-accurate.
-- **Yamaha FB-01 ROM** (`4op synths/`): 144 voices — decoded per authoritative `FB01Editor` format (8-byte ops, inverted Total Level, OP4..OP1 storage). Algorithm routing approximated by carrier-set mapping.
-- **Yamaha DX7** (`eeproms/`): 64 voices — names + heuristic params (not byte-exact).
-- **ROM template / mined EPROMs**: 32 curated + extra EPROM dumps (Crumar Bit-01/99, AAC-Tiracon, Bohm-DD16, Cheetah-MD16, Doepfer ms404, etc.) — mostly untapped.
+- 128 vintage FM voices decoded byte-for-byte from a 1980s multi-timbral sound-module EPROM.
+- 144 voices decoded from another classic FM sound-module ROM (per the authoritative editor format: 8-byte operators, inverted Total Level, OP4..OP1 storage). Algorithm routing approximated by carrier-set mapping.
+- 64 extra FM voices from a well-known early-80s synth (names + heuristic params, not byte-exact).
+- 32 curated single-cycle waves mined from rare synth/drum-machine EPROM dumps (mostly untapped).
 
 ### Drum / wave sources
-- **FunkBox** (iOS) drums: TR-808 samples.
-- **Linn** drum kits: mapped to factory banks.
-- **Absynth** banks (`new absynth banks/`): single-cycle wavetables.
-- **Abuse** (`ABUSE/` DOS): 8-bit/11025 Hz SFX → resampled ABUSE kit (MGHIT02 kick, SHOTGN31 snare, DELOBJ01 clap, SWISH01 chh, LASRMIS2 ohh). Intentionally loud/quiet mix.
+- Drum one-shots reconstructed from a mobile drum-app's classic machine samples.
+- Further drum kits mapped from classic sample-triggered hardware.
+- Single-cycle wavetables imported from a softsynth bank collection.
+- One kit built from 8-bit/11025 Hz SFX pulled from a 1995 public-domain DOS game (kick/snare/clap/chh/ohh), deliberately lo-fi.
 
 ### Ideas only (no code/data taken)
-- **Hortator / DEADACTIVE FM-1**: "4 knobs per page" interaction design (GPL-3.0).
-- **Zoom FX ideas**: chorus/echo chain concepts.
-- **KORG iELECTRIBE** (`ipa`): listed, not integrated.
+- "Four knobs per page" groovebox interaction design from an open-source sibling project.
+- Chorus/echo FX-chain concepts from guitar multi-effects units.
+- A mobile groovebox app was reviewed but not integrated.
 
 ### Visual skin
-- **Abuse** (Crack dot Com, DOS 1995): palettes (`ART/*.SPE`), ANT sprite mascot, font sheets — public-domain source, decoded with REA + open-source engine. No code; only colour/theme assets.
+- Palette, mascot sprite and font sheets from the same 1995 public-domain DOS game (decoded with REA + an open-source engine; no code taken — colour/theme assets only).
 
 See [`INFLUENCES.md`](INFLUENCES.md) for per-source fidelity notes (bytes / params / assets / ideas).
 
 ## What's experimental / unrefined
-- FB-01 algorithm topology mapped, not bit-exact (voices sound correct but not hardware-identical).
-- Abuse SFX are 8-bit, resampled, clipped/gain-varied — deliberately lo-fi.
+- The 4-op module algorithm topology is mapped, not bit-exact (voices sound correct but not hardware-identical).
+- The game-SFX kit is 8-bit, resampled, clipped/gain-varied — deliberately lo-fi.
 - Bank selection is number-based (OCT- / OCT+) — functional, not polished.
 - Genre generator state (genre/seed/density) is **not persisted** in slots — it resets on boot.
 - Synth chords are a block triad across three consecutive steps (parts are monophonic).
@@ -106,7 +106,7 @@ Every sound below is selectable in the firmware: browse them in the
 - PWM
 - Acid
 
-**DX7** — 64 patches
+**Vintage FM** — 64 patches
 - SYN-LEAD 2
 - SYN-LEAD 3
 - SYN-LEAD 4
@@ -173,38 +173,38 @@ Every sound below is selectable in the firmware: browse them in the
 - LOG DRUM
 
 **ROM** — 32 patches
-- DX7_Voice_Rom2-0
-- DX7_Voice_Rom2-1
-- DX7_Voice_Rom2-2
-- DX7_Voice_Rom2-3
-- Doepfer_ms404_v1_0
-- Doepfer_ms404_v1_0
-- Doepfer_ms404_v1_0
-- Doepfer_ms404_v1_0
-- Trinity-0
-- Trinity-1
-- Trinity-2
-- Trinity-3
-- Lexicon_LXP1_v1.06
-- Lexicon_LXP1_v1.06
-- Lexicon_LXP1_v1.06
-- Lexicon_LXP1_v1.06
-- Linn_9000_roms_2-0
-- Linn_9000_roms_2-1
-- Linn_9000_roms_2-2
-- Linn_9000_roms_2-3
-- Moog_MemoryMoog_v2
-- Moog_MemoryMoog_v2
-- Moog_MemoryMoog_v2
-- Moog_MemoryMoog_v2
-- Nord_Lead_1_(27c40
-- Nord_Lead_1_(27c40
-- Nord_Lead_1_(27c40
-- Nord_Lead_1_(27c40
-- OSCAR_7_64_TomMora
-- OSCAR_7_64_TomMora
-- OSCAR_7_64_TomMora
-- OSCAR_7_64_TomMora
+- Voice_Rom2-0
+- Voice_Rom2-1
+- Voice_Rom2-2
+- Voice_Rom2-3
+- ms404 v1.0
+- ms404 v1.0
+- ms404 v1.0
+- ms404 v1.0
+- Workstation-0
+- Workstation-1
+- Workstation-2
+- Workstation-3
+- FX Unit v1.06
+- FX Unit v1.06
+- FX Unit v1.06
+- FX Unit v1.06
+- DrumMachine_roms_2-0
+- DrumMachine_roms_2-1
+- DrumMachine_roms_2-2
+- DrumMachine_roms_2-3
+- MemorySynth_v2
+- MemorySynth_v2
+- MemorySynth_v2
+- MemorySynth_v2
+- LeadSynth_1_(27c40
+- LeadSynth_1_(27c40
+- LeadSynth_1_(27c40
+- LeadSynth_1_(27c40
+- MiniMono_64_TomMora
+- MiniMono_64_TomMora
+- MiniMono_64_TomMora
+- MiniMono_64_TomMora
 
 **4OP-A** — 128 patches
 - GrandPiano
@@ -468,7 +468,7 @@ Every sound below is selectable in the firmware: browse them in the
 
 **LOST** — 16 patches
 - FM-EP
-- Motown Bass
+- Soul Bass
 - Finger Bass
 - Glass Pad
 - Warm Strings
@@ -493,35 +493,35 @@ Every sound below is selectable in the firmware: browse them in the
 - CHH
 - OHH
 
-**TR808**
+**Kick Machine**
 - KICK
 - SNARE
 - CLAP
 - CHH
 - OHH
 
-**TR909**
+**Dance Machine**
 - KICK
 - SNARE
 - CLAP
 - CHH
 - OHH
 
-**CR78**
+**Rhythm Box**
 - KICK
 - SNARE
 - CLAP
 - CHH
 - OHH
 
-**LINN**
+**Sample Machine**
 - KICK
 - SNARE
 - CLAP
 - CHH
 - OHH
 
-**MD110**
+**Preset Machine**
 - KICK
 - SNARE
 - CLAP
@@ -530,7 +530,7 @@ Every sound below is selectable in the firmware: browse them in the
 
 ### Wave libraries
 
-- **WAVELIB** — 256 single-cycle waves (Factory/FunkBox/Linn)
-- **EPROM BÖHM-DD16** — 64 mined waves
-- **ZOOM MS-60B/70CDR** — 64 mined waves
+- **WAVELIB** — 256 factory single-cycle waves
+- **EPROM mine A** — 64 mined single-cycle waves
+- **EPROM mine B** — 64 mined single-cycle waves
 

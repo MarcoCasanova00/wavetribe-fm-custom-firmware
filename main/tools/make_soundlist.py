@@ -4,11 +4,41 @@
 Parses the actual firmware catalogs (factory_patchbanks.h, factory_drum_kits.h)
 so the list is always exactly what the firmware ships. Run from main/:
     python3 tools/make_soundlist.py
+
+Brand names are stripped for the public README (bank/kit headings and patch
+labels are shown under neutral names; the firmware itself keeps its original
+labels).
 """
 import re, pathlib, sys
 
 root = pathlib.Path("firmware/gen")
 out = pathlib.Path("..") / "README.md"
+
+# Neutral display names for brand-derived catalog labels (README only).
+BANK_DISPLAY = {"DX7": "Vintage FM"}
+KIT_DISPLAY = {
+    "TR808": "Kick Machine",
+    "TR909": "Dance Machine",
+    "CR78": "Rhythm Box",
+    "LINN": "Sample Machine",
+    "MD110": "Preset Machine",
+}
+PATCH_SANITIZE = [
+    ("DX7_Voice_Rom2", "Voice_Rom2"),
+    ("Doepfer_ms404_v1_0", "ms404 v1.0"),
+    ("Trinity-", "Workstation-"),
+    ("Lexicon_LXP1_v1.06", "FX Unit v1.06"),
+    ("Linn_9000_roms_", "DrumMachine_roms_"),
+    ("Moog_MemoryMoog_v2", "MemorySynth_v2"),
+    ("Nord_Lead_1_", "LeadSynth_1_"),
+    ("OSCAR_7_64_TomMora", "MiniMono_64_TomMora"),
+    ("Motown Bass", "Soul Bass"),
+]
+
+def sanitize_patch(n):
+    for a, b in PATCH_SANITIZE:
+        n = n.replace(a, b)
+    return n
 
 def arr(text, name):
     m = re.search(name + r"\[[^\]]*\]\s*=\s*\{(.*?)\};", text, re.S)
@@ -77,23 +107,23 @@ L.append("")
 for b, (bn, cnt) in enumerate(zip(bnames, counts)):
     names = [n for n in groups[b].split('","') if n]
     names = [g.strip('"') for g in re.findall(r'"((?:[^"\\\\]|\\\\.)*)"', groups[b])]
-    L.append("**%s** — %d patches" % (bn, cnt))
+    L.append("**%s** — %d patches" % (BANK_DISPLAY.get(bn, bn), cnt))
     for n in names[:cnt]:
-        L.append("- %s" % n)
+        L.append("- %s" % sanitize_patch(n))
     L.append("")
 L.append("### Drum kits (%d kits, 5 samples each)" % len(dnames))
 L.append("")
 for k, (dn, dc) in enumerate(zip(dnames, dcats)):
     tag = (" — " + dc) if dc else ""
-    L.append("**%s**%s" % (dn, tag))
+    L.append("**%s**%s" % (KIT_DISPLAY.get(dn, dn), tag))
     for part in DRUM_PARTS:
         L.append("- %s" % part)
     L.append("")
 L.append("### Wave libraries")
 L.append("")
-L.append("- **WAVELIB** — %d single-cycle waves (Factory/FunkBox/Linn)" % WT)
-L.append("- **EPROM BÖHM-DD16** — %d mined waves" % MWT)
-L.append("- **ZOOM MS-60B/70CDR** — %d mined waves" % ZWT)
+L.append("- **WAVELIB** — %d factory single-cycle waves" % WT)
+L.append("- **EPROM mine A** — %d mined single-cycle waves" % MWT)
+L.append("- **EPROM mine B** — %d mined single-cycle waves" % ZWT)
 L.append("")
 
 text = out.read_text(encoding="utf-8")
