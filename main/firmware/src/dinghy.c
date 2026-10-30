@@ -59,6 +59,7 @@ static const char *wt_category(uint16_t w) {
 #include "fm_engine.h"
 #include "fm_patches_tx81z.h"
 #include "fm_patches_fb01.h"
+#include "abuse_skin.h"           /* ABUSE skin mascot (decoded from Abuse) */
 extern uint32_t env_rate_to_inc(uint8_t rate);
              /* 4-operator FM synth engine */
 
@@ -871,13 +872,36 @@ static void draw_env_plot(int32_t x, int32_t y, int32_t w, int32_t h, const fm_p
     cv_line(x2, susY, x3, susY, C_HI);             /* sustain */
     cv_line(x3, susY, x3 + rw, base, C_HI);        /* release */
 }
+
+/* ABUSE skin mascot: a 24x26 silhouette tinted in the active highlight colour. */
+static void abuse_mascot_draw(int32_t x, int32_t y, uint16_t c)
+{
+    int32_t r, col;
+    for (r = 0; r < ABUSE_MASCOT_H; r++) {
+        const uint8_t *row = abuse_mascot[r];
+        for (col = 0; col < ABUSE_MASCOT_W; col++) {
+            if (row[col >> 3] & (0x80u >> (col & 7)))
+                cv_rect(x + col, y + r, 1, 1, c);
+        }
+    }
+}
+
+/* a decorative double rule under a page title, ABUSE-style corner ticks */
+static void page_rule(int32_t y)
+{
+    cv_rect(4, y, 232, 1, C_GRAY);
+    cv_rect(4, y + 1, 232, 1, C_LINE);
+    cv_rect(3, y - 1, 1, 3, C_HI);
+    cv_rect(236, y - 1, 1, 3, C_HI);
+}
 static void draw_lfo_page(void)
 {
     char s[48]; char *p = s;
     fm_patch_t pp;
     cv_begin(240, 206, UI_BG);
     cv_text(4, 2, &FONT_S, "LFO / MODULATION", UI_HI);
-    cv_rect(0, 18, 240, 1, UI_PANEL);
+    page_rule(18);
+    abuse_mascot_draw(214, 20, C_HI);
     if (part_sel < NDRUM) {
         cv_text(4, 24, &FONT_S, "drum part - no LFO", UI_AMB);
         cv_text(4, 188, &FONT_S, "select a synth part (5-7)", UI_DIM);
@@ -905,7 +929,8 @@ static void draw_env_page(void)
     fm_patch_t pp;
     cv_begin(240, 206, UI_BG);
     cv_text(4, 2, &FONT_S, "ENVELOPE / VCA", UI_HI);
-    cv_rect(0, 18, 240, 1, UI_PANEL);
+    page_rule(18);
+    abuse_mascot_draw(214, 20, C_HI);
     if (part_sel < NDRUM) {
         cv_text(4, 24, &FONT_S, "drum part - no envelope", UI_AMB);
         cv_text(4, 188, &FONT_S, "select a synth part (5-7)", UI_DIM);

@@ -147,9 +147,19 @@ function setButton(b, on) {
 }
 function bindButton(b) {
   let held = false;
+  b.latched = false;
   b.hit.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     b.hit.setPointerCapture(e.pointerId);
+    /* Shift+click latches the button: it stays held (for combos like
+     * hold-GLO + OCT-DOWN) until you Shift+click it again. */
+    if (e.shiftKey) {
+      b.latched = !b.latched;
+      b.g.classList.toggle("latched", b.latched);
+      setButton(b, b.latched);
+      if (!b.latched && !held) { b.hit.setAttribute("aria-pressed", "false"); }
+      return;
+    }
     btnBy.set("p" + e.pointerId, b);
     held = true;
     setButton(b, true);
@@ -202,6 +212,7 @@ function releaseAll() {
   btnBy.clear();
   for (const i of keyBy.values()) setKey(i, false);
   keyBy.clear();
+  for (const b of buttons) if (b.latched) { b.latched = false; b.g.classList.remove("latched"); setButton(b, false); }
 }
 
 
