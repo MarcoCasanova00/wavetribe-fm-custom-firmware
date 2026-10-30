@@ -164,9 +164,17 @@ def decode_tx81z(data: bytes, base: int = 0x51F9, stride: int = 78,
 
 def ensure_audible(ops: list[dict[str, int]], alg: int):
     """Our algorithms always use OP1 as a carrier: never let it be silent."""
-    if ops[0]["out"] < 40:
+    mask = (0x01, 0x03, 0x03, 0x01, 0x01, 0x01, 0x03, 0x0F)[alg & 7]
+    carriers = [k for k in range(4) if mask & (1 << k)]
+    # Lift weak carriers so every patch has a solid, audible presence.
+    total = sum(ops[k]["out"] for k in carriers)
+    if total < 150 and carriers:
+        scale = 150.0 / max(1, total)
+        for k in carriers:
+            ops[k]["out"] = min(99, int(round(ops[k]["out"] * scale)))
+    if ops[0]["out"] < 55:
         ops[0]["out"] = 90
-    if alg == 7 and sum(o["out"] for o in ops) < 12:
+    if alg == 7 and sum(o["out"] for o in ops) < 16:
         ops[0]["out"] = 90
 
 

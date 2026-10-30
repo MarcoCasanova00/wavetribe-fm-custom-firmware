@@ -365,7 +365,7 @@ static void fm_load_fb01_patch(uint8_t ix)
     p.transpose = 24;
     p.sustain = 0;
     p.cross = (uint8_t)(6 + p.fb * 3);
-    p.drive = (uint8_t)(12 + p.fb * 4);
+    p.drive = (uint8_t)(36 + p.fb * 4);   /* FB-01 voices decode quieter: bring the bank up */
     p.flt_cut = (uint8_t)(88 + (p.op[0].out >> 3));
     p.flt_res = 18;
     p.flt_env = 14;
@@ -390,6 +390,15 @@ static void fm_load_fb01_patch(uint8_t ix)
         p.op[o].coarse = FM_PATCH_FB01_CRS[ix][o] & 63u;
         p.op[o].fine = 0;
         p.op[o].det = 3;
+    }
+    /* Per-patch loudness: lift the quiet voices so none is inaudible. */
+    {
+        static const uint8_t CM[8] = { 1, 3, 3, 1, 1, 1, 3, 15 };
+        int32_t cs = 0;
+        uint32_t kk;
+        for (kk = 0; kk < 4u; kk++)
+            if (CM[p.alg & 7u] & (1u << kk)) cs += p.op[kk].out;
+        if (cs > 0 && cs < 170) p.drive += (uint8_t)((170 - cs) >> 2);
     }
     for (v = 0; v < 3u; v++) fm_load_patch(v, &p);
 }
