@@ -478,14 +478,16 @@ static const char *patch_display_name(uint8_t bank, uint8_t ix)
     return PATCH_NAME3[bank][ix];
 }
 
-/* -------- live modulation edits (LFO page + Env page) -------- */
+/* -------- live modulation edits (LFO page + Env page) --------
+ * The three FM voices share one selected sound, so edits apply to all three
+ * (otherwise tuning LFO/env on part 5 wouldn't be heard through part 6/7). */
 static void edit_lfo(uint8_t k, int32_t e)
 {
-    uint8_t vz = (uint8_t)(part_sel - NDRUM);
+    uint8_t base = (uint8_t)(part_sel - NDRUM);
     uint8_t v; int32_t c;
     fm_patch_t pp;
     if (part_sel < NDRUM) return;
-    fm_get_patch(vz, &pp);
+    fm_get_patch(base, &pp);
     switch (k) {
     case 0: {                    /* waveform / on-off (0=off, 1..8=wave) */
         v = pp.lfo_on ? (uint8_t)((pp.lfo_wave & 7u) + 1u) : 0u;
@@ -500,24 +502,24 @@ static void edit_lfo(uint8_t k, int32_t e)
     case 2: c = (int32_t)pp.pmd + e; pp.pmd = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); break;
     default: c = (int32_t)pp.amd + e; pp.amd = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); break;
     }
-    fm_set_lfo(vz, pp.lfo_on, pp.lfo_wave, pp.lfo_speed, pp.pmd, pp.amd);
+    for (v = 0; v < 3u; v++) fm_set_lfo(v, pp.lfo_on, pp.lfo_wave, pp.lfo_speed, pp.pmd, pp.amd);
     dirty = 1;
 }
 
 static void edit_env(uint8_t k, int32_t e)
 {
-    uint8_t vz = (uint8_t)(part_sel - NDRUM);
-    int32_t c;
+    uint8_t base = (uint8_t)(part_sel - NDRUM);
+    uint8_t v; int32_t c;
     fm_patch_t pp;
     if (part_sel < NDRUM) return;
-    fm_get_patch(vz, &pp);
+    fm_get_patch(base, &pp);
     switch (k) {
     case 0: c = (int32_t)pp.vca_ar + e; pp.vca_ar = (uint8_t)(c < 0 ? 0 : c > 31 ? 31 : c); break;
     case 1: c = (int32_t)pp.vca_dr + e; pp.vca_dr = (uint8_t)(c < 0 ? 0 : c > 31 ? 31 : c); break;
     case 2: c = (int32_t)pp.vca_sus + e; pp.vca_sus = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); break;
     default: c = (int32_t)pp.vca_rr + e; pp.vca_rr = (uint8_t)(c < 0 ? 0 : c > 31 ? 31 : c); break;
     }
-    fm_set_vca(vz, pp.vca_ar, pp.vca_dr, pp.vca_sus, pp.vca_rr);
+    for (v = 0; v < 3u; v++) fm_set_vca(v, pp.vca_ar, pp.vca_dr, pp.vca_sus, pp.vca_rr);
     dirty = 1;
 }
 

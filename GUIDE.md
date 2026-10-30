@@ -35,6 +35,10 @@ Knobs 1–4 edit whichever part is selected:
 - **Knob 3 (C) — Modulation / Body**.
 - **Knob 4 (D) — Level** — how loud this part is.
 
+On the **LFO** and **Envelope** pages, the knobs edit the selected sound, and
+the changes apply to **all three synth parts** (the sound is shared) — so you'll
+hear them whichever part you play.
+
 ## 5. Patch banks & presets (GR!MM-style sound browsing)
 - **Browse sounds:** turn **PRESETS** on any page except SEQ — it steps the the
   whole list (each bank acts as a category) and shows the patch name. Each part
