@@ -660,6 +660,51 @@ static void set_defaults(void)
     pattern_load(0); memcpy(&S.pat, &pat, sizeof pat);
 }
 
+static uint8_t slot_sel;   /* active user save slot (0..NSLOT-1) */
+
+/* Copy live globals into the S struct (the persistent snapshot). */
+static void snapshot_state(void)
+{
+    S.bpm = bpm; S.swing = swing; S.page = page; S.part_sel = part_sel;
+    S.pat_sel = pat_sel; S.accent = accent; S.midi_out = midi_out;
+    S.dx7_bank = dx7bank_sel; S.patchbank = patchbank; S.patch_ix = patch_ix;
+    memcpy(S.mute, mute, sizeof mute);
+    memcpy(S.prm, part_prm, sizeof part_prm);
+    memcpy(&S.pat, &pat, sizeof pat);
+}
+
+/* Apply S to the live globals (mirrors app_init). */
+static void restore_state(void)
+{
+    bpm = S.bpm; swing = S.swing; page = S.page; part_sel = S.part_sel;
+    pat_sel = S.pat_sel; accent = S.accent; midi_out = S.midi_out;
+    dx7bank_sel = S.dx7_bank;
+    patchbank = S.patchbank; patch_ix = S.patch_ix;
+    if (patchbank >= N_PATCHBANKS) patchbank = 0;
+    if (patch_ix >= PATCHBANK_COUNT[patchbank]) patch_ix = 0;
+    memcpy(mute, S.mute, sizeof mute);
+    memcpy(part_prm, S.prm, sizeof part_prm);
+    memcpy(&pat, &S.pat, sizeof pat);
+    step_ms = 15000u / (bpm ? bpm : 128u);
+    load_bank_patch(patchbank, patch_ix);
+    fm_sync_macros();
+}
+
+/* User save slots: store/recall a full snapshot into flash slot i. */
+static int user_save_slot(uint8_t i)
+{
+    if (i >= NSLOT) return -1;
+    snapshot_state();
+    return slot_save(i, &S, sizeof S);
+}
+static int user_load_slot(uint8_t i)
+{
+    if (i >= NSLOT) return -1;
+    if (slot_load(i, &S, sizeof S)) return -1;
+    restore_state();
+    return 0;
+}
+
 /* ================= the screen: groovy ================= */
 static void draw_header(uint32_t playing)
 {
@@ -734,7 +779,7 @@ static void draw_footer(uint32_t playing)
     } else if (glomode) {
         if (playing) {
             p = ap(p, "GLO "); p = apu(p, bpm); p = ap(p, "BPM sw");
-            p = apu(p, swing); p = ap(p, " ac"); p = apu(p, accent); p = ap(p, " pg"); p = apu(p, page + 1);
+            p = apu(p, swing); p = ap(p, "% ac"); p = apu(p, accent); p = ap(p, " pg"); p = apu(p, page + 1);
         } else {
             p = ap(p, "GLO tempo/swing/accent/page");
         }
@@ -763,7 +808,8 @@ static void draw_fx_page(void)
     cv_text(4, 24, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "MIDI OUT: "); p = ap(p, midi_out ? "ON" : "OFF");
     cv_text(4, 42, &FONT_S, s, UI_AMB);
-    p = s; p = ap(p, "Clock: "); p = apu(p, bpm); p = ap(p, " BPM");
+    p = s; p = ap(p, "Clock: "); p = apu(p, bpm); p = ap(p, " BPM · 1/16 · sw"); p = apu(p, swing); p = ap(p, "%");
+    fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_LABEL);
     p = s; p = ap(p, "FX key (btn 3) cycles modes."); fit_text(s, 232);
     cv_text(4, 188, &FONT_S, s, UI_DIM);
@@ -968,6 +1014,9 @@ static void draw_sys_page(void)
     p = s; p = ap(p, "MIDI I/O: "); p = ap(p, (midi_out ? "ON" : "OFF"));
     p = ap(p, "  FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]); fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "Slot: "); p = apu(p, slot_sel + 1); p = ap(p, "/"); p = apu(p, NSLOT);
+    p = ap(p, "  SAVE->store  GLO+SAVE->pick  GLO+REC->load"); fit_text(s, 232);
+    cv_text(4, 96, &FONT_S, s, UI_HI);
     cv_text(4, 188, &FONT_S, "A: colour  pages: SEQ FX EDIT LFO ENV  OCT+ MIDI", UI_DIM);
     cv_blit(0, 34);
 }
@@ -1031,9 +1080,10 @@ static void seq_tick(void)
         fire_step();
         step_cur++;
         if (step_cur >= 16u * (page + 1u)) step_cur = 0;
-        /* step length, with a little swing on the offbeats */
+        /* step length, with a swing on the offbeats
+         * (MPC-style: 1/160 of the step per swing unit => up to ~62% at max). */
         {
-            uint32_t base = step_ms, extra = (step_cur & 1u) ? (step_ms * swing / 200u) : 0u;
+            uint32_t base = step_ms, extra = (step_cur & 1u) ? (step_ms * swing / 160u) : 0u;
             next_step_ms += base + extra;
         }
     }
@@ -1069,6 +1119,7 @@ static void app_init(void)
     step_ms = 15000u / (bpm ? bpm : 128u);
     drum_kit = 1;   /* default to the TR-808 kit (full-bodied); APP is thinner */
     view_page = 0;
+    slot_sel = 0;
     prev_keys = 0;
     for (k = 0; k < 27u; k++) held[k] = 0;
 
@@ -1163,7 +1214,19 @@ static void app_tick(void)
             dirty = 1;
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
-        if (b & (1u << BTN_REC)) { write_arm = !write_arm; dirty = 1; }
+        if (b & (1u << BTN_REC) && glomode) {
+            user_load_slot(slot_sel);
+            dirty = 1;
+        }
+        if (b & (1u << BTN_REC) && !glomode) { write_arm = !write_arm; dirty = 1; }
+        if (b & (1u << BTN_SAVE)) {
+            if (glomode) {
+                slot_sel = (uint8_t)((slot_sel + 1u) % NSLOT);
+            } else {
+                if (user_save_slot(slot_sel) == 0) { /* saved */ }
+            }
+            dirty = 1;
+        }
         if (b & (1u << BTN_HOME)) {
             view_page = 5;          /* HOME: system + colour selector */
             dirty = 1;

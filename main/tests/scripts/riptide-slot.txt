@@ -1,0 +1,10 @@
+0 go home
+100 btn save
+200 go home
+300 btn glo
+400 btn save
+500 go home
+600 btn glo
+700 btn rec
+800 shot
+900 end

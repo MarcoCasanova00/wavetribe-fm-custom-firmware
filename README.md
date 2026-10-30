@@ -7,7 +7,7 @@ A single-file sequencer / 4-operator FM synth / drum kit hybrid. Sounds pulled f
 ## What it is
 - **Synth:** Real 4-op FM engine (`fm_engine.c`) with 8 algorithms, 8 operator waveforms, per-op envelopes, LFO + ENV pages.
 - **Drums:** 7 factory kits (TR-808 default) + one **ABUSE** kit — 8-bit/11025 Hz DOS SFX resampled to gritty 16-bit (not polished loops).
-- **Sequencer:** Pattern + live MIDI, Shift+click button latching for combos.
+- **Sequencer:** Pattern + live MIDI, Shift+click button latching for combos. MPC-inspired deeper **swing** (up to ~62%), step-resolution readout, and multi-slot **SAVE/LOAD** (8 flash slots: `SAVE` store, `GLO+SAVE` pick slot, `GLO+REC` load).
 - **UI:** HOME screen with theme palette ("default" = Abuse olive/magenta; plus AMBER, CYAN, RED, ALIEN, LAVA).
 
 ## Sources — how much we took, honestly

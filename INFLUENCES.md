@@ -57,6 +57,7 @@ From **Abuse** (Crack dot Com, DOS 1995) — `~/Abuse_DOS_EN.zip`.
 | Source | What we borrowed | How much |
 |---|---|---|
 | **Hortator** (DEADACTIVE FM-1 firmware, `https://deadactive.github.io/hortator/`) | UI pattern: *"four knobs edit the four values on screen per page"* + dedicated LFO / ENV menus | ideas |
+| **AKAI MPC3000** (Vailixi 3.50 OS, `~/AKAI MPC3000 - Mansell Labs OS Vailixi 3.50 (CFW).zip`) | sequencer feel: deeper **swing** (MPC-style), beat-division/step-size readouts, multi-slot **save/load** pattern | ideas (see `REPORT-MPC3000.md`) |
 | **KORG iELECTRIBE** `~/KORG_iELECTRIBE_1.5.1_ios_4.2.ipa` | currently **unused** (listed for completeness) | — |
 | Other EPROMs in `~/eeproms/` (AAC-Tiracon, Bohm-DD16, Cheetah-MD16, Crumar-Bit, Doepfer ms404, …) | **untapped** — candidates for further banks | — |
 
@@ -67,6 +68,7 @@ From **Abuse** (Crack dot Com, DOS 1995) — `~/Abuse_DOS_EN.zip`.
 - **Yamaha** EPROM/ROM voice data: extracted for hobby/research use; trademarks belong to Yamaha.
 - **Absynth/FunkBox/Linn/Zoom**: third-party sounds used as inspiration/curated samples for a personal instrument project.
 - **Hortator**: GPL-3.0; we took only interaction ideas, no code.
+- **AKAI MPC3000**: Vailixi 3.50 is a third-party OS; we analysed it and took only interaction/UX ideas (swing, step readouts, save-slot pattern). No MPC code was copied.
 
 ---
 
