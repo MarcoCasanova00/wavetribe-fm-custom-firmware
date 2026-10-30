@@ -35,10 +35,15 @@ Knobs 1–4 edit whichever part is selected:
 - **Knob 3 (C) — Modulation / Body**.
 - **Knob 4 (D) — Level** — how loud this part is.
 
-## 5. Patch banks & presets
-- **Cycle category/bank:** latch **GLO** (Shift+click, or hold key `6`) then tap **OCT-**
-  (`[`) — cycles APP → DX7 → ROM → TX81Z → FB01.
-- **Cycle sound within category:** while GLO is held, turn **PRESETS**.
+## 5. Patch banks & presets (GR!MM-style sound browsing)
+- **Browse sounds:** turn **PRESETS** on any page except SEQ — it steps the the
+  whole list (each bank acts as a category) and shows the patch name. Each part
+  remembers its own browse position.
+- **Cycle category/bank:** latch **GLO** (Shift+click, or hold key `6`) then tap
+  **OCT-**** (`[`) — cycles APP → DX7 → ROM → TX81Z → FB01.
+- **SOUNDS page:** press **GLO + EDIT** — a full browse page: **KNOB1** picks the
+  category, **KNOB2** the sound. Press **EDIT** again to leave.
+- On the **SEQ** page, **PRESETS** cycles the demo pattern (as before).
 - The screen shows the category (bank) name + patch name + `sound n/count`.
 - Changing a sound releases any ringing note (GR!MM-style): the old patch can't
   keep sustaining after the switch.

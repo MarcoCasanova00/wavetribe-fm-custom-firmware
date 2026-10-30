@@ -1,0 +1,35 @@
+# GR!MM-style sound-browsing regression:
+# - PRESETS changes sounds on non-SEQ pages (no GLO modifier needed)
+# - per-part browse memory keeps each part's own place
+# - GLO+EDIT opens the SOUNDS page; KNOB1 picks category, KNOB2 picks sound
+
+# select tonal part 5 (BASS) so a sound change is audible
+100 enc 0 5
+# open the wave/patch page (EDIT) so PRESETS browses sounds
+1200 btn 6
+# browse forward and back across the whole list
+1400 enc 6 1
+1600 enc 6 1
+1800 enc 6 -1
+2000 enc 6 -1
+2200 shot
+# wrap forward past the end and back past the start (total = 13+64+32+128+144 = 381)
+2300 enc 6 400
+2400 enc 6 -400
+2450 shot
+# switch part; its browse cursor is independent
+2500 enc 0 1      # part 6
+2800 enc 6 1     # browses from part 6's cursor
+3000 enc 0 -1    # back to part 5
+3200 enc 6 1     # continues from part 5's place
+# GLO+EDIT opens the SOUNDS page
+3500 btn 7        # GLO latch
+3600 btn 6        # EDIT -> SOUNDS (page 7)
+3700 shot
+4000 enc 2 1     # KNOB1: next category
+4200 enc 2 1     # KNOB1: next category
+4400 enc 3 1     # KNOB2: next sound in category
+4600 enc 3 1
+4700 shot
+4800 btn 7        # GLO off
+5000 end

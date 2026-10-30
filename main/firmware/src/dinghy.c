@@ -9,9 +9,11 @@
  * screen, and the the source app factory preset catalog (tools/extract/make_catalog.py).
  *
  *   ENC_SELECT  the part (KICK..LEAD)
- *   ENC_PRESETS the pattern (the the app catalog; show name/genre)
+ *   ENC_PRESETS browse the sound (whole list, per-part cursor) on any page
+ *               except SEQ, where it cycles the demo pattern
  *   ENC_ALGORITHM  pattern length page (16/32/48/64 steps)
  *   KNOB1..KNOB4  the selected part's A/B/C/D parameters
+ *   GLO+EDIT   opens the SOUNDS browse page (KNOB1 category, KNOB2 sound)
  *   GLO          holds a global page: KNOB1 tempo, KNOB2 swing, KNOB3 accent, KNOB4 page
  *   PLAY         start / stop
  *   REC (hold)   write mode: keys 0-15 toggle steps of the selected part
@@ -424,6 +426,41 @@ static void load_bank_patch(uint8_t bank, uint8_t ix)
     }
 }
 
+/* ---- unified sound browsing (GR!MM-style) ----
+ * The FM engine owns one shared sound, but each part keeps its own browse
+ * cursor, so turning PRESETS keeps your place when you switch parts (GR!MM's
+ * per-track brw_cat / brw_pos).  The whole patch set is one ordered list,
+ * grouped by bank (each bank acts as a category). */
+
+static uint32_t snd_total(void)
+{
+    uint8_t b;
+    uint32_t n = 0;
+    for (b = 0; b < N_PATCHBANKS; b++) n += PATCHBANK_COUNT[b];
+    return n;
+}
+
+static void snd_unpack(uint32_t idx, uint8_t *bank, uint8_t *ix)
+{
+    uint8_t b;
+    for (b = 0; b < N_PATCHBANKS; b++) {
+        if (idx < PATCHBANK_COUNT[b]) { *bank = b; *ix = (uint8_t)idx; return; }
+        idx -= PATCHBANK_COUNT[b];
+    }
+    *bank = N_PATCHBANKS - 1u;
+    *ix = (uint8_t)(PATCHBANK_COUNT[*bank] - 1u);
+}
+
+static uint32_t snd_pack(uint8_t bank, uint8_t ix)
+{
+    uint8_t b;
+    uint32_t n = 0;
+    if (bank >= N_PATCHBANKS) bank = 0;
+    for (b = 0; b < bank; b++) n += PATCHBANK_COUNT[b];
+    if (ix >= PATCHBANK_COUNT[bank]) ix = (uint8_t)(PATCHBANK_COUNT[bank] - 1u);
+    return n + ix;
+}
+
 /* Push the four per-part macros into the live engine. */
 static void fm_sync_macros(void)
 {
@@ -633,9 +670,33 @@ static struct pat pat;
 static uint8_t run, write_arm, glomode;
 static uint8_t part_sel, pat_sel, page, swing, accent, bpm;
 static uint8_t mute[NPART];
+static uint16_t snd_mem[NPART];   /* per-part sound browse cursor (GR!MM-style) */
 static uint8_t hold_note[NPART];       /* the note each tonal part is sustaining from the sequencer */
 static uint16_t step_cur;            /* the step being played (0..63) */
 static uint32_t next_step_ms, step_ms;
+
+/* Apply a sound (bank/ix) as the active patch and record it as the focused
+ * part's browse position.  Centralises every sound change (PRESETS, CC 93,
+ * OCT- category jump, the SOUNDS page, and slot load). */
+static void snd_apply(uint8_t bank, uint8_t ix)
+{
+    if (bank >= N_PATCHBANKS) bank = 0;
+    if (ix >= PATCHBANK_COUNT[bank]) ix = 0;
+    patchbank = bank;
+    patch_ix = ix;
+    dx7bank_sel = (bank == 1u);
+    load_bank_patch(bank, ix);
+    if (part_sel < NPART) snd_mem[part_sel] = (uint16_t)snd_pack(bank, ix);
+    dirty = 1;
+}
+
+/* Point every part's browse cursor at the current sound (on boot / restore). */
+static void snd_mem_reset(void)
+{
+    uint8_t p;
+    uint16_t idx = (uint16_t)snd_pack(patchbank, patch_ix);
+    for (p = 0; p < NPART; p++) snd_mem[p] = idx;
+}
 
 static void pattern_load(uint8_t i)
 {
@@ -698,6 +759,7 @@ static void restore_state(void)
     memcpy(&pat, &S.pat, sizeof pat);
     step_ms = 15000u / (bpm ? bpm : 128u);
     load_bank_patch(patchbank, patch_ix);
+    snd_mem_reset();
     fm_sync_macros();
 }
 
@@ -889,8 +951,31 @@ static void draw_wave_page(void)
         p = ap(p, " · "); p = ap(p, PATCHBANK_NAME[patchbank]);
         fit_text(s, 232);
         cv_text(4, 82, &FONT_S, s, UI_LABEL);
-        cv_text(4, 188, &FONT_S, "A: wave  GLO+PRESET: sound  GLO+OCT-: cat", UI_DIM);
+        cv_text(4, 188, &FONT_S, "A: wave · PRESETS browses sound · GLO+EDIT: SOUNDS", UI_DIM);
     }
+    cv_blit(0, 34);
+}
+static void draw_sounds_page(void)
+{
+    char s[48]; char *p = s;
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "SOUNDS", UI_HI);
+    cv_rect(0, 18, 240, 1, UI_PANEL);
+    /* category (bank) */
+    p = s; p = ap(p, "Cat "); p = ap(p, PATCHBANK_NAME[patchbank]);
+    p = ap(p, "  "); p = apu(p, patchbank + 1); p = ap(p, "/"); p = apu(p, N_PATCHBANKS);
+    fit_text(s, 232);
+    cv_text(4, 24, &FONT_S, s, UI_AMB);
+    /* sound name */
+    p = s; p = ap(p, patch_display_name(patchbank, patch_ix));
+    fit_text(s, 232);
+    cv_text(4, 44, &FONT_S, s, UI_HI);
+    /* position in category */
+    p = s; p = ap(p, "sound "); p = apu(p, patch_ix + 1);
+    p = ap(p, "/"); p = apu(p, PATCHBANK_COUNT[patchbank]);
+    fit_text(s, 232);
+    cv_text(4, 64, &FONT_S, s, UI_LABEL);
+    cv_text(4, 188, &FONT_S, "KNOB1 cat · KNOB2 sound · PRESETS browses · EDIT exits", UI_DIM);
     cv_blit(0, 34);
 }
 static const char *wave_label_direct(uint8_t w)
@@ -1093,6 +1178,8 @@ static void draw_screen(uint32_t playing)
         draw_sys_page();
     } else if (view_page == 6) {
         draw_save_page();
+    } else if (view_page == 7) {
+        draw_sounds_page();
     } else {
         draw_parts();
         draw_footer(playing);
@@ -1174,6 +1261,7 @@ static void app_init(void)
     memcpy(&pat, &S.pat, sizeof pat);
     fm_init();
     load_bank_patch(patchbank, patch_ix);
+    snd_mem_reset();
     fm_sync_macros();
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
     step_ms = 15000u / (bpm ? bpm : 128u);
@@ -1216,8 +1304,7 @@ static void app_tick(void)
                 case 92: drum_kit = (uint8_t)((v * TOTAL_DRUMS) / 128); if (drum_kit >= TOTAL_DRUMS) drum_kit = TOTAL_DRUMS-1; dirty = 1; break;
                 case 93: {
                     uint8_t ps = (uint8_t)((v * PATCHBANK_COUNT[patchbank]) / 128); if (ps >= PATCHBANK_COUNT[patchbank]) ps = PATCHBANK_COUNT[patchbank] - 1;
-                    patch_ix = ps;
-                    load_bank_patch(patchbank, patch_ix);
+                    snd_apply(patchbank, ps);
                     dirty = 1; break;
                 }
                 default: break;
@@ -1252,7 +1339,7 @@ static void app_tick(void)
             dirty = 1;
         }
         if (b & (1u << BTN_EDIT)) {
-            view_page = 2;
+            view_page = glomode ? 7 : 2;   /* GLO+EDIT = SOUNDS browse page */
             dirty = 1;
         }
         if (b & (1u << BTN_LFO)) {
@@ -1275,11 +1362,7 @@ static void app_tick(void)
             dirty = 1;
         }
         if (b & (1u << BTN_OCT_DOWN) && glomode) {
-            patchbank = (uint8_t)((patchbank + 1u) % N_PATCHBANKS);
-            patch_ix = 0;
-            dx7bank_sel = (patchbank == 1u);
-            load_bank_patch(patchbank, patch_ix);
-            dirty = 1;
+            snd_apply((uint8_t)((patchbank + 1u) % N_PATCHBANKS), 0);  /* next category, first sound */
         }
         if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 6) {
             view_page = 5;          /* back out to HOME */
@@ -1310,19 +1393,22 @@ static void app_tick(void)
             }
             e = fm1_enc_take(ENC_PRESETS);
             if (e) {
-                if (glomode) {
-                    uint32_t count = PATCHBANK_COUNT[patchbank];
-                    int32_t c = (int32_t)patch_ix + (e > 0 ? 1 : -1);
-                    if (c < 0) c = (int32_t)count - 1;
-                    if (c >= (int32_t)count) c = 0;
-                    patch_ix = (uint8_t)c;
-                    load_bank_patch(patchbank, patch_ix);
-                } else {
+                if (view_page == 0) {
+                    /* SEQ page: PRESETS cycles the demo pattern (existing behaviour) */
                     int32_t c = (int32_t)pat_sel + e;
                     if (c < 0) c = N_CATALOG - 1;
                     if (c >= (int32_t)N_CATALOG) c = 0;
                     pat_sel = (uint8_t)c;
                     if (pat_sel < (int32_t)N_DEMO_PAT) { pattern_load(pat_sel); memcpy(&S.pat, &pat, sizeof pat); }
+                } else {
+                    /* Sound browsing across the whole list, from this part's cursor */
+                    int32_t cur = (int32_t)snd_mem[part_sel] + (int32_t)e;
+                    int32_t tot = (int32_t)snd_total();
+                    while (cur < 0) cur += tot;
+                    while (cur >= tot) cur -= tot;
+                    uint8_t b, x;
+                    snd_unpack((uint32_t)cur, &b, &x);
+                    snd_apply(b, x);
                 }
                 dirty = 1;
             }
@@ -1332,7 +1418,12 @@ static void app_tick(void)
                 dirty = 1;
             }
             e = fm1_enc_take(ENC_KNOB1);
-            if (glomode && e) { int32_t c = bpm + e; bpm = (uint8_t)(c < 60 ? 60 : c > 250 ? 250 : c); step_ms = 15000u / bpm; dirty = 1; }
+            if (e && view_page == 7) {   /* SOUNDS: KNOB1 picks the bank/category */
+                int32_t b = (int32_t)patchbank + (e > 0 ? 1 : -1);
+                uint8_t nb = (uint8_t)((b % N_PATCHBANKS + N_PATCHBANKS) % N_PATCHBANKS);
+                snd_apply(nb, patch_ix);
+            }
+            else if (glomode && e) { int32_t c = bpm + e; bpm = (uint8_t)(c < 60 ? 60 : c > 250 ? 250 : c); step_ms = 15000u / bpm; dirty = 1; }
             else if (e && view_page == 5) {
                 int32_t c = (int32_t)pal_idx + (e > 0 ? 1 : -1);
                 int32_t n = (int32_t)fm_palette_count();
@@ -1348,7 +1439,14 @@ static void app_tick(void)
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(0, e);
             else if (e) { int32_t c = part_prm[part_sel][0] + e; part_prm[part_sel][0] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB2);
-            if (glomode && e) { int32_t c = swing + e; swing = (uint8_t)(c < 0 ? 0 : c > 100 ? 100 : c); dirty = 1; }
+            if (e && view_page == 7) {   /* SOUNDS: KNOB2 picks the sound in the category */
+                int32_t c = (int32_t)patch_ix + (e > 0 ? 1 : -1);
+                int32_t n = (int32_t)PATCHBANK_COUNT[patchbank];
+                if (c < 0) c = n - 1;
+                if (c >= n) c = 0;
+                snd_apply(patchbank, (uint8_t)c);
+            }
+            else if (glomode && e) { int32_t c = swing + e; swing = (uint8_t)(c < 0 ? 0 : c > 100 ? 100 : c); dirty = 1; }
             else if (e && part_sel < NDRUM) { int32_t c = drum_kit + (e > 0 ? 1 : -1);
                 drum_kit = (uint8_t)(c < 0 ? 0 : c >= (int32_t)TOTAL_DRUMS ? TOTAL_DRUMS - 1 : c); dirty = 1; }
             else if (e && view_page == 3 && part_sel >= NDRUM) edit_lfo(1, e);
