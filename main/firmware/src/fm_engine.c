@@ -86,8 +86,9 @@ typedef struct {
     uint8_t    vca_state;
     uint8_t    note, vel, key, active;
     uint8_t    pan;
-    uint8_t    oscmode;    /* 0 normal, 1 hard sync (OP1 <- OP4), 2 ring/AM */
+    uint8_t    oscmode;    /* 0 normal, 1 sync, 2 ring/AM, 3 PD, 4 VEC */
     uint32_t   lfo_phase;
+    uint32_t   vec_phase;  /* slow 2D vector sweep (modes 4) */
 } fm_voice_t;
 
 static fm_voice_t fm_voices[FM_MAX_VOICES];
@@ -403,6 +404,9 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
             int32_t cut, fc, damp;
             uint8_t sync_latch = 0;
 
+            /* vector sweep advances once per sample */
+            if (vo->oscmode == 4u) vo->vec_phase += 2u + (p->lfo_speed >> 3);
+
             for (o = 4; o-- > 0; ) {
                 fm_op_t *op = &vo->op[o];
                 fm_op_patch_t *pp = &p->op[o];
@@ -436,7 +440,23 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                     if (vo->oscmode == 3u)
                         p = (pd_warp(p >> 22, vo->macro[2]) << 22) | (p & 0x3FFFFFu);
                     {
-                        int32_t s = fm_wave(wave, p);
+                        int32_t s;
+                        /* vector synthesis: bilinear morph across four adjacent waves */
+                        if (vo->oscmode == 4u && o == 0u) {
+                            uint32_t vp = vo->vec_phase;
+                            uint32_t fx = (vp >> 16) & 255u, fy = ((vp >> 16) + 128u) & 255u;
+                            int32_t s0 = fm_wave((wave + 0u) & 7u, p);
+                            int32_t s1 = fm_wave((wave + 1u) & 7u, p);
+                            int32_t s2 = fm_wave((wave + 2u) & 7u, p);
+                            int32_t s3 = fm_wave((wave + 3u) & 7u, p);
+                            int32_t w0 = (int32_t)((255u - fx) * (255u - fy));
+                            int32_t w1 = (int32_t)(fx * (255u - fy));
+                            int32_t w2 = (int32_t)((255u - fx) * fy);
+                            int32_t w3 = (int32_t)(fx * fy);
+                            s = (s0 * w0 + s1 * w1 + s2 * w2 + s3 * w3) / 65025;
+                        } else {
+                            s = fm_wave(wave, p);
+                        }
                         s = (s * (op->env >> 8)) >> 15;
                         s = (s * (int32_t)op->amp) >> 15;
                         s = (s * (int32_t)op->kvs_scale) >> 8;

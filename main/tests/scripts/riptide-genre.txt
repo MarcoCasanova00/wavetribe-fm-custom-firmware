@@ -78,8 +78,9 @@
 12200 shot
 12300 midi 0xB0 98 85   # CC98 -> mode 2 (RING) for selected part
 12400 midi 0xB0 98 100  # CC98 -> mode 3 (PD)
-12500 shot
-12600 btn 11        # SEQ -> back to sequencer page
+12500 midi 0xB0 98 110  # CC98 -> mode 4 (VEC)
+12600 shot
+12700 btn 11        # SEQ -> back to sequencer page
 
-12700 btn 12        # STOP
-13400 end
+12800 btn 12        # STOP
+13500 end
