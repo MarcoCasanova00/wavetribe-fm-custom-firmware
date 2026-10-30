@@ -177,7 +177,9 @@ static uint8_t patchbank, patch_ix;
 static uint8_t dx7bank_sel;
 static uint8_t midi_out;
 static uint8_t fx_mode; /* 0 off, 1 chorus, 2 delay, 3 chorus+delay */
-static uint8_t view_page;   /* 0 Seq, 1 FX, 2 wave/patch, 3 system */
+static uint8_t view_page;   /* 0 Seq, 1 FX, 2 wave/patch, 3 LFO, 4 Env */
+static uint32_t dirty;
+static uint8_t part_sel;    /* declared here so the edit helpers can use it */
 
 static void drum_trigger(uint32_t d, uint32_t vel)
 {
@@ -243,6 +245,8 @@ static void fm_base_patch(fm_patch_t *p, uint8_t alg)
     p->alg = alg & 7u;
     p->fb = 4;
     p->lfo_speed = 18;
+    p->lfo_on = 1;
+    p->lfo_wave = 0;
     p->pmd = 6;
     p->amd = 0;
     p->transpose = 24;
@@ -257,7 +261,9 @@ static void fm_base_patch(fm_patch_t *p, uint8_t alg)
     p->flt_env = 12;
     p->flt_rate = 20;
     p->vca_ar = 31;
-    p->vca_dr = 0;
+    p->vca_dr = 14;
+    p->vca_sus = 112;
+    p->vca_rr = 20;
     for (o = 0; o < 4; o++) {
         p->op[o].ar = 28;
         p->op[o].d1r = 16;
@@ -317,6 +323,9 @@ static void fm_load_tx81z_patch(uint8_t ix)
     p.flt_rate = 20;
     p.vca_ar = 31;
     p.vca_dr = 0;
+    p.vca_sus = 110;
+    p.vca_rr = 18;
+    p.lfo_on = 1;
     for (o = 0; o < 4; o++) {
         p.op[o].ar = FM_PATCH_TX81Z_AR[ix][o] & 31u;
         p.op[o].d1r = FM_PATCH_TX81Z_D1R[ix][o] & 31u;
@@ -361,6 +370,9 @@ static void fm_load_fb01_patch(uint8_t ix)
     p.flt_rate = 20;
     p.vca_ar = 31;
     p.vca_dr = 0;
+    p.vca_sus = 110;
+    p.vca_rr = 18;
+    p.lfo_on = 1;
     for (o = 0; o < 4; o++) {
         p.op[o].ar = FM_PATCH_FB01_AR[ix][o] & 31u;
         p.op[o].d1r = FM_PATCH_FB01_D1R[ix][o] & 31u;
@@ -413,6 +425,49 @@ static const char *patch_display_name(uint8_t bank, uint8_t ix)
     if (bank == 4u && ix < FM_PATCH_FB01_COUNT) return FM_PATCH_FB01_NAME[ix];
     if (bank >= N_PATCHBANKS || ix >= 128u) return "?";
     return PATCH_NAME3[bank][ix];
+}
+
+/* -------- live modulation edits (LFO page + Env page) -------- */
+static void edit_lfo(uint8_t k, int32_t e)
+{
+    uint8_t vz = (uint8_t)(part_sel - NDRUM);
+    uint8_t v; int32_t c;
+    fm_patch_t pp;
+    if (part_sel < NDRUM) return;
+    fm_get_patch(vz, &pp);
+    switch (k) {
+    case 0: {                    /* waveform / on-off (0=off, 1..8=wave) */
+        v = pp.lfo_on ? (uint8_t)((pp.lfo_wave & 7u) + 1u) : 0u;
+        c = (int32_t)v + (e > 0 ? 1 : -1);
+        if (c < 0) c = 8;
+        if (c > 8) c = 0;
+        pp.lfo_on = c > 0;
+        pp.lfo_wave = (uint8_t)(c > 0 ? c - 1 : 0);
+        break;
+    }
+    case 1: c = (int32_t)pp.lfo_speed + e; pp.lfo_speed = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); break;
+    case 2: c = (int32_t)pp.pmd + e; pp.pmd = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); break;
+    default: c = (int32_t)pp.amd + e; pp.amd = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); break;
+    }
+    fm_set_lfo(vz, pp.lfo_on, pp.lfo_wave, pp.lfo_speed, pp.pmd, pp.amd);
+    dirty = 1;
+}
+
+static void edit_env(uint8_t k, int32_t e)
+{
+    uint8_t vz = (uint8_t)(part_sel - NDRUM);
+    int32_t c;
+    fm_patch_t pp;
+    if (part_sel < NDRUM) return;
+    fm_get_patch(vz, &pp);
+    switch (k) {
+    case 0: c = (int32_t)pp.vca_ar + e; pp.vca_ar = (uint8_t)(c < 0 ? 0 : c > 31 ? 31 : c); break;
+    case 1: c = (int32_t)pp.vca_dr + e; pp.vca_dr = (uint8_t)(c < 0 ? 0 : c > 31 ? 31 : c); break;
+    case 2: c = (int32_t)pp.vca_sus + e; pp.vca_sus = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); break;
+    default: c = (int32_t)pp.vca_rr + e; pp.vca_rr = (uint8_t)(c < 0 ? 0 : c > 31 ? 31 : c); break;
+    }
+    fm_set_vca(vz, pp.vca_ar, pp.vca_dr, pp.vca_sus, pp.vca_rr);
+    dirty = 1;
 }
 
 
@@ -751,6 +806,65 @@ static void draw_wave_page(void)
     cv_text(4, 188, &FONT_S, "A: wave  B: kit (drum parts)  GLO+PRESET: patch", UI_DIM);
     cv_blit(0, 34);
 }
+static const char *wave_label_direct(uint8_t w)
+{
+    static const char *const W[8] = {
+        "sine", "half sine", "rect sine", "quarter pulse",
+        "triangle", "saw", "square", "sine+3rd"
+    };
+    return W[w & 7u];
+}
+static void draw_lfo_page(void)
+{
+    char s[48]; char *p = s;
+    fm_patch_t pp;
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "LFO / MODULATION", UI_HI);
+    cv_rect(0, 18, 240, 1, UI_PANEL);
+    if (part_sel < NDRUM) {
+        cv_text(4, 24, &FONT_S, "drum part - no LFO", UI_AMB);
+        cv_text(4, 188, &FONT_S, "select a synth part (5-7)", UI_DIM);
+    } else {
+        uint8_t vz = (uint8_t)(part_sel - NDRUM);
+        fm_get_patch(vz, &pp);
+        p = s; p = ap(p, PNAME[part_sel]); p = ap(p, "  LFO ");
+        if (pp.lfo_on) { p = ap(p, "on  "); p = ap(p, wave_label_direct(pp.lfo_wave)); }
+        else p = ap(p, "off");
+        fit_text(s, 232);
+        cv_text(4, 24, &FONT_S, s, UI_AMB);
+        p = s; p = ap(p, "speed "); p = apu(p, pp.lfo_speed);
+        p = ap(p, "  vibrato "); p = apu(p, pp.pmd);
+        p = ap(p, "  tremolo "); p = apu(p, pp.amd);
+        fit_text(s, 232);
+        cv_text(4, 42, &FONT_S, s, UI_AMB);
+        cv_text(4, 188, &FONT_S, "A: wave/off  B: speed  C: vibrato  D: tremolo", UI_DIM);
+    }
+    cv_blit(0, 34);
+}
+static void draw_env_page(void)
+{
+    char s[48]; char *p = s;
+    fm_patch_t pp;
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "ENVELOPE / VCA", UI_HI);
+    cv_rect(0, 18, 240, 1, UI_PANEL);
+    if (part_sel < NDRUM) {
+        cv_text(4, 24, &FONT_S, "drum part - no envelope", UI_AMB);
+        cv_text(4, 188, &FONT_S, "select a synth part (5-7)", UI_DIM);
+    } else {
+        uint8_t vz = (uint8_t)(part_sel - NDRUM);
+        fm_get_patch(vz, &pp);
+        p = s; p = ap(p, PNAME[part_sel]);
+        p = ap(p, "  A "); p = apu(p, pp.vca_ar);
+        p = ap(p, " D "); p = apu(p, pp.vca_dr);
+        p = ap(p, " S "); p = apu(p, pp.vca_sus);
+        p = ap(p, " R "); p = apu(p, pp.vca_rr);
+        fit_text(s, 232);
+        cv_text(4, 24, &FONT_S, s, UI_AMB);
+        cv_text(4, 188, &FONT_S, "A: attack  B: decay  C: sustain  D: release", UI_DIM);
+    }
+    cv_blit(0, 34);
+}
 static void draw_sys_page(void)
 {
     char s[48]; char *p = s;
@@ -779,8 +893,9 @@ static void draw_screen(uint32_t playing)
     } else if (view_page == 2) {
         draw_wave_page();
     } else if (view_page == 3) {
-        draw_sys_page();
-        draw_franken(96, 120, 48, 62);   /* the face: clear and large, in the empty lower area */
+        draw_lfo_page();
+    } else if (view_page == 4) {
+        draw_env_page();
     } else {
         draw_parts();
         draw_footer(playing);
@@ -789,7 +904,7 @@ static void draw_screen(uint32_t playing)
 
 /* ================= main ================= */
 static uint32_t last_repaint;
-static uint32_t dirty, saved_ms;
+static uint32_t saved_ms;
 
 static void seq_stop(void)
 {
@@ -940,8 +1055,12 @@ static void app_tick(void)
             view_page = 2;
             dirty = 1;
         }
-        if (b & (1u << BTN_ENV)) {
+        if (b & (1u << BTN_LFO)) {
             view_page = 3;
+            dirty = 1;
+        }
+        if (b & (1u << BTN_ENV)) {
+            view_page = 4;
             dirty = 1;
         }
         if (b & (1u << BTN_OCT_UP)) {
@@ -995,17 +1114,25 @@ static void app_tick(void)
             }
             e = fm1_enc_take(ENC_KNOB1);
             if (glomode && e) { int32_t c = bpm + e; bpm = (uint8_t)(c < 60 ? 60 : c > 250 ? 250 : c); step_ms = 15000u / bpm; dirty = 1; }
+            else if (e && view_page == 3 && part_sel >= NDRUM) edit_lfo(0, e);
+            else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(0, e);
             else if (e) { int32_t c = part_prm[part_sel][0] + e; part_prm[part_sel][0] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB2);
             if (glomode && e) { int32_t c = swing + e; swing = (uint8_t)(c < 0 ? 0 : c > 100 ? 100 : c); dirty = 1; }
             else if (e && part_sel < NDRUM) { int32_t c = drum_kit + (e > 0 ? 1 : -1);
                 drum_kit = (uint8_t)(c < 0 ? 0 : c >= (int32_t)TOTAL_DRUMS ? TOTAL_DRUMS - 1 : c); dirty = 1; }
+            else if (e && view_page == 3 && part_sel >= NDRUM) edit_lfo(1, e);
+            else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(1, e);
             else if (e) { int32_t c = part_prm[part_sel][1] + e; part_prm[part_sel][1] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB3);
             if (glomode && e) { int32_t c = accent + e; accent = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
+            else if (e && view_page == 3 && part_sel >= NDRUM) edit_lfo(2, e);
+            else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(2, e);
             else if (e) { int32_t c = part_prm[part_sel][2] + e; part_prm[part_sel][2] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB4);
             if (glomode && e) { int32_t c = (int32_t)page + (e > 0 ? 1 : -1); page = (uint8_t)(c < 0 ? 0 : c > 3 ? 3 : c); dirty = 1; }
+            else if (e && view_page == 3 && part_sel >= NDRUM) edit_lfo(3, e);
+            else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(3, e);
             else if (e) { int32_t c = part_prm[part_sel][3] + e; part_prm[part_sel][3] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
         }
         fm_sync_macros();

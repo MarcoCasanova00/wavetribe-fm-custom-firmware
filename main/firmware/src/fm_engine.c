@@ -238,6 +238,34 @@ void fm_set_macro(uint8_t voice, uint8_t index, uint8_t value)
     fm_voices[voice].macro[index] = value;
 }
 
+void fm_set_lfo(uint8_t voice, uint8_t on, uint8_t wave, uint8_t speed,
+                uint8_t pmd, uint8_t amd)
+{
+    if (voice >= FM_MAX_VOICES) return;
+    fm_voice_t *v = &fm_voices[voice];
+    v->p.lfo_on = !!on;
+    v->p.lfo_wave = wave & 7u;
+    v->p.lfo_speed = speed & 127u;
+    v->p.pmd = pmd & 127u;
+    v->p.amd = amd & 127u;
+}
+
+void fm_set_vca(uint8_t voice, uint8_t ar, uint8_t dr, uint8_t sus, uint8_t rr)
+{
+    if (voice >= FM_MAX_VOICES) return;
+    fm_voice_t *v = &fm_voices[voice];
+    v->p.vca_ar = ar & 31u;
+    v->p.vca_dr = dr & 31u;
+    v->p.vca_sus = sus & 127u;
+    v->p.vca_rr = rr & 31u;
+}
+
+void fm_get_patch(uint8_t voice, fm_patch_t *out)
+{
+    if (voice >= FM_MAX_VOICES || !out) return;
+    *out = fm_voices[voice].p;
+}
+
 void fm_note_on(uint8_t voice, uint8_t note, uint8_t velocity)
 {
     fm_voice_t *v;
@@ -312,10 +340,15 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
         base_note = (int32_t)vo->note + (int32_t)p->transpose - 24;
         base_note = clamp32(base_note, 0, 127);
 
-        /* LFO: a block rate oscillator is plenty for vibrato/tremolo. */
+        /* LFO: a block-rate oscillator drives vibrato (pmd) and tremolo
+         * (amd).  The waveform is selectable; when disabled the LFO is flat. */
         lfo_inc = 4096u + (uint32_t)p->lfo_speed * p->lfo_speed * 120u;
-        vo->lfo_phase += lfo_inc;
-        lfo = FM_SINE[(vo->lfo_phase >> 22) & 1023u];
+        if (p->lfo_on) {
+            vo->lfo_phase += lfo_inc;
+            lfo = fm_wave(p->lfo_wave & 7u, vo->lfo_phase);
+        } else {
+            lfo = 0;
+        }
         pitch_q8 = 256 + ((lfo * (int32_t)p->pmd) >> 17);
         pitch_q8 = clamp32(pitch_q8, 128, 512);
         am_q15 = 32767 - (((lfo + 32767) >> 1) * (int32_t)p->amd >> 9);
@@ -383,30 +416,39 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                 if (cm & 8u) sum += op_out[3];
             }
 
-            /* independent VCA envelope */
+            /* independent VCA envelope: ADSR shaped by the four knobs on the
+             * Envelope page.  Hold (sustain=1) keeps the note at the sustain
+             * level; percussive patches (sustain=0) decay to silence. */
             switch (vo->vca_state) {
-            case 1:
+            case 1:                            /* attack */
                 vo->vca += (int32_t)FM_ENV_INC[p->vca_ar & 31u];
                 if (vo->vca >= (32767 << 8)) { vo->vca = 32767 << 8; vo->vca_state = 2; }
                 break;
-            case 2:
-                if (p->sustain && vo->key) { vo->vca_state = 5; break; }
-                vo->vca -= (int32_t)FM_ENV_INC[p->vca_dr & 31u];
-                if (vo->vca <= 0) {
-                    vo->vca = 0;
-                    if (p->loop && vo->key) vo->vca_state = 1;
-                    else vo->vca_state = 0;
+            case 2: {                          /* decay */
+                if (p->sustain) {
+                    int32_t target = ((int32_t)p->vca_sus * (32767 << 8)) / 127;
+                    if (vo->vca > target) {
+                        vo->vca -= (int32_t)FM_ENV_INC[p->vca_dr & 31u];
+                        if (vo->vca < target) vo->vca = target;
+                    }
+                    if (vo->vca <= target) vo->vca_state = 3;
+                } else {
+                    vo->vca -= (int32_t)FM_ENV_INC[p->vca_dr & 31u];
+                    if (vo->vca <= 0) {
+                        vo->vca = 0;
+                        if (p->loop && vo->key) vo->vca_state = 1;
+                        else vo->vca_state = 0;
+                    }
                 }
                 break;
-            case 5:
+            }
+            case 3:                            /* sustain (key-held) */
                 if (!vo->key) vo->vca_state = 4;
                 break;
-            case 4: {
-                uint32_t rr = 16u + (p->op[0].rr & 15u);
-                vo->vca -= (int32_t)FM_ENV_INC[rr];
+            case 4:                            /* release */
+                vo->vca -= (int32_t)FM_ENV_INC[p->vca_rr & 31u];
                 if (vo->vca <= 0) { vo->vca = 0; vo->vca_state = 0; }
                 break;
-            }
             default:
                 break;
             }

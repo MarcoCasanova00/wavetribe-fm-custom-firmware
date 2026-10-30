@@ -61,6 +61,9 @@ typedef struct {
     uint8_t flt_rate;     /* filter envelope rate 0..31                */
     uint8_t vca_ar;       /* VCA attack rate 0..31                     */
     uint8_t vca_dr;       /* VCA decay rate 0..31                      */
+    uint8_t vca_sus;      /* VCA sustain level 0..127                   */
+    uint8_t vca_rr;       /* VCA release rate 0..31                     */
+    uint8_t lfo_on;       /* LFO enable 0/1                            */
 } fm_patch_t;
 
 void fm_init(void);
@@ -72,6 +75,12 @@ void fm_all_off(void);
 
 void fm_load_patch(uint8_t voice, const fm_patch_t *patch);
 void fm_set_macro(uint8_t voice, uint8_t index, uint8_t value);
+
+/* Live modulation edits: update the running voice's patch in place. */
+void fm_set_lfo(uint8_t voice, uint8_t on, uint8_t wave, uint8_t speed,
+                uint8_t pmd, uint8_t amd);
+void fm_set_vca(uint8_t voice, uint8_t ar, uint8_t dr, uint8_t sus, uint8_t rr);
+void fm_get_patch(uint8_t voice, fm_patch_t *out);
 
 /* Add the engine output to the supplied accumulators (frames, not samples). */
 void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames);

@@ -1,0 +1,17 @@
+# Test LFO + Envelope menus.
+# Part 5 (synth), LFO button (5) -> LFO page, knobs edit LFO.
+# ENV button (4) -> Env page, knobs edit VCA ADSR.
+100 enc 0 5
+150 btn 5
+200 enc 3 30        # KNOB2: LFO speed up
+250 enc 4 24        # KNOB3: vibrato up
+300 midi 0x90 60 100
+400 midi 0x80 60 0
+600 shot
+700 btn 4
+750 enc 2 -8        # KNOB1: attack faster
+800 enc 5 12        # KNOB4: release longer
+850 midi 0x90 60 100
+950 midi 0x80 60 0
+1150 shot
+1200 end

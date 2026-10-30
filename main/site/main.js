@@ -17,24 +17,20 @@ const ROW2 = ["HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"];
 const KNOBS = ["MASTER", "SELECT", "PRESETS", "ALGORITHM", "KNOB 1", "KNOB 2", "KNOB 3", "KNOB 4"];
 const LAYOUTS = {
   wide: {
-    w: 1080, h: 820,
-    screen: [370, 220, 220],
-    spiral: { cx: 480, cy: 330, r0: 46, r1: 330, turns: 2.5 },
-    knobs: [[130, 120, 24], [240, 120, 24], [130, 220, 24], [240, 220, 24],
-            [480, 118, 30], [700, 330, 30], [480, 500, 30], [260, 330, 30]],
-    trays: [[70, 70, 250, 210], [300, 640, 480, 40]],
-    oct: [[70, 300, 110, 36], [196, 300, 110, 36]],
-    grid: [360, 556, 64, 54, 64, 62], keybed: [40, 690, 1000, 120],
+    w: 1000, h: 624, screen: [292, 44, 256],
+    knobs: [[105, 100, 24], [215, 100, 24], [105, 205, 24], [215, 205, 24],
+            [610, 100, 22], [714, 100, 22], [818, 100, 22], [922, 100, 22]],
+    trays: [[50, 250, 220, 50], [568, 160, 400, 140]],
+    oct: [[60, 258, 90, 34], [170, 258, 90, 34]],
+    grid: [582, 174, 54, 48, 63, 62], keybed: [36, 332, 928, 256],
   },
   tall: {
-    w: 600, h: 1180,
-    screen: [150, 320, 300],
-    spiral: { cx: 300, cy: 470, r0: 60, r1: 288, turns: 2.5 },
-    knobs: [[110, 80, 24], [210, 80, 24], [110, 180, 24], [210, 180, 24],
-            [300, 150, 34], [520, 470, 34], [300, 790, 34], [80, 470, 34]],
-    trays: [[50, 40, 240, 220], [40, 848, 520, 110]],
-    oct: [[90, 300, 150, 44], [290, 300, 150, 44]],
-    grid: [36, 868, 70, 58, 86, 66], keybed: [30, 960, 540, 200],
+    w: 600, h: 1070, screen: [130, 104, 340],
+    knobs: [[66, 64, 24], [186, 64, 24], [414, 64, 24], [534, 64, 24],
+            [90, 512, 26], [230, 512, 26], [370, 512, 26], [510, 512, 26]],
+    trays: [[14, 572, 572, 146], [150, 728, 300, 62]],
+    oct: [[164, 737, 128, 44], [308, 737, 128, 44]],
+    grid: [24, 582, 86, 60, 94, 70], keybed: [14, 800, 572, 256],
   },
 };
 
@@ -70,27 +66,6 @@ const btnBy = new Map(), keyBy = new Map();
 const releaseTimers = new Map();
 const send = (m) => { if (node) node.port.postMessage(m); };
 
-function drawSpiral(L) {
-  const s = L.spiral;
-  if (!s) return;
-  const arm = (phase, width, stroke, opacity) => {
-    let d = "";
-    const N = 340;
-    for (let i = 0; i <= N; i++) {
-      const t = i / N;
-      const th = phase + t * s.turns * Math.PI * 2;
-      const r = s.r0 + (s.r1 - s.r0) * Math.pow(t, 0.85);
-      const x = s.cx + r * Math.cos(th), y = s.cy + r * Math.sin(th);
-      d += (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
-    }
-    el("path", { d, fill: "none", stroke, "stroke-width": width,
-                 "stroke-linecap": "round", opacity });
-  };
-  /* a bold golden arm and a thinner counter-spiral for a two-tone swirl */
-  arm(0, 5, "var(--spiral)", 0.6);
-  arm(Math.PI, 2.2, "var(--spiral2)", 0.4);
-}
-
 function build(name) {
   const L = LAYOUTS[name];
   layout = name;
@@ -101,7 +76,6 @@ function build(name) {
   knobs.length = buttons.length = keys.length = 0;
   el("rect", { x: 4, y: 4, width: L.w - 8, height: L.h - 8, rx: 40, fill: "var(--body)" });
   for (const [x, y, w, h] of L.trays) el("rect", { x, y, width: w, height: h, rx: 14, fill: "var(--tray)" });
-  drawSpiral(L);
   const [sx, sy, ss] = L.screen;
   el("rect", { x: sx, y: sy, width: ss, height: ss, rx: 18, fill: "#070d07" });
   const inset = ss / 32;
@@ -109,20 +83,12 @@ function build(name) {
                                 width: `${(ss - 2 * inset) / L.w * 100}%`, height: `${(ss - 2 * inset) / L.h * 100}%` });
   KNOBS.forEach((n, i) => {
     const [x, y, r] = L.knobs[i], g = el("g", {});
-    /* annular track with index ticks */
-    el("circle", { cx: x, cy: y, r: r + 8, fill: "none", stroke: "var(--edge)", "stroke-width": 2.5 }, g);
-    for (const a of [0, 90, 180, 270]) {
-      const rad = a * Math.PI / 180;
-      el("line", { x1: x + (r + 2) * Math.cos(rad), y1: y + (r + 2) * Math.sin(rad),
-                   x2: x + (r + 6) * Math.cos(rad), y2: y + (r + 6) * Math.sin(rad),
-                   stroke: "var(--spiral)", "stroke-width": 2, "stroke-linecap": "round" }, g);
-    }
+    el("circle", { cx: x, cy: y, r: r + 5, fill: "var(--tray)" }, g);
     el("circle", { cx: x, cy: y, r, fill: "var(--part)", stroke: "var(--edge)", "stroke-width": 2 }, g);
-    /* pointer needle from the hub out past the ring */
-    const ind = el("line", { x1: x, y1: y, x2: x, y2: y - r - 9, stroke: "var(--label)",
+    const ind = el("line", { x1: x, y1: y - r + 5, x2: x, y2: y - r + 14, stroke: "var(--label)",
                              "stroke-width": 3, "stroke-linecap": "round" }, g);
-    label(g, x, y + r + 20, n, 16, DOT);
-    el("circle", { cx: x, cy: y, r: r + 14, fill: "transparent" }, g);
+    label(g, x, y - r - 12, n, 16, DOT);
+    el("circle", { cx: x, cy: y, r: r + 12, fill: "transparent" }, g);
     knobs.push({ g, ind, x, y, name: n, role: n === "MASTER" ? "master" : EN[n] });
   });
   const button = ([x, y, w, h], n, sub) => {
