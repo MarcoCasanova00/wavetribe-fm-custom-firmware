@@ -711,13 +711,22 @@ static int slot_in_use(uint8_t i)
     if (i >= NSLOT) return 0;
     return slot_load(i, &tmp, sizeof tmp) == 0;
 }
-/* Best-effort clear (real host/web RAM; on hardware, overwrite is left no-op). */
+/* Best-effort clear: write a zero-length marker that fails the CRC/length
+ * validation, so the slot reads back empty on hardware and host alike.
+ */
 static void user_clear_slot(uint8_t i)
 {
+    static const struct set empty;
     if (i >= NSLOT) return;
-#if defined(DINGHY_HOST) || defined(DINGHY_WEB)
-    host_slot[i][0] = 0;
-#endif
+    slot_save(i, &empty, 0);
+}
+
+/* Empty the current pattern (all parts) and rewind. */
+static void pattern_clear(void)
+{
+    memset(pat.gates, 0, sizeof pat.gates);
+    memset(pat.notes, 0, sizeof pat.notes);
+    step_cur = 0;
 }
 
 /* GR!MM-style SAVE page state: action + selected slot. */
@@ -794,6 +803,8 @@ static void draw_footer(uint32_t playing)
     cv_blit(0, 208);
     if (write_arm) {
         p = ap(p, "REC "); p = ap(p, PNAME[part_sel]); p = ap(p, " keys:steps");
+    } else if (fm1_in.buttons & (1u << BTN_SEQ)) {
+        p = ap(p, "SEQ TOOLS  F3=CLEAR");
     } else if (glomode) {
         if (playing) {
             p = ap(p, "GLO "); p = apu(p, bpm); p = ap(p, "BPM sw");
@@ -1357,6 +1368,10 @@ static void app_tick(void)
                     if (st < 64u) pat.gates[part_sel][st] ^= 1u;
                     dirty = 1;
                 }
+            } else if (fm1_in.buttons & (1u << BTN_SEQ)) {
+                /* SEQ tools: hold SEQ + a white key (grimm-style).
+                 * F3 = CLEAR the whole pattern. */
+                if ((down >> k & 1u) && k == 0) { pattern_clear(); dirty = 1; }
             } else {
                 if (down >> k & 1u) {
                     if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, 110);

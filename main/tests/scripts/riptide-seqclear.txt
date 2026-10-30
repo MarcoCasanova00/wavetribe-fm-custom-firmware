@@ -1,0 +1,12 @@
+0 keys 0
+10 btn 11
+20 btn 13
+30 keys 1
+40 keys 0
+50 btn 13
+60 btndown 11
+70 keys 1
+80 keys 0
+90 btnup 11
+100 shot
+110 end

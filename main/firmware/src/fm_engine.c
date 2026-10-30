@@ -11,7 +11,18 @@
  */
 #include "fm_engine.h"
 #include "fm_tables.h"
-#include <string.h>
+#if defined(DINGHY_HOST) || defined(DINGHY_WEB)
+#include <string.h>     /* host/web libc */
+#define FM_MEMSET(dst, val, n) memset((dst), (val), (n))
+#else
+/* bare-metal toolchain: no <string.h>; memset is provided by the compiler */
+static void fm_memset(void *s, int c, unsigned long n)
+{
+    unsigned char *p = (unsigned char *)s;
+    while (n--) *p++ = (unsigned char)c;
+}
+#define FM_MEMSET(dst, val, n) fm_memset((dst), (val), (n))
+#endif
 
 /* Envelope increments in Q8 level units per sample (32767 << 8 full scale).
  * Rate 0 is a slow 16 s sweep, rate 31 reaches full scale in under a
@@ -190,7 +201,7 @@ static int op_env_tick(fm_op_t *o, const fm_op_patch_t *p,
 void fm_init(void)
 {
     uint32_t v, o;
-    memset(fm_voices, 0, sizeof fm_voices);
+    FM_MEMSET(fm_voices, 0, sizeof fm_voices);
     for (v = 0; v < FM_MAX_VOICES; v++) {
         for (o = 0; o < 4; o++) fm_voices[v].macro[o] = 64;
         fm_voices[v].pan = 0;

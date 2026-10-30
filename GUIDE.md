@@ -24,6 +24,8 @@ Wavetribe FM-1 groovebox as a web emulator). Build the beat, shape the sound, sa
 - Repeat for all 8 parts to build a pattern.
 - **PART − / PART +** (`↑` / `↓`) selects the part you edit.
 - **PAGE** (`←` / `→`) changes loop length (16 / 32 / 48 / 64 steps).
+- **Clear the sequence:** hold **SEQ** and press **F3** — the whole current pattern
+  is erased (the screen shows `SEQ TOOLS · F3=CLEAR` while SEQ is held).
 
 ## 4. Shaping the sound (your four knobs)
 Knobs 1–4 edit whichever part is selected:
