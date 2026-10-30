@@ -1,0 +1,28 @@
+# Sweep all five banks (APP,DX7,ROM,TX81Z,FB01), play patch 0 on each.
+100 enc 0 5
+150 btndown 7
+# bank 0
+250 midi 0x90 60 100
+350 midi 0x80 60 0
+600 shot
+# -> bank 1
+650 btn 0
+800 midi 0x90 60 100
+900 midi 0x80 60 0
+1150 shot
+# -> bank 2
+1200 btn 0
+1350 midi 0x90 60 100
+1450 midi 0x80 60 0
+1700 shot
+# -> bank 3
+1750 btn 0
+1900 midi 0x90 60 100
+2000 midi 0x80 60 0
+2250 shot
+# -> bank 4
+2300 btn 0
+2450 midi 0x90 60 100
+2550 midi 0x80 60 0
+2800 shot
+2900 end

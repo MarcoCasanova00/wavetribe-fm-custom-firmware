@@ -1,0 +1,37 @@
+# Go to bank 4 (FB01) and scan several patches.
+100 enc 0 5
+150 btndown 7
+200 btn 0
+250 btn 0
+300 btn 0
+350 btn 0
+# patch 0
+450 midi 0x90 60 100
+550 midi 0x80 60 0
+800 shot
+# patch 1
+850 enc 6 1
+1000 midi 0x90 60 100
+1100 midi 0x80 60 0
+1350 shot
+# patch 2
+1400 enc 6 1
+1550 midi 0x90 60 100
+1650 midi 0x80 60 0
+1900 shot
+# patch 3
+1950 enc 6 1
+2100 midi 0x90 60 100
+2200 midi 0x80 60 0
+2450 shot
+# patch 4
+2500 enc 6 1
+2650 midi 0x90 60 100
+2750 midi 0x80 60 0
+3000 shot
+# patch 5
+3050 enc 6 1
+3200 midi 0x90 60 100
+3300 midi 0x80 60 0
+3550 shot
+3650 end
