@@ -24,8 +24,8 @@ new = []
 for v in vals:
     hi = (v >> 4) & 15
     lo = v & 15
-    hi = hi - 1 if hi > 1 else 0
-    lo = lo - 1 if lo > 1 else 0
+    hi = 14 if hi >= 12 else (6 if hi >= 6 else (1 if hi else 0))
+    lo = 14 if lo >= 12 else (6 if lo >= 6 else (1 if lo else 0))
     new.append((hi << 4) | lo)
 
 def block(items):

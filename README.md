@@ -1,9 +1,7 @@
 # Frankentribe OS — FM-1 Groovebox Firmware
 
 <p align="center">
-  <img src="docs/logo.png" width="192" height="208" alt="Frankentribe OS logo — the Abuse ANT enemy silhouette">
-  <br>
-  <em>the Frankentribe mascot: the ANT from Abuse (Crack dot Com, 1995)</em>
+  <img src="docs/logo.png" width="192" height="208" alt="Frankentribe OS logo">
 </p>
 
 **Experimental. Unrefined by design.**
