@@ -89,6 +89,19 @@ The LOST bank is a curated set of hand-authored "lost ROMpler" bread-and-butter
 patches (FM-EP, Motown Bass, Glass Pad, Breath Brass, …) with a 90s workstation
 identity.
 
+## The Soundbook (GLO+HOME)
+
+Every sound has a name and a category, browsable in one place:
+
+| Browse | Shows |
+|---|---|
+| banks 0–5 | every patch name, its bank + index (SYNTH · DX7 FM · ROMpler · 4OP FM · LOST) |
+| drums | each kit's five samples (KICK…OHH) with kit name + category |
+| waves | the wave libraries: WAVELIB (256), EPROM BÖHM-DD16 (64), ZOOM MS-60B/70CDR (64) |
+
+Open with **GLO+HOME**. **SELECT** browses one sound at a time, **PRESETS**
+jumps ±20, **OCT−** returns to the sequencer.
+
 - **PRESETS** browses sounds on any page except SEQ (SEQ browses demo patterns).
 - **GLO + OCT−** cycles category; **GLO+EDIT** opens the SOUNDS browse page
   (KNOB1 category, KNOB2 sound). OCT+ toggles MIDI OUT elsewhere.
@@ -223,7 +236,8 @@ MASTER → SLAVE) or via **CC 100**.
 **Combos:** GLO+ARP = COMPOSE · GLO+SEQ = EUCLID · GLO+PLAY = drift ·
 GLO+EDIT = SOUNDS · GLO+REC = load slot · GLO+OCT− = category ·
 GLO+step keys = FUNC commands · hold FX + keys = momentary live FX ·
-hold HOME + keys = mute parts · GLO+FX = clock mode (OFF/MASTER/SLAVE).
+hold HOME + keys = mute parts · GLO+FX = clock mode (OFF/MASTER/SLAVE) ·
+GLO+HOME = Soundbook.
 
 ---
 

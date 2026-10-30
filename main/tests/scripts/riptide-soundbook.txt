@@ -1,0 +1,12 @@
+# Soundbook browse: GLO+HOME opens it, SELECT scrolls, OCT- backs out.
+50 btn 7          # GLO latch
+100 btn 8         # HOME -> Soundbook
+200 btn 7         # GLO unlatch
+400 shot
+600 enc 0 3       # SELECT +3 (into a bank)
+900 shot
+1100 enc 0 60     # SELECT +60 (drums / waves region)
+1400 shot
+1600 btn 0        # OCT- -> back to SEQ
+1800 shot
+2200 end

@@ -284,6 +284,7 @@ static uint8_t part_sel;    /* declared here so the edit helpers can use it */
 static uint8_t pal_idx = 0; /* current screen palette (default) */
 static uint32_t home_press_ms;
 static uint8_t home_pending, home_open;   /* HOME tap-vs-hold (mute layer) */
+static uint16_t sb_idx;                   /* Soundbook browse cursor */
 
 static void drum_trigger(uint32_t d, uint32_t vel)
 {
@@ -1596,6 +1597,78 @@ static const char *wave_label_direct(uint8_t w)
     return W[w & 7u];
 }
 
+/* ================= Soundbook: every sound has a name + category =================
+ * A flat, runtime-indexed catalog over all audible material:
+ *   banks 0..N_PATCHBANKS-1 (each patch) -> drums (every kit x sample) -> waves. */
+static const char *const BANK_CAT[N_PATCHBANKS] = {
+    "SYNTH", "DX7 FM", "ROMpler", "4OP FM", "4OP FM", "LOST"
+};
+
+#ifndef ZWT_COUNT
+#define ZWT_COUNT 64u            /* matches gen/mined_zoom.h (ZOOM MS-60B/70CDR) */
+#endif
+
+static uint16_t sb_total(void)
+{
+    uint16_t n = 0;
+    uint8_t b;
+    for (b = 0; b < N_PATCHBANKS; b++) n += PATCHBANK_COUNT[b];
+    n += (uint16_t)N_DRUM_KITS * NDRUM;
+    n += 3u;                 /* wave libraries */
+    return n;
+}
+
+static void cpn(char *d, const char *s, unsigned n)
+{
+    unsigned i;
+    for (i = 0; i < n && s[i]; i++) d[i] = s[i];
+    d[i] = 0;
+}
+
+static void sb_get(uint16_t i, char *nm, char *loc, char *cat)
+{
+    uint16_t n = 0;
+    uint8_t b, k;
+    for (b = 0; b < N_PATCHBANKS; b++) {
+        uint16_t c = PATCHBANK_COUNT[b];
+        if (i < n + c) {
+            char s[40]; char *p;
+            cpn(nm, patch_display_name(b, (uint8_t)(i - n)), 23);
+            p = ap(s, ""); p = ap(p, PATCHBANK_NAME[b]); p = ap(p, " ");
+            p = apu(p, (uint32_t)(i - n) + 1u); p = ap(p, "/"); p = apu(p, c);
+            cpn(loc, s, 39);
+            cpn(cat, BANK_CAT[b], 11);
+            return;
+        }
+        n += c;
+    }
+    for (k = 0; k < N_DRUM_KITS; k++) {
+        if (i < n + NDRUM) {
+            char s[40]; char *p;
+            cpn(nm, PNAME[i - n], 23);
+            p = ap(s, ""); p = ap(p, "kit "); p = ap(p, drum_kit_name(k));
+            p = ap(p, " ("); p = ap(p, drum_kit_cat(k)); p = ap(p, ")");
+            cpn(loc, s, 39);
+            cpn(cat, "DRUMS", 11);
+            return;
+        }
+        n += NDRUM;
+    }
+    if (i == n) {
+        cpn(nm, "WAVELIB", 23);
+        { char s[40]; char *p = ap(s, ""); p = apu(p, WT_COUNT); p = ap(p, " single-cycles · Factory/FunkBox/Linn"); cpn(loc, s, 39); }
+        cpn(cat, "WAVES", 11);
+    } else if (i == n + 1u) {
+        cpn(nm, "EPROM BÖHM-DD16", 23);
+        { char s[40]; char *p = ap(s, ""); p = apu(p, MWT_COUNT); p = ap(p, " mined waves"); cpn(loc, s, 39); }
+        cpn(cat, "WAVES", 11);
+    } else {
+        cpn(nm, "ZOOM MS-60B/70CDR", 23);
+        { char s[40]; char *p = ap(s, ""); p = apu(p, ZWT_COUNT); p = ap(p, " mined waves"); cpn(loc, s, 39); }
+        cpn(cat, "WAVES", 11);
+    }
+}
+
 /* Sample one of the eight operator/LFO waveforms at a full 32-bit phase.
  * Mirrors fm_wave() in the engine, but only needs the exported fm_sine. */
 static int32_t lfo_sample(uint8_t w, uint32_t ph)
@@ -1890,6 +1963,26 @@ static void draw_save_page(void)
     cv_text_wrap(4, 188, 232, &FONT_S, "K1 slot | K4 action | OCT+ go | OCT- back", UI_DIM);
     cv_blit(0, 34);
 }
+static void draw_soundbook_page(void)
+{
+    char nm[24], loc[40], cat[12], s[48]; char *p = s;
+    uint16_t tot = sb_total();
+    if (sb_idx >= tot) sb_idx = 0;
+    sb_get(sb_idx, nm, loc, cat);
+    cv_begin(240, 206, PP_INK);
+    pp_title("SOUNDBOOK", PP_FS);
+    p = s; p = ap(p, nm); fit_text(s, 232);
+    cv_text(4, 26, &FONT_B, s, PP_W);
+    p = s; p = ap(p, cat);
+    cv_text(4, 46, &FONT_S, s, PP_Y);
+    p = s; p = ap(p, "at "); p = ap(p, loc); fit_text(s, 232);
+    cv_text(4, 64, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "sound "); p = apu(p, (uint32_t)sb_idx + 1u); p = ap(p, "/"); p = apu(p, tot);
+    cv_text(4, 86, &FONT_S, s, UI_LABEL);
+    cv_text_wrap(4, 188, 232, &FONT_S, "SELECT browses · PRESETS jumps category · OCT- back", UI_DIM);
+    cv_blit(0, 34);
+}
+
 static void draw_screen(uint32_t playing)
 {
     if (!boot_interact && fm1_ms < SPLASH_MS) { draw_splash(); return; }
@@ -1914,6 +2007,8 @@ static void draw_screen(uint32_t playing)
         draw_compose_page();
     } else if (view_page == 10) {
         draw_euclid_page();
+    } else if (view_page == 12) {
+        draw_soundbook_page();
     } else {
         draw_parts();
         draw_footer(playing);
@@ -2237,6 +2332,9 @@ static void app_tick(void)
         if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 10) {
             goto_page(0);               /* back out to SEQ */
         }
+        if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 12) {
+            goto_page(0);               /* Soundbook back to SEQ */
+        }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
         if (b & (1u << BTN_REC) && glomode) {
             user_load_slot(slot_sel);
@@ -2250,8 +2348,9 @@ static void app_tick(void)
         if (b & (1u << BTN_SAVE)) {
             goto_page(6);               /* SAVE page (grimm-style slots) */
         }
-        if (b & (1u << BTN_HOME)) {            /* tap = open HOME; hold 300 ms = mute layer */
-            home_pending = 1; home_open = 0; home_press_ms = fm1_ms;
+        if (b & (1u << BTN_HOME)) {            /* tap = open HOME; hold 300 ms = mute layer; GLO+HOME = Soundbook */
+            if (glomode) goto_page(12);
+            else { home_pending = 1; home_open = 0; home_press_ms = fm1_ms; }
         }
         if (home_pending && (fm1_in.buttons & (1u << BTN_HOME))) {
             if (!home_open && fm1_ms - home_press_ms >= 300u) home_open = 1;
@@ -2269,11 +2368,22 @@ static void app_tick(void)
         /* --- encoders --- */
         {
             int32_t e;
+            if (view_page == 12 && (e = fm1_enc_take(ENC_SELECT)) != 0) {
+                int32_t c = (int32_t)sb_idx + e, tot = (int32_t)sb_total();
+                if (c < 0) c = tot - 1; else if (c >= tot) c = 0;
+                sb_idx = (uint16_t)c; dirty = 1;
+            }
             if ((e = fm1_enc_take(ENC_SELECT)) != 0) {
                 int32_t c = (int32_t)part_sel + e;
                 part_sel = (uint8_t)(c < 0 ? 0 : c > 7 ? 7 : c);
                 release_held_keys();   /* a held note belongs to the old part */
                 dirty = 1;
+            }
+            if (view_page == 12 && (e = fm1_enc_take(ENC_PRESETS)) != 0) {
+                int32_t c = (int32_t)sb_idx + (e > 0 ? 20 : -20), tot = (int32_t)sb_total();
+                while (c < 0) c += tot;
+                while (c >= tot) c -= tot;
+                sb_idx = (uint16_t)c; dirty = 1;
             }
             e = fm1_enc_take(ENC_PRESETS);
             if (e) {

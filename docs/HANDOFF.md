@@ -40,6 +40,7 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - **Bidirectional MIDI clock:** `clk_mode` 0 off / 1 master (24 PPQ out, gated by MIDI OUT) / 2 slave (external FA/FB/FC + F8 stepping, 6 clocks per step). GLO+FX cycles it; CC 100 sets it. Covered by `riptide-clk.txt` (96 external clocks → 16 deterministic steps).
 - **MORPH osc mode (5):** PD amount follows the carrier envelope (crisp attack → sine tail), added to SYNC/RING/PD/VEC. CC 98 range now 0–6.
 - **VMORPH osc mode (6):** vector morph position driven by the carrier envelope (per-note four-wave sweep). CC 98 range now 0–6.
+- **Soundbook:** GLO+HOME opens a flat, indexed catalog of every sound (patches by bank + category, drum samples per kit, wave libraries by origin). `riptide-soundbook.txt` covers browse/scroll/back.
 - Transport knobs live on the **FX page** (tempo / swing / accent / loop length), so tempo changes don't require entering GLO.
 
 ## Sources
