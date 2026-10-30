@@ -2,6 +2,9 @@
 # Bank 0 (APP) -> Bank 1 (DX7) -> Bank 2 (ROM) -> back to APP
 
 # Start sequencer
+# select the first tonal part (BASS) so MIDI notes reach the FM engine
+# (drums are parts 0-4; the synth voices are parts 5-7)
+100 enc 0 5
 80 btn 12
 
 # Test FM voice with default patch (APP bank, patch 0)

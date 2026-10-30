@@ -225,15 +225,7 @@ static int32_t drum_tick(uint32_t d)
     return s;
 }
 
-/* --- FM voices --- */
-typedef struct {
-    uint32_t cph, mph, cinc, minc;
-    int32_t modidx, gate, amp;
-    uint8_t note, age;
-    uint16_t wave;
-} sv_t;
-
-/* removed: sv[NV] voice array and sv_ages - replaced by fm engine */
+/* --- FM patch loading ---------------------------------------------------- */
 
 static uint32_t midi_clk_acc;  /* frames until next 0xF8 clock pulse */
 
@@ -243,59 +235,186 @@ static uint32_t fx_w;
 #define FX_MASK 8191u
 static int16_t lfo_phase;
 
-/* FM engine integration replaces sv_t voice array */
-void fm_note_on(uint8_t voice, uint8_t note, uint8_t velocity);
-void fm_note_off(uint8_t voice, uint8_t note);
-void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames);
-void fm_load_patch(uint8_t voice, const fm_patch_t *patch);
-
-/* TX81Z patch loading (bank 3) */
-static void fm_load_tx81z_patch(uint8_t patch_ix)
+/* A neutral 4-op patch used by the APP / DX7 / ROM macro banks. */
+static void fm_base_patch(fm_patch_t *p, uint8_t alg)
 {
-    if (patch_ix >= FM_PATCH_TX81Z_COUNT) return;
-    fm_patch_t p;
     uint8_t o;
-    p.alg = PATCH_TX81Z_ALG[patch_ix];
-    p.fb = PATCH_TX81Z_FB[patch_ix];
-    for (o = 0; o < FM_OPS_PER_VOICE; o++) {
-        p.ar[o] = PATCH_TX81Z_AR[patch_ix][o];
-        p.dr[o] = PATCH_TX81Z_DR[patch_ix][o];
-        p.sr[o] = PATCH_TX81Z_SR[patch_ix][o];
-        p.rr[o] = PATCH_TX81Z_RR[patch_ix][o];
-        p.sl[o] = PATCH_TX81Z_SL[patch_ix][o];
-        p.tl[o] = PATCH_TX81Z_TL[patch_ix][o];
-        p.coarse[o] = PATCH_TX81Z_COARSE[patch_ix][o];
-        p.fine[o] = PATCH_TX81Z_FINE[patch_ix][o];
-        p.detune[o] = PATCH_TX81Z_DETUNE[patch_ix][o];
+    memset(p, 0, sizeof *p);
+    p->alg = alg & 7u;
+    p->fb = 4;
+    p->lfo_speed = 18;
+    p->pmd = 6;
+    p->amd = 0;
+    p->transpose = 24;
+    p->pb_range = 2;
+    p->sustain = 1;
+    p->loop = 0;
+    p->gate = 1;
+    p->cross = 18;
+    p->drive = 20;
+    p->flt_cut = 100;
+    p->flt_res = 18;
+    p->flt_env = 12;
+    p->flt_rate = 20;
+    p->vca_ar = 31;
+    p->vca_dr = 0;
+    for (o = 0; o < 4; o++) {
+        p->op[o].ar = 28;
+        p->op[o].d1r = 16;
+        p->op[o].d2r = 0;         /* hold while the key is down */
+        p->op[o].rr = 11;
+        p->op[o].d1l = 13;
+        p->op[o].kvs = 3;
+        p->op[o].out = o == 0 ? 92 : 70;
+        p->op[o].coarse = 4;      /* ratio 1.00 */
+        p->op[o].fine = 0;
+        p->op[o].det = 3;
     }
-    /* Apply to all FM voices */
-    for (o = 0; o < FM_OPS_PER_VOICE; o++)
-        fm_load_patch(o, &p);
 }
 
-/* FB-01 patch loading (bank 4) */
-static void fm_load_fb01_patch(uint8_t patch_ix)
+static void fm_load_template_patch(uint8_t voice)
 {
-    if (patch_ix >= FM_PATCH_FB01_COUNT) return;
     fm_patch_t p;
-    uint8_t o;
-    p.alg = PATCH_FB01_ALG[patch_ix];
-    p.fb = PATCH_FB01_FB[patch_ix];
-    for (o = 0; o < FM_OPS_PER_VOICE; o++) {
-        p.ar[o] = PATCH_FB01_AR[patch_ix][o];
-        p.dr[o] = PATCH_FB01_DR[patch_ix][o];
-        p.sr[o] = PATCH_FB01_SR[patch_ix][o];
-        p.rr[o] = PATCH_FB01_RR[patch_ix][o];
-        p.sl[o] = PATCH_FB01_SL[patch_ix][o];
-        p.tl[o] = PATCH_FB01_TL[patch_ix][o];
-        p.coarse[o] = PATCH_FB01_COARSE[patch_ix][o];
-        p.fine[o] = PATCH_FB01_FINE[patch_ix][o];
-        p.detune[o] = 0;
-    }
-    /* Apply to all FM voices */
-    for (o = 0; o < FM_OPS_PER_VOICE; o++)
-        fm_load_patch(o, &p);
+    fm_base_patch(&p, 2);
+    p.fb = 3;
+    p.op[1].coarse = 8;           /* 2:1 modulator */
+    p.op[1].out = 82;
+    p.op[2].coarse = 12;          /* 3.46:1, metallic edge */
+    p.op[2].out = 58;
+    p.op[3].coarse = 5;           /* 1.41:1 */
+    p.op[3].out = 44;
+    p.cross = 24;
+    p.drive = 26;
+    fm_load_patch(voice, &p);
 }
+
+/* Load the selected ROM voice into every tonal part (macros stay per part). */
+static void fm_load_tx81z_patch(uint8_t ix)
+{
+    fm_patch_t p;
+    uint8_t v, o;
+    int32_t tr;
+    if (ix >= FM_PATCH_TX81Z_COUNT) return;
+    fm_base_patch(&p, FM_PATCH_TX81Z_ALG[ix]);
+    p.fb = FM_PATCH_TX81Z_FB[ix] & 7u;
+    p.lfo_speed = FM_PATCH_TX81Z_LFO_SPEED[ix] & 127u;
+    p.lfo_delay = FM_PATCH_TX81Z_LFO_DELAY[ix] & 127u;
+    p.pmd = FM_PATCH_TX81Z_PMD[ix] & 127u;
+    p.amd = FM_PATCH_TX81Z_AMD[ix] & 127u;
+    p.lfo_wave = FM_PATCH_TX81Z_LFO_WAVE[ix] & 3u;
+    p.ams = FM_PATCH_TX81Z_AMS[ix] & 3u;
+    p.pms = FM_PATCH_TX81Z_PMS[ix] & 7u;
+    tr = (int32_t)FM_PATCH_TX81Z_TRANSPOSE[ix] - 24;
+    if (tr < -12) tr = -12;
+    if (tr > 12) tr = 12;
+    p.transpose = (uint8_t)(24 + tr);
+    p.sustain = 0;                 /* keep the ROM's percussive decay */
+    p.cross = (uint8_t)(6 + p.fb * 3);
+    p.drive = (uint8_t)(12 + p.fb * 4);
+    p.flt_cut = (uint8_t)(88 + (p.op[0].out >> 3));
+    p.flt_res = 18;
+    p.flt_env = 14;
+    p.flt_rate = 20;
+    p.vca_ar = 31;
+    p.vca_dr = 0;
+    for (o = 0; o < 4; o++) {
+        p.op[o].ar = FM_PATCH_TX81Z_AR[ix][o] & 31u;
+        p.op[o].d1r = FM_PATCH_TX81Z_D1R[ix][o] & 31u;
+        p.op[o].d2r = FM_PATCH_TX81Z_D2R[ix][o] & 31u;
+        p.op[o].rr = FM_PATCH_TX81Z_RR[ix][o] & 15u;
+        p.op[o].d1l = FM_PATCH_TX81Z_D1L[ix][o] & 15u;
+        p.op[o].ls = FM_PATCH_TX81Z_LS[ix][o];
+        p.op[o].rs = FM_PATCH_TX81Z_RS[ix][o] & 3u;
+        p.op[o].ebs = FM_PATCH_TX81Z_EBS[ix][o] & 7u;
+        p.op[o].ame = FM_PATCH_TX81Z_AME[ix][o] & 1u;
+        p.op[o].kvs = FM_PATCH_TX81Z_KVS[ix][o] & 7u;
+        p.op[o].out = FM_PATCH_TX81Z_OUT[ix][o];
+        p.op[o].coarse = FM_PATCH_TX81Z_CRS[ix][o] & 63u;
+        p.op[o].fine = 0;
+        p.op[o].det = FM_PATCH_TX81Z_DET[ix][o] & 7u;
+    }
+    for (v = 0; v < 3u; v++) fm_load_patch(v, &p);
+}
+
+/* Load the selected second ROM voice into every tonal part. */
+static void fm_load_fb01_patch(uint8_t ix)
+{
+    fm_patch_t p;
+    uint8_t v, o;
+    if (ix >= FM_PATCH_FB01_COUNT) return;
+    fm_base_patch(&p, FM_PATCH_FB01_ALG[ix]);
+    p.fb = FM_PATCH_FB01_FB[ix] & 7u;
+    p.lfo_speed = FM_PATCH_FB01_LFO_SPEED[ix] & 127u;
+    p.lfo_delay = FM_PATCH_FB01_LFO_DELAY[ix] & 127u;
+    p.pmd = FM_PATCH_FB01_PMD[ix] & 127u;
+    p.amd = FM_PATCH_FB01_AMD[ix] & 127u;
+    p.lfo_wave = FM_PATCH_FB01_LFO_WAVE[ix] & 3u;
+    p.ams = FM_PATCH_FB01_AMS[ix] & 3u;
+    p.pms = FM_PATCH_FB01_PMS[ix] & 7u;
+    p.transpose = 24;
+    p.sustain = 0;
+    p.cross = (uint8_t)(6 + p.fb * 3);
+    p.drive = (uint8_t)(12 + p.fb * 4);
+    p.flt_cut = (uint8_t)(88 + (p.op[0].out >> 3));
+    p.flt_res = 18;
+    p.flt_env = 14;
+    p.flt_rate = 20;
+    p.vca_ar = 31;
+    p.vca_dr = 0;
+    for (o = 0; o < 4; o++) {
+        p.op[o].ar = FM_PATCH_FB01_AR[ix][o] & 31u;
+        p.op[o].d1r = FM_PATCH_FB01_D1R[ix][o] & 31u;
+        p.op[o].d2r = FM_PATCH_FB01_D2R[ix][o] & 31u;
+        p.op[o].rr = FM_PATCH_FB01_RR[ix][o] & 15u;
+        p.op[o].d1l = FM_PATCH_FB01_D1L[ix][o] & 15u;
+        p.op[o].ls = FM_PATCH_FB01_LS[ix][o];
+        p.op[o].rs = FM_PATCH_FB01_RS[ix][o] & 3u;
+        p.op[o].ebs = FM_PATCH_FB01_EBS[ix][o] & 7u;
+        p.op[o].ame = FM_PATCH_FB01_AME[ix][o] & 1u;
+        p.op[o].kvs = FM_PATCH_FB01_KVS[ix][o] & 7u;
+        p.op[o].out = FM_PATCH_FB01_OUT[ix][o];
+        p.op[o].coarse = FM_PATCH_FB01_CRS[ix][o] & 63u;
+        p.op[o].fine = 0;
+        p.op[o].det = 3;
+    }
+    for (v = 0; v < 3u; v++) fm_load_patch(v, &p);
+}
+
+/* Load a patch from any bank, applying the macro banks where needed. */
+static void load_bank_patch(uint8_t bank, uint8_t ix)
+{
+    uint8_t i, q;
+    if (bank >= N_PATCHBANKS) bank = 0;
+    if (ix >= PATCHBANK_COUNT[bank]) ix = 0;
+    if (bank == 3u) {
+        fm_load_tx81z_patch(ix);
+    } else if (bank == 4u) {
+        fm_load_fb01_patch(ix);
+    } else {
+        for (i = 0; i < 3u; i++)
+            for (q = 0; q < 4u; q++)
+                part_prm[NDRUM + i][q] = PATCH_PRM3[bank][ix][i][q];
+        for (i = 0; i < 3u; i++) fm_load_template_patch(i);
+    }
+}
+
+/* Push the four per-part macros into the live engine. */
+static void fm_sync_macros(void)
+{
+    uint8_t i, q;
+    for (i = 0; i < 3u; i++)
+        for (q = 0; q < 4u; q++)
+            fm_set_macro(i, q, part_prm[NDRUM + i][q]);
+}
+
+static const char *patch_display_name(uint8_t bank, uint8_t ix)
+{
+    if (bank == 3u && ix < FM_PATCH_TX81Z_COUNT) return FM_PATCH_TX81Z_NAME[ix];
+    if (bank == 4u && ix < FM_PATCH_FB01_COUNT) return FM_PATCH_FB01_NAME[ix];
+    if (bank >= N_PATCHBANKS || ix >= 128u) return "?";
+    return PATCH_NAME3[bank][ix];
+}
+
 
 static uint8_t run, bpm;
 
@@ -318,7 +437,7 @@ static uint32_t idle_ok;                /* LCD_IDLE: set only around our own dra
 
 static void app_audio(int32_t *out, uint32_t n)
 {
-    uint32_t i, v;
+    uint32_t i;
     /* drain the events (the main loop poked us) */
     while (eqr != eqw) {
         ev_t e = eq[eqr];
@@ -342,7 +461,7 @@ static void app_audio(int32_t *out, uint32_t n)
             break;
         case EV_NOTEOFF:
             if (e.p >= NDRUM) {
-                fm_note_off(0, e.note);  /* voice 0 for mono, or use pr */
+                fm_note_off((uint8_t)(e.p - NDRUM), e.note);
                 if (midi_out) midi_send(0x80u + (uint8_t)(e.p - NDRUM), e.note, 0);
             }
             break;
@@ -359,80 +478,21 @@ static void app_audio(int32_t *out, uint32_t n)
         out[2u * i + 1u] += s;
     }
     
-/* voices - FM engine replaces sv_t / sine wave oscillator */
+    /* FM voices: the engine renders in small blocks so the stack stays small. */
     {
-        uint32_t j;
-        int32_t l_buf[64], r_buf[64];
-        /* fm_process writes interleaved left/right; we need to de-interleave */
-        /* The out buffer is interleaved: out[0]=L0, out[1]=R0, out[2]=L1, out[3]=R1, ... */
-        /* fm_process expects separate left/right: out_l[0]=L0, out_l[1]=L1, ... */
-        /* So we just add FM output to the existing out buffer at the right indices */
-    {
-        uint32_t v, o, f;
-        /* accumulate FM voice outputs into the interleaved out buffer */
-        for (v = 0; v < FM_MAX_VOICES; v++) {
-            fm_voice_t *voice = &fm_voices[v];
-            uint8_t alg = voice->algorithm;
-            if (!voice->active && !voice->ops[0].env_state && !voice->ops[1].env_state &&
-                !voice->ops[2].env_state && !voice->ops[3].env_state) continue;
-            for (f = 0; f < n; f++) {
-                int32_t sum = 0;
-                int32_t op_out[FM_OPS_PER_VOICE] = {0, 0, 0, 0};
-                /* compute all modulator outputs, then carriers */
-                for (o = 0; o < FM_OPS_PER_VOICE; o++) {
-                    fm_op_t *op = &voice->ops[o];
-                    int32_t mod_in = 0;
-                    if (!op->active && !op->env_state) { op_out[o] = 0; continue; }
-                    uint8_t m;
-                    for (m = 0; m < FM_OPS_PER_VOICE; m++) {
-                        if (fm_mod_routing[alg][m][o])
-                            mod_in += op_out[m] * (int32_t)fm_mod_routing[alg][m][o];
-                    }
-                    if (op->feedback)
-                        mod_in += (op->last_output * (int32_t)op->feedback) >> 8;
-                    /* envelope */
-                    if (op->env_state == 1) {
-                        op->env_level += (int32_t)env_rate_to_inc(99) * 2;
-                        if (op->env_level >= 32767) op->env_level = 32767;
-                        if (op->env_level >= 32767) { op->env_state = 2; }
-                    } else if (op->env_state == 2) {
-                        op->env_level -= (int32_t)env_rate_to_inc(60) / 2;
-                        if (op->env_level <= (int32_t)(32767 * 30 / 100)) op->env_state = 3;
-                    } else if (op->env_state == 3) {
-                        op->env_level -= (int32_t)env_rate_to_inc(80) / 4;
-                        if (op->env_level <= 0) { op->env_level = 0; op->env_state = 0; }
-                    } else if (op->env_state == 4) {
-                        op->env_level -= (int32_t)env_rate_to_inc(70) / 4;
-                        if (op->env_level <= 0) { op->env_level = 0; op->env_state = 0; op->active = 0; }
-                    }
-                    /* phase modulation */
-                    uint32_t ph = op->phase + (uint32_t)((int64_t)mod_in * (int32_t)op->mod_index >> 8);
-                    int32_t s = fm_sine(ph);
-                    s = (s * op->env_level) >> 15;
-                    op_out[o] = s;
-                    op->phase += op->phase_inc;
-                    op->last_output = s;
-                    op->output = s;
-                }
-                /* apply algorithm */
-                if (alg < FM_ALGORITHMS) {
-                    sum = op_out[0];
-                    uint8_t mm, is_c;
-                    for (mm = 1; mm < FM_OPS_PER_VOICE; mm++) {
-                        is_c = 1;
-                        for (uint8_t n = 0; n < FM_OPS_PER_VOICE; n++)
-                            if (fm_mod_routing[alg][mm][n]) { is_c = 0; break; }
-                        if (is_c) sum += op_out[mm];
-                    }
-                } else {
-                    sum = op_out[0] + op_out[1] + op_out[2] + op_out[3];
-                }
-                sum = (sum * (int32_t)voice->velocity) >> 7;
-                out[2u * f] += sum;
-                out[2u * f + 1u] += sum;
+        uint32_t done = 0;
+        int32_t fl[64], fr[64];
+        while (done < n) {
+            uint32_t len = n - done, j;
+            if (len > 64u) len = 64u;
+            for (j = 0; j < len; j++) { fl[j] = 0; fr[j] = 0; }
+            fm_process(fl, fr, len);
+            for (j = 0; j < len; j++) {
+                out[2u * (done + j)] += fl[j];
+                out[2u * (done + j) + 1u] += fr[j];
             }
+            done += len;
         }
-    }
     }
     if (midi_out && run) {
         uint32_t bpmx = bpm ? (uint32_t)bpm : 120u;
@@ -662,24 +722,30 @@ static void draw_wave_page(void)
         p = ap(p, " ["); p = ap(p, drum_kit_cat(drum_kit)); p = ap(p, "]");
         cv_text(4, 24, &FONT_S, s, UI_AMB);
     } else {
-        p = ap(s, PNAME[part_sel]); p = ap(p, " wave "); p = apu(p, part_prm[part_sel][0]);
-        p = ap(p, "/"); p = apu(p, TOTAL_WT_COUNT);
+        p = ap(s, PNAME[part_sel]); p = ap(p, " A: wave ");
+        p = ap(p, fm_macro_wave_label(part_prm[part_sel][0]));
+        p = ap(p, " ("); p = apu(p, part_prm[part_sel][0]); p = ap(p, ")");
         fit_text(s, 232);
         cv_text(4, 24, &FONT_S, s, UI_AMB);
-        p = s; p = ap(p, "source "); p = ap(p, wt_category((uint8_t)(part_prm[part_sel][0] * (TOTAL_WT_COUNT-1u) / 127u)));
+        p = s; p = ap(p, "B ratio "); p = apu(p, part_prm[part_sel][1]);
+        p = ap(p, "  C mod "); p = apu(p, part_prm[part_sel][2]);
+        p = ap(p, "  D lvl "); p = apu(p, part_prm[part_sel][3]);
         fit_text(s, 232);
-        cv_text(4, 42, &FONT_S, s, UI_LABEL);
-        p = s; p = ap(p, "ratio "); p = apu(p, part_prm[part_sel][1]);
-        p = ap(p, " mod "); p = apu(p, part_prm[part_sel][2]);
-        p = ap(p, " lvl "); p = apu(p, part_prm[part_sel][3]);
+        cv_text(4, 42, &FONT_S, s, UI_AMB);
+        p = s;
+        if (patchbank < N_PATCHBANKS) {
+            p = ap(p, "bank "); p = ap(p, PATCHBANK_NAME[patchbank]);
+            p = ap(p, "/"); p = apu(p, patch_ix); p = ap(p, " ");
+        }
+        p = ap(p, patch_display_name(patchbank, patch_ix));
         fit_text(s, 232);
-        cv_text(4, 60, &FONT_S, s, UI_AMB);
+        cv_text(4, 60, &FONT_S, s, UI_HI);
     }
     if (patchbank < N_PATCHBANKS) {
         p = s; p = ap(p, "Patch bank: "); p = ap(p, PATCHBANK_NAME[patchbank]);
         p = ap(p, " / "); p = apu(p, patch_ix);
         cv_text(4, 82, &FONT_S, s, UI_LABEL);
-        p = s; p = ap(p, PATCH_NAME3[patchbank][patch_ix]);
+        p = s; p = ap(p, patch_display_name(patchbank, patch_ix));
         cv_text(4, 100, &FONT_S, s, UI_HI);
     }
     cv_text(4, 188, &FONT_S, "A: wave  B: kit (drum parts)  GLO+PRESET: patch", UI_DIM);
@@ -788,9 +854,14 @@ static void app_init(void)
     pat_sel = S.pat_sel; accent = S.accent; midi_out = S.midi_out;
     dx7bank_sel = S.dx7_bank;
     patchbank = S.patchbank; patch_ix = S.patch_ix;
+    if (patchbank >= N_PATCHBANKS) patchbank = 0;
+    if (patch_ix >= PATCHBANK_COUNT[patchbank]) patch_ix = 0;
     memcpy(mute, S.mute, sizeof mute);
     memcpy(part_prm, S.prm, sizeof part_prm);
     memcpy(&pat, &S.pat, sizeof pat);
+    fm_init();
+    load_bank_patch(patchbank, patch_ix);
+    fm_sync_macros();
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
     step_ms = 15000u / (bpm ? bpm : 128u);
     drum_kit = 1;   /* default to the TR-808 kit (full-bodied); APP is thinner */
@@ -831,13 +902,7 @@ static void app_tick(void)
                 case 93: {
                     uint8_t ps = (uint8_t)((v * PATCHBANK_COUNT[patchbank]) / 128); if (ps >= PATCHBANK_COUNT[patchbank]) ps = PATCHBANK_COUNT[patchbank] - 1;
                     patch_ix = ps;
-                    if (patchbank == 3) {
-                        fm_load_tx81z_patch(patch_ix);
-                    } else if (patchbank == 4) {
-                        fm_load_fb01_patch(patch_ix);
-                    } else {
-                        for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
-                    }
+                    load_bank_patch(patchbank, patch_ix);
                     dirty = 1; break;
                 }
                 default: break;
@@ -887,13 +952,7 @@ static void app_tick(void)
             patchbank = (uint8_t)((patchbank + 1u) % N_PATCHBANKS);
             patch_ix = 0;
             dx7bank_sel = (patchbank == 1u);
-            if (patchbank == 3) {
-                fm_load_tx81z_patch(0);
-            } else if (patchbank == 4) {
-                fm_load_fb01_patch(0);
-            } else {
-                for (uint32_t i = 0u; i < 3u; i++) for (uint32_t q=0u;q<4u;q++) part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
-            }
+            load_bank_patch(patchbank, patch_ix);
             dirty = 1;
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
@@ -914,21 +973,12 @@ static void app_tick(void)
             e = fm1_enc_take(ENC_PRESETS);
             if (e) {
                 if (glomode) {
-                    uint32_t i, q;
                     uint32_t count = PATCHBANK_COUNT[patchbank];
                     int32_t c = (int32_t)patch_ix + (e > 0 ? 1 : -1);
                     if (c < 0) c = (int32_t)count - 1;
                     if (c >= (int32_t)count) c = 0;
                     patch_ix = (uint8_t)c;
-                    if (patchbank == 3) {
-                        fm_load_tx81z_patch(patch_ix);
-                    } else if (patchbank == 4) {
-                        fm_load_fb01_patch(patch_ix);
-                    } else {
-                        for (i = 0u; i < 3u; i++)
-                            for (q = 0u; q < 4u; q++)
-                                part_prm[NDRUM + (uint8_t)i][q] = PATCH_PRM3[patchbank][patch_ix][i][q];
-                    }
+                    load_bank_patch(patchbank, patch_ix);
                 } else {
                     int32_t c = (int32_t)pat_sel + e;
                     if (c < 0) c = N_CATALOG - 1;
@@ -958,6 +1008,7 @@ static void app_tick(void)
             if (glomode && e) { int32_t c = (int32_t)page + (e > 0 ? 1 : -1); page = (uint8_t)(c < 0 ? 0 : c > 3 ? 3 : c); dirty = 1; }
             else if (e) { int32_t c = part_prm[part_sel][3] + e; part_prm[part_sel][3] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
         }
+        fm_sync_macros();
 
         /* --- keys: write steps, or play live --- */
         for (k = 0; k < 27u; k++) {

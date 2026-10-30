@@ -1,155 +1,85 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* fm_engine.h - 4-operator FM voice engine with Polivoks-style extras.
+ *
+ * The engine is integer only (no FPU, no 64-bit division) and renders into
+ * caller supplied left/right accumulators.  It is deliberately independent of
+ * the display layer so the host test can drive it without a board.
+ *
+ * Each voice owns one patch: four operators, one of eight algorithms, a
+ * dedicated filter envelope and an independent VCA envelope.  The four macros
+ * (A wave, B ratio, C modulation, D level) are applied live by the UI.
+ */
 #ifndef FM_ENGINE_H
 #define FM_ENGINE_H
 
 #include <stdint.h>
 
-/* 4-Operator FM Engine (TX81Z-style) */
-/* 8 voices max, 4 operators per voice, 8 algorithms */
-
-#define FM_MAX_VOICES   8
+#define FM_MAX_VOICES 8
 #define FM_OPS_PER_VOICE 4
-#define FM_ALGORITHMS    8
+#define FM_ALGORITHMS 8
 
-/* Algorithm definitions: which ops modulate which */
-/* 0 = carrier, 1-3 = modulators (output to carrier or next modulator) */
-static const uint8_t fm_algorithm[FM_ALGORITHMS][FM_OPS_PER_VOICE] = {
-    /* Alg 0: 4-op stack: 3->2->1->0 */
-    { 0, 0, 1, 2 },
-    /* Alg 1: 3->2->1, 3->0 */
-    { 0, 1, 2, 2 },
-    /* Alg 2: 3->2->1, 3->0, 1->0 */
-    { 0, 1, 2, 0 },
-    /* Alg 3: 3->2->1->0, 3->0 */
-    { 0, 0, 1, 2 },
-    /* Alg 4: 3->2, 1->0, 3->0 */
-    { 0, 1, 0, 2 },
-    /* Alg 5: 3->2->1, 3->0 (parallel) */
-    { 0, 1, 2, 0 },
-    /* Alg 6: all parallel (3,2,1->0) */
-    { 0, 0, 0, 0 },
-    /* Alg 7: all carriers (no modulation) */
-    { 0, 0, 0, 0 },
-};
-
-/* Modulation routing: fm_mod_routing[alg][modulator][modulated] = strength (0-1) */
-static const int8_t fm_mod_routing[FM_ALGORITHMS][FM_OPS_PER_VOICE][FM_OPS_PER_VOICE] = {
-    /* Alg 0: 3->2->1->0 (serial chain) */
-    { {0,0,0,0}, {1,0,0,0}, {0,1,0,0}, {0,0,1,0} },
-    /* Alg 1: 3->2->1->0, 3->0 */
-    { {0,0,0,0}, {1,0,0,0}, {0,1,0,0}, {1,0,1,0} },
-    /* Alg 2: 3->2->1->0, 2->0 */
-    { {0,0,0,0}, {1,0,0,0}, {1,1,0,0}, {0,0,1,0} },
-    /* Alg 3: 3->2->1->0, 3->0 */
-    { {0,0,0,0}, {1,0,0,0}, {0,1,0,0}, {1,0,1,0} },
-    /* Alg 4: 3->2, 1->0, 3->0 */
-    { {0,0,0,0}, {1,0,0,0}, {0,0,0,0}, {1,0,1,0} },
-    /* Alg 5: 3->2->1, 3->0 (parallel chains) */
-    { {0,0,0,0}, {0,0,0,0}, {0,1,0,0}, {1,0,1,0} },
-    /* Alg 6: all parallel to carrier 0 */
-    { {0,0,0,0}, {1,0,0,0}, {1,0,0,0}, {1,0,0,0} },
-    /* Alg 7: all carriers (no modulation) */
-    { {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0} },
-};
-
-#define FM_OP_COUNT (FM_MAX_VOICES * FM_OPS_PER_VOICE)
-
+/* One operator as decoded from the ROM dump. */
 typedef struct {
-    /* Phase accumulator */
-    uint32_t phase;
-    uint32_t phase_inc;
-    
-    /* Envelope */
-    uint8_t env_state;      /* 0=off, 1=attack, 2=decay, 3=sustain, 4=release */
-    int32_t env_level;      /* Q15 */
-    uint32_t env_counter;
-    uint32_t env_inc_attack;
-    uint32_t env_inc_decay;
-    uint32_t env_inc_release;
-    uint16_t sustain_level;
-    
-    /* Frequency */
-    uint32_t freq_base;     /* base frequency (note + detune) */
-    int32_t detune;         /* detune in cents */
-    
-    /* Modulation */
-    int32_t mod_index;      /* modulation index (0-127) */
-    uint8_t feedback;       /* self-feedback (0-7) */
-    
-    /* Output */
-    int32_t output;         /* current output sample */
-    int32_t last_output;    /* for feedback */
-    
-    /* State */
-    uint8_t active;
-    uint8_t key;
-    uint8_t velocity;
-} fm_op_t;
+    uint8_t ar;      /* attack rate            0..31  */
+    uint8_t d1r;     /* decay 1 rate           0..31  */
+    uint8_t d2r;     /* decay 2 rate           0..31  */
+    uint8_t rr;      /* release rate           0..15  */
+    uint8_t d1l;     /* decay 1 level          0..15  */
+    uint8_t ls;      /* level scaling          0..99  */
+    uint8_t rs;      /* rate scaling           0..3   */
+    uint8_t ebs;     /* EG bias sensitivity    0..7   */
+    uint8_t ame;     /* AM enable              0/1    */
+    uint8_t kvs;     /* key velocity sens      0..7   */
+    uint8_t out;     /* output level           0..99  */
+    uint8_t coarse;  /* coarse frequency       0..63  */
+    uint8_t fine;    /* fine frequency         0..63  */
+    uint8_t det;     /* detune                 0..6   */
+} fm_op_patch_t;
 
+/* A complete voice. */
 typedef struct {
-    fm_op_t ops[FM_OPS_PER_VOICE];
-    uint8_t algorithm;
-    uint8_t active;
-    uint8_t key;
-    uint8_t velocity;
-    int32_t pitch_bend;
-    int32_t mod_wheel;
-    int32_t pitch_bend_range;
-} fm_voice_t;
-
-typedef struct {
-    /* Envelope rates (0-99) per operator */
-    uint8_t ar[4];     /* Attack Rate */
-    uint8_t dr[4];     /* Decay Rate */
-    uint8_t sr[4];     /* Sustain Rate */
-    uint8_t rr[4];     /* Release Rate */
-    uint8_t sl[4];     /* Sustain Level (0-99) */
-    uint8_t tl[4];     /* Total Level (0-99) */
-    
-    /* Frequency per operator */
-    int16_t coarse[4];     /* coarse tune (0-31) */
-    int16_t fine[4];       /* fine tune (0-99) */
-    int16_t detune[4];     /* detune (-7..+7) */
-    
-    /* Modulation per operator */
-    uint8_t am[4];         /* AM enable */
-    uint8_t vib[4];        /* Vibrato enable */
-    uint8_t eg_bias[4];    /* EG Bias */
-    uint8_t ks[4];         /* Key Scale */
-    uint8_t ars[4];        /* Attack Rate Scaling */
-    uint8_t ams[4];        /* AM Sensitivity */
-    uint8_t fms[4];        /* FM Sensitivity */
-    
-    /* Feedback */
-    uint8_t fb;         /* Feedback (0-7) */
-    
-    /* Algorithm */
-    uint8_t alg;        /* Algorithm (0-7) */
-    uint8_t op_mode;    /* 0=FM, 1=AM */
+    fm_op_patch_t op[FM_OPS_PER_VOICE];
+    uint8_t alg;          /* algorithm 0..7                            */
+    uint8_t fb;           /* feedback  0..7                            */
+    uint8_t lfo_speed;    /* 0..127                                    */
+    uint8_t lfo_delay;    /* 0..127                                    */
+    uint8_t pmd;          /* pitch modulation depth 0..127             */
+    uint8_t amd;          /* amplitude modulation depth 0..127         */
+    uint8_t lfo_wave;     /* 0..3                                      */
+    uint8_t ams;          /* AM sensitivity 0..3                       */
+    uint8_t pms;          /* pitch modulation sensitivity 0..7         */
+    uint8_t transpose;    /* 24 = no transposition                     */
+    uint8_t pb_range;     /* pitch bend range (stored, not wired)      */
+    uint8_t sustain;      /* hold decay 1 level while key is down      */
+    uint8_t loop;         /* looping AD envelopes                      */
+    uint8_t gate;         /* 1 = gate envelopes, 0 = free running      */
+    uint8_t cross;        /* operator cross modulation 0..127          */
+    uint8_t drive;        /* VCA / output drive 0..127                 */
+    uint8_t flt_cut;      /* filter cutoff 0..127                      */
+    uint8_t flt_res;      /* filter resonance 0..127                   */
+    uint8_t flt_env;      /* filter envelope amount 0..127             */
+    uint8_t flt_rate;     /* filter envelope rate 0..31                */
+    uint8_t vca_ar;       /* VCA attack rate 0..31                     */
+    uint8_t vca_dr;       /* VCA decay rate 0..31                      */
 } fm_patch_t;
 
-/* Global FM state */
-extern fm_voice_t fm_voices[FM_MAX_VOICES];
-extern fm_patch_t fm_patches[32];  /* 32 patches */
-
-/* Initialize FM engine */
 void fm_init(void);
+void fm_reset(void);
 
-/* Note on/off */
 void fm_note_on(uint8_t voice, uint8_t note, uint8_t velocity);
 void fm_note_off(uint8_t voice, uint8_t note);
+void fm_all_off(void);
 
-/* Patch management */
 void fm_load_patch(uint8_t voice, const fm_patch_t *patch);
-void fm_set_algorithm(uint8_t voice, uint8_t alg);
+void fm_set_macro(uint8_t voice, uint8_t index, uint8_t value);
 
-/* Parameter changes */
-void fm_set_param(uint8_t voice, uint8_t op, uint8_t param, uint8_t value);
-
-/* Audio processing - call per sample frame */
+/* Add the engine output to the supplied accumulators (frames, not samples). */
 void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames);
 
-/* Utility */
+/* Utility used by the arpeggiator / UI preview. */
 int32_t fm_sine(uint32_t phase);
-uint32_t fm_note_to_inc(uint8_t note, int32_t bend, int32_t detune);
 
-#endif
+/* Name of the operator waveform selected by macro A (mirrors fm_engine). */
+const char *fm_macro_wave_label(uint8_t macro);
+
+#endif /* FM_ENGINE_H */

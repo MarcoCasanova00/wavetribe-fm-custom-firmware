@@ -1,4 +1,7 @@
 # Continuous FM note test - hold a note for several seconds
+# select the first tonal part (BASS) so MIDI notes reach the FM engine
+# (drums are parts 0-4; the synth voices are parts 5-7)
+100 enc 0 5
 200 midi 0x90 60 100   # Note on C4, channel 1
 10000 midi 0x80 60 0   # Note off after 10 seconds
 11000 end

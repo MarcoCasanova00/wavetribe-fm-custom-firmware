@@ -1,386 +1,464 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* fm_engine.c - 4-operator FM voice engine.
+ *
+ * Signal flow per voice:
+ *
+ *   OP4 -> OP3 -> OP2 -> OP1 -> carrier sum -> VCA -> drive -> SVF -> pan
+ *
+ * Operators may also cross-modulate and feed back, and each voice carries a
+ * dedicated filter envelope (the second, independent envelope) plus a VCA
+ * envelope.  Everything is fixed point: Q32 phase, Q15 samples, Q8 macros.
+ */
 #include "fm_engine.h"
+#include "fm_tables.h"
 #include <string.h>
 
-/* ---------- fixed-point tables ---------- */
+/* Envelope increments in Q8 level units per sample (32767 << 8 full scale).
+ * Rate 0 is a slow 16 s sweep, rate 31 reaches full scale in under a
+ * millisecond.  The curve is roughly one octave per 2.2 rate steps, which is
+ * close to the Yamaha 4-op EG feel. */
+static const uint32_t FM_ENV_INC[32] = {
+    12, 16, 23, 31, 42, 58, 79, 109, 149, 204, 280, 384, 526, 721, 988, 1354,
+    1856, 2543, 3485, 4775, 6544, 8967, 12288, 16839, 23075, 31621, 43332,
+    59380, 81371, 111507, 152804, 209396
+};
 
-/* note->phase increment table: 44100Hz, 2^32 phase, A4=440Hz */
-static uint32_t note_inc(uint8_t n)
+/* 2 * sin(pi * fc / 44100) * 4096, 40 Hz .. 12 kHz. */
+static const uint16_t FM_FLT_COEF[128] = {
+    23, 24, 26, 27, 28, 29, 31, 32, 33, 35, 37, 38, 40, 42, 44, 46,
+    48, 50, 52, 55, 57, 60, 63, 66, 69, 72, 75, 78, 82, 86, 90, 94,
+    98, 103, 107, 112, 118, 123, 129, 135, 141, 147, 154, 161, 168, 176,
+    184, 193, 202, 211, 220, 231, 241, 252, 264, 276, 289, 302, 316, 330,
+    345, 361, 378, 395, 413, 432, 452, 473, 495, 517, 541, 566, 592, 619,
+    647, 677, 708, 740, 774, 810, 847, 886, 926, 968, 1013, 1059, 1107,
+    1158, 1211, 1266, 1323, 1384, 1447, 1512, 1581, 1652, 1727, 1805,
+    1887, 1972, 2060, 2153, 2249, 2350, 2454, 2563, 2677, 2795, 2918,
+    3045, 3178, 3316, 3458, 3606, 3760, 3800, 3800, 3800, 3800, 3800,
+    3800, 3800, 3800, 3800, 3800, 3800, 3800, 3800
+};
+
+/* Modulator bit masks: bit k set means OPk modulates this operator.  Only
+ * higher numbered operators are used as sources, so the fixed computation
+ * order OP4 -> OP1 is safe.  OP1 is a carrier in every algorithm. */
+static const uint8_t FM_MOD_MASK[FM_ALGORITHMS][FM_OPS_PER_VOICE] = {
+    { 0x02, 0x04, 0x08, 0x00 },   /* 0: serial stack 4>3>2>1       */
+    { 0x04, 0x08, 0x00, 0x00 },   /* 1: two 2-op stacks           */
+    { 0x04, 0x00, 0x08, 0x00 },   /* 2: 4>3>1, OP2 carrier        */
+    { 0x06, 0x08, 0x00, 0x00 },   /* 3: 4>2>1 and 3>1             */
+    { 0x0A, 0x04, 0x00, 0x00 },   /* 4: 4>1, 3>2>1                */
+    { 0x0E, 0x00, 0x00, 0x00 },   /* 5: 4,3,2 all >1              */
+    { 0x0C, 0x00, 0x00, 0x00 },   /* 6: 4,3 >1 with OP2 carrier   */
+    { 0x00, 0x00, 0x00, 0x00 }    /* 7: four carriers             */
+};
+
+static const uint8_t FM_CARRIER[FM_ALGORITHMS] = {
+    0x01, 0x03, 0x03, 0x01, 0x01, 0x01, 0x03, 0x0F
+};
+
+typedef struct {
+    uint32_t phase;
+    uint32_t inc;
+    int32_t  last;
+    int32_t  env;
+    uint16_t amp;
+    uint16_t kvs_scale;
+    uint8_t  state;          /* 0 off 1 attack 2 decay1 3 decay2 4 release 5 hold */
+} fm_op_t;
+
+typedef struct {
+    fm_patch_t p;
+    uint8_t    macro[4];
+    fm_op_t    op[FM_OPS_PER_VOICE];
+    int32_t    flt_low, flt_band;
+    int32_t    flt_e;
+    int32_t    vca;
+    uint8_t    vca_state;
+    uint8_t    note, vel, key, active;
+    uint8_t    pan;
+    uint32_t   lfo_phase;
+} fm_voice_t;
+
+static fm_voice_t fm_voices[FM_MAX_VOICES];
+
+/* ------------------------------------------------------------------ helpers */
+
+static int32_t clamp32(int32_t v, int32_t lo, int32_t hi)
 {
-    /* 440 * 2^32 / 44100 = 42812569 */
-    static const uint32_t midi_rate[128] = {
-        170522, 180657, 191407, 202809, 214899, 227716, 241300, 255692,
-        270935, 287073, 304153, 322223, 341451, 361802, 383316, 406153,
-        430180, 455779, 482944, 511761, 542225, 574514, 608782, 645066,
-        683594, 724063, 767153, 812861, 861198, 912422, 966830, 1024508,
-        1085789, 1150523, 1219012, 1291596, 1368666, 1450131, 1536547, 1628174,
-        1725303, 1828240, 1937311, 2052858, 2175241, 2304842, 2442062, 2587322,
-        2741062, 2903740, 3076836, 3259844, 3453282, 3657687, 3873613, 4103632,
-        4348334, 4607335, 4881288, 5170878, 5476826, 5801888, 6146856, 6512564,
-        6900151, 7310673, 7745213, 8204896, 8690902, 9209327, 9757405, 10337033,
-        10952712, 11606819, 12298491, 13032065, 13810078, 14635083, 15506664,
-        16429546, 17407617, 18443938, 19541762, 20704532, 21935889, 23239679,
-        24619954, 26080980, 27627250, 29263512, 30994735, 32826154, 34763241,
-        36811727, 38977628, 41267195, 43716939, 46316365, 49071258, 51990001,
-        55083820, 58365640, 61830286, 65512345, 69416200, 73546302, 77920159,
-        82557516, 87480710, 92710506, 98225719, 104087242, 110287290, 116860361,
-        123844608, 131232149, 139048713, 147330431, 156102140, 165398773, 175260803,
-        185733281
-    };
-    if (n > 127) n = 127;
-    return midi_rate[n];
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
 }
 
-/* sine: -32767..32767 over 2^32 phase */
 int32_t fm_sine(uint32_t phase)
 {
-    /* half-wave sine table (512 entries) */
-    static const int16_t sine_tab[512] = {
-        0, 201, 402, 603, 804, 1005, 1206, 1407,
-        1608, 1809, 2009, 2210, 2411, 2611, 2812, 3012,
-        3212, 3412, 3612, 3811, 4011, 4210, 4409, 4608,
-        4807, 5006, 5204, 5402, 5600, 5798, 5995, 6192,
-        6389, 6586, 6782, 6978, 7174, 7369, 7564, 7759,
-        7953, 8147, 8341, 8534, 8727, 8919, 9111, 9303,
-        9494, 9685, 9875, 10065, 10254, 10443, 10631, 10819,
-        11006, 11193, 11379, 11564, 11749, 11933, 12117, 12300,
-        12483, 12665, 12846, 13027, 13207, 13387, 13566, 13744,
-        13922, 14099, 14275, 14451, 14625, 14799, 14973, 15145,
-        15317, 15488, 15659, 15828, 15997, 16165, 16332, 16499,
-        16665, 16830, 16994, 17158, 17320, 17482, 17643, 17803,
-        17962, 18121, 18278, 18435, 18591, 18746, 18900, 19054,
-        19206, 19358, 19509, 19659, 19808, 19956, 20103, 20250,
-        20395, 20540, 20683, 20826, 20968, 21109, 21249, 21388,
-        21527, 21664, 21801, 21936, 22071, 22204, 22337, 22469,
-        22600, 22730, 22859, 22987, 23114, 23241, 23366, 23490,
-        23614, 23736, 23858, 23978, 24098, 24216, 24334, 24450,
-        24566, 24680, 24794, 24906, 25018, 25128, 25238, 25346,
-        25454, 25560, 25665, 25770, 25873, 25975, 26076, 26177,
-        26276, 26374, 26471, 26567, 26662, 26756, 26849, 26941,
-        27032, 27122, 27211, 27299, 27386, 27472, 27557, 27641,
-        27724, 27806, 27887, 27967, 28046, 28124, 28201, 28277,
-        28352, 28426, 28499, 28571, 28642, 28712, 28781, 28849,
-        28916, 28982, 29047, 29111, 29174, 29236, 29297, 29357,
-        29416, 29474, 29531, 29587, 29642, 29696, 29749, 29801,
-        29852, 29902, 29951, 29999, 30046, 30092, 30137, 30181,
-        30224, 30266, 30307, 30347, 30386, 30424, 30461, 30497,
-        30532, 30566, 30599, 30631, 30662, 30692, 30721, 30749,
-        30776, 30802, 30827, 30851, 30874, 30896, 30917, 30937,
-        30956, 30974, 30991, 31007, 31022, 31036, 31049, 31061,
-        31072, 31082, 31091, 31099, 31106, 31112, 31117, 31121,
-        31124, 31126, 31127, 31127, 31126, 31124, 31121, 31117,
-        31112, 31106, 31099, 31091, 31082, 31072, 31061, 31049,
-        31036, 31022, 31007, 30991, 30974, 30956, 30937, 30917,
-        30896, 30874, 30851, 30827, 30802, 30776, 30749, 30721,
-        30692, 30662, 30631, 30599, 30566, 30532, 30497, 30461,
-        30424, 30386, 30347, 30307, 30266, 30224, 30181, 30137,
-        30092, 30046, 29999, 29951, 29902, 29852, 29801, 29749,
-        29696, 29642, 29787, 29531, 29474, 29416, 29357, 29297,
-        29236, 29174, 29111, 29047, 28982, 28916, 28849, 28781,
-        28712, 28642, 28571, 28499, 28426, 28352, 28277, 28201,
-        28124, 28046, 27967, 27887, 27806, 27724, 27641, 27557,
-        27472, 27386, 27299, 27211, 27122, 27032, 26941, 26849,
-        26756, 26662, 26567, 26471, 26374, 26276, 26177, 26076,
-        25975, 25873, 25770, 25665, 25560, 25454, 25346, 25238,
-        25128, 25018, 24906, 24794, 24680, 24566, 24450, 24334,
-        24216, 24098, 23978, 23858, 23736, 23614, 23490, 23366,
-        23241, 23114, 22987, 22859, 22730, 22600, 22469, 22337,
-        22204, 22071, 21936, 21801, 21664, 21527, 21388, 21249,
-        21109, 20968, 20826, 20683, 20540, 20395, 20250, 20103,
-        19956, 19808, 19659, 19509, 19358, 19206, 19054, 18900,
-        18746, 18591, 18435, 18278, 18121, 17962, 17803, 17643,
-        17482, 17320, 17158, 16994, 16830, 16665, 16499, 16332,
-        16165, 15997, 15828, 15659, 15488, 15317, 15145, 14973,
-        14799, 14625, 14451, 14275, 14099, 13922, 13744, 13566,
-        13387, 13207, 13027, 12846, 12665, 12483, 12300, 12117,
-        11933, 11749, 11564, 11379, 11193, 11006, 10819, 10631,
-        10443, 10254, 10065, 9875, 9685, 9494, 9303, 9111,
-        8919, 8727, 8534, 8341, 8147, 7953, 7759, 7564,
-        7369, 7174, 6978, 6782, 6586, 6389, 6192, 5995,
-        5798, 5600, 5402, 5204, 5006, 4807, 4608, 4409,
-        4210, 4011, 3811, 3612, 3412, 3212, 3012, 2812,
-        2611, 2411, 2210, 2009, 1809, 1608, 1407, 1206,
-        1005, 804, 603, 402, 201, 0, -201, -402,
-        -603, -804, -1005, -1206, -1407, -1608, -1809, -2009,
-        -2210, -2411, -2611, -2812, -3012, -3212, -3412, -3612,
-        -3811, -4011, -4210, -4409, -4608, -4807, -5006, -5204,
-        -5402, -5600, -5798, -5995, -6192, -6389, -6586, -6782,
-        -6978, -7174, -7369, -7564, -7759, -7953, -8147, -8341,
-        -8534, -8727, -8919, -9111, -9303, -9494, -9685, -9875,
-        -10065, -10254, -10443, -10631, -10819, -11006, -11193, -11379,
-        -11564, -11749, -11933, -12117, -12300, -12483, -12665, -12846,
-        -13027, -13207, -13387, -13566, -13744, -13922, -14099, -14275,
-        -14451, -14625, -14799, -14973, -15145, -15317, -15488, -15659,
-        -15828, -15997, -16165, -16332, -16499, -16665, -16830, -16994,
-        -17158, -17320, -17482, -17643, -17803, -17962, -18121, -18278,
-        -18435, -18591, -18746, -18900, -19054, -19206, -19358, -19509,
-        -19659, -19808, -19956, -20103, -20250, -20395, -20540, -20683,
-        -20826, -20968, -21109, -21249, -21388, -21527, -21664, -21801,
-        -21936, -22071, -22204, -22337, -22469, -22600, -22730, -22859,
-        -22987, -23114, -23241, -23366, -23490, -23614, -23736, -23858,
-        -23978, -24098, -24216, -24334, -24450, -24566, -24680, -24794,
-        -24906, -25018, -25128, -25238, -25346, -25454, -25560, -25665,
-        -25770, -25873, -25975, -26076, -26177, -26276, -26374, -26471,
-        -26567, -26662, -26756, -26849, -26941, -27032, -27122, -27211,
-        -27299, -27386, -27472, -27557, -27641, -27724, -27806, -27887,
-        -27967, -28046, -28124, -28201, -28277, -28352, -28426, -28499,
-        -28571, -28642, -28712, -28781, -28849, -28916, -28982, -29047,
-        -29111, -29174, -29236, -29297, -29357, -29416, -29474, -29531,
-        -29587, -29642, -29696, -29749, -29801, -29852, -29902, -29951,
-        -29999, -30046, -30092, -30137, -30181, -30224, -30266, -30307,
-        -30347, -30386, -30424, -30461, -30497, -30532, -30566, -30599,
-        -30631, -30662, -30692, -30721, -30749, -30776, -30802, -30827,
-        -30851, -30874, -30896, -30917, -30937, -30956, -30974, -30991,
-        -31007, -31022, -31036, -31049, -31061, -31072, -31082, -31091,
-        -31099, -31106, -31112, -31117, -31121, -31124, -31126, -31127,
-        -31127, -31126, -31124, -31121, -31117, -31112, -31106, -31099,
-        -31091, -31082, -31072, -31061, -31049, -31036, -31022, -31007,
-        -30991, -30974, -30956, -30937, -30917, -30896, -30874, -30851,
-        -30827, -30802, -30776, -30749, -30721, -30692, -30662, -30631,
-        -30599, -30566, -30532, -30497, -30461, -30424, -30386, -30347,
-        -30307, -30266, -30224, -30181, -30137, -30092, -30046, -29999,
-        -29951, -29902, -29852, -29801, -29749, -29696, -29642, -29587,
-        -29531, -29474, -29416, -29357, -29297, -29236, -29174, -29111,
-        -29047, -28982, -28916, -28849, -28781, -28712, -28642, -28571,
-        -28499, -28426, -28352, -28277, -28201, -28124, -28046, -27967,
-        -27887, -27806, -27724, -27641, -27557, -27472, -27386, -27299,
-        -27211, -27122, -27032, -26941, -26849, -26756, -26662, -26567,
-        -26471, -26374, -26276, -26177, -26076, -25975, -25873, -25770,
-        -25665, -25560, -25454, -25346, -25238, -25128, -25018, -24906,
-        -24794, -24680, -24566, -24450, -24334, -24216, -24098, -23978,
-        -23858, -23736, -23614, -23490, -23366, -23241, -23114, -22987,
-        -22859, -22730, -22600, -22469, -22337, -22204, -22071, -21936,
-        -21801, -21664, -21527, -21388, -21249, -21109, -20968, -20826,
-        -20683, -20540, -20395, -20250, -20103, -19956, -19808, -19659,
-        -19509, -19358, -19206, -19054, -18900, -18746, -18591, -18435,
-        -18278, -18121, -17962, -17803, -17643, -17482, -17320, -17158,
-        -16994, -16830, -16665, -16499, -16332, -16165, -15997, -15828,
-        -15659, -15488, -15317, -15145, -14973, -14799, -14625, -14451,
-        -14275, -14099, -13922, -13744, -13566, -13387, -13207, -13027,
-        -12846, -12665, -12483, -12300, -12117, -11933, -11749, -11564,
-        -11379, -11193, -11006, -10819, -10631, -10443, -10254, -10065,
-        -9875, -9685, -9494, -9303, -9111, -8919, -8727, -8534,
-        -8341, -8147, -7953, -7759, -7564, -7369, -7174, -6978,
-        -6782, -6586, -6389, -6192, -5995, -5798, -5600, -5402,
-        -5204, -5006, -4807, -4608, -4409, -4210, -4011, -3811,
-        -3612, -3412, -3212, -3012, -2812, -2611, -2411, -2210,
-        -2009, -1809, -1608, -1407, -1206, -1005, -804, -603,
-        -402, -201
-    };
-    uint32_t idx = phase >> 23;
-    uint32_t frac = (phase >> 7) & 0xFFFF;
-    int32_t s0 = sine_tab[idx & 0x1FF];
-    int32_t s1 = sine_tab[(idx + 1) & 0x1FF];
-    int32_t out = s0 + ((s1 - s0) * (int32_t)frac >> 16);
-    return (idx & 0x200) ? -out : out;
+    return FM_SINE[phase >> 22];
 }
 
-/* ---------- FM voices ---------- */
-fm_voice_t fm_voices[FM_MAX_VOICES];
-fm_patch_t fm_patches[32];
-
-uint32_t env_rate_to_inc(uint8_t rate);
-
-static void fm_op_reset(fm_op_t *op)
+static int32_t fm_wave(uint8_t w, uint32_t ph)
 {
-    op->phase = 0;
-    op->env_state = 0;
-    op->env_level = 0;
-    op->env_counter = 0;
-    op->active = 0;
-    op->output = 0;
-    op->last_output = 0;
-    /* default envelope rates (moderate) */
-    op->env_inc_attack = env_rate_to_inc(60);
-    op->env_inc_decay = env_rate_to_inc(60);
-    op->env_inc_release = env_rate_to_inc(70);
-    op->sustain_level = 32767 * 30 / 100;
+    uint32_t i = ph >> 22;
+    int32_t s = FM_SINE[i];
+    switch (w & 7u) {
+    case 0:                      /* sine */
+        return s;
+    case 1:                      /* half sine */
+        return i < 512u ? s : 0;
+    case 2:                      /* rectified sine */
+        return s < 0 ? -s : s;
+    case 3:                      /* alternating quarter pulses */
+        return (i < 256u || (i >= 512u && i < 768u)) ? s : 0;
+    case 4: {                    /* triangle */
+        int32_t t = (int32_t)(ph >> 16) & 0xFFFF;
+        return t < 32768 ? (t * 2 - 32768) : (32767 - (t - 32768) * 2);
+    }
+    case 5:                      /* saw */
+        return (int32_t)(ph >> 16) - 32768;
+    case 6:                      /* square */
+        return (ph & 0x80000000u) ? -28000 : 28000;
+    default: {                   /* sine plus third harmonic */
+        int32_t s3 = FM_SINE[(i * 3u) & 1023u];
+        return (s * 2 + s3) / 3;
+    }
+    }
 }
+
+static int32_t soft_clip(int32_t x)
+{
+    const int32_t knee = 22000;
+    if (x > knee) x = knee + ((x - knee) >> 2);
+    else if (x < -knee) x = -knee + ((x + knee) >> 2);
+    if (x > 30000) x = 30000;
+    if (x < -30000) x = -30000;
+    return x;
+}
+
+const char *fm_macro_wave_label(uint8_t macro)
+{
+    /* Mirrors the rotation used in fm_process: centre (64) = sine. */
+    uint8_t w = (uint8_t)((((uint32_t)macro >> 4) + 4u) & 7u);
+    static const char *const W[8] = {
+        "sine", "half sine", "rect sine", "quarter pulse",
+        "triangle", "saw", "square", "sine+3rd"
+    };
+    return W[w];
+}
+
+/* Advance one operator envelope.  Returns nonzero while the operator lives. */
+static int op_env_tick(fm_op_t *o, const fm_op_patch_t *p,
+                       uint8_t loop, uint8_t gate, uint8_t sustain, uint8_t key)
+{
+    switch (o->state) {
+    case 1: {                                   /* attack */
+        o->env += (int32_t)FM_ENV_INC[p->ar & 31u];
+        if (o->env >= 32767 << 8) { o->env = 32767 << 8; o->state = 2; }
+        break;
+    }
+    case 2: {                                   /* decay 1 */
+        int32_t target = ((int32_t)p->d1l * (32767 << 8)) / 15;
+        if (o->env > target) {
+            o->env -= (int32_t)FM_ENV_INC[p->d1r & 31u];
+            if (o->env < target) o->env = target;
+        }
+        if (o->env <= target) {
+            if (loop && key) o->state = 1;
+            else if (sustain && key) o->state = 5;
+            else if (gate && !key) o->state = 4;
+            else o->state = 3;
+        }
+        break;
+    }
+    case 3:                                     /* decay 2 to silence */
+        o->env -= (int32_t)FM_ENV_INC[p->d2r & 31u];
+        if (o->env <= 0) { o->env = 0; o->state = 0; }
+        break;
+    case 4:                                     /* release */
+        /* rr is 0..15: double it to address the 0..31 rate table */
+        o->env -= (int32_t)FM_ENV_INC[(p->rr & 15u) * 2u];
+        if (o->env <= 0) { o->env = 0; o->state = 0; }
+        break;
+    case 5:                                     /* hold decay 1 level */
+        if (!key) o->state = gate ? 4 : 3;
+        break;
+    default:
+        return 0;
+    }
+    return o->state != 0;
+}
+
+/* ------------------------------------------------------------------- API */
 
 void fm_init(void)
 {
     uint32_t v, o;
-    fm_patch_t def;
+    memset(fm_voices, 0, sizeof fm_voices);
     for (v = 0; v < FM_MAX_VOICES; v++) {
-        fm_voices[v].algorithm = 0;
+        for (o = 0; o < 4; o++) fm_voices[v].macro[o] = 64;
+        fm_voices[v].pan = 0;
+    }
+}
+
+void fm_reset(void)
+{
+    uint32_t v;
+    for (v = 0; v < FM_MAX_VOICES; v++) {
         fm_voices[v].active = 0;
-        fm_voices[v].pitch_bend = 0;
-        fm_voices[v].mod_wheel = 0;
-        fm_voices[v].pitch_bend_range = 2;
-        for (o = 0; o < FM_OPS_PER_VOICE; o++)
-            fm_op_reset(&fm_voices[v].ops[o]);
+        fm_voices[v].vca_state = 0;
+        fm_voices[v].vca = 0;
     }
-    /* default patch: simple 2-op FM (op1 modulates op0) */
-    def.alg = 1;
-    def.fb = 0;
-    for (o = 0; o < FM_OPS_PER_VOICE; o++) {
-        def.ar[o] = 60; def.dr[o] = 60; def.sr[o] = 0; def.rr[o] = 70;
-        def.sl[o] = 50; def.tl[o] = 99;
-        def.coarse[o] = (o == 0) ? 128 : (o == 1) ? 64 : 0;
-        def.fine[o] = 0; def.detune[o] = 0;
-        def.am[o] = 0; def.vib[o] = 0; def.eg_bias[o] = 0;
-        def.ks[o] = 0; def.ars[o] = 0; def.ams[o] = 0; def.fms[o] = (o == 0) ? 0 : 80;
-    }
-    for (v = 0; v < FM_MAX_VOICES; v++)
-        fm_load_patch(v, &def);
+}
+
+void fm_all_off(void)
+{
+    fm_reset();
 }
 
 void fm_load_patch(uint8_t voice, const fm_patch_t *patch)
 {
-    uint8_t o;
-    if (voice >= FM_MAX_VOICES) return;
-    fm_voices[voice].algorithm = patch->alg & 7;
-    for (o = 0; o < FM_OPS_PER_VOICE; o++) {
-        fm_op_t *op = &fm_voices[voice].ops[o];
-        op->freq_base = patch->coarse[o] ? patch->coarse[o] * 128 : 0;
-        op->detune = patch->detune[o] * 8;
-        op->mod_index = patch->fms[o];  /* FM sensitivity -> modulation depth */
-        op->feedback = patch->fb & 7;
-        /* Store envelope rates for use in fm_process */
-        op->env_inc_attack = env_rate_to_inc(patch->ar[o]);
-        op->env_inc_decay = env_rate_to_inc(patch->dr[o]);
-        op->env_inc_release = env_rate_to_inc(patch->rr[o]);
-        op->sustain_level = patch->sl[o];
+    fm_voice_t *v;
+    uint32_t o;
+    if (voice >= FM_MAX_VOICES || !patch) return;
+    v = &fm_voices[voice];
+    v->p = *patch;
+    if (v->p.alg >= FM_ALGORITHMS) v->p.alg &= 7u;
+    if (v->p.fb > 7u) v->p.fb &= 7u;
+    for (o = 0; o < 4; o++) {
+        uint32_t out = v->p.op[o].out;
+        if (out > 99u) out = 99u;
+        /* Quadratic level curve: 99 -> full scale, 50 -> about -12 dB. */
+        v->op[o].amp = (uint16_t)((out * out * 32767u) / (99u * 99u));
+        v->op[o].env = 0;
+        v->op[o].state = 0;
+        v->op[o].last = 0;
     }
 }
 
-void fm_set_algorithm(uint8_t voice, uint8_t alg)
+void fm_set_macro(uint8_t voice, uint8_t index, uint8_t value)
 {
-    if (voice < FM_MAX_VOICES)
-        fm_voices[voice].algorithm = alg & 7;
+    if (voice >= FM_MAX_VOICES || index >= 4u) return;
+    fm_voices[voice].macro[index] = value;
 }
 
 void fm_note_on(uint8_t voice, uint8_t note, uint8_t velocity)
 {
-    uint8_t o;
     fm_voice_t *v;
-    if (voice >= FM_MAX_VOICES || note > 127) return;
+    uint32_t o;
+    if (voice >= FM_MAX_VOICES) return;
     v = &fm_voices[voice];
-    v->key = note;
-    v->velocity = velocity;
+    v->note = note;
+    v->vel = velocity;
+    v->key = 1;
     v->active = 1;
-    for (o = 0; o < FM_OPS_PER_VOICE; o++) {
-        fm_op_t *op = &v->ops[o];
-        uint32_t inc = note_inc(note);
-        /* apply coarse/fine/detune */
-        inc = (uint32_t)((uint64_t)inc * (op->freq_base ? op->freq_base : 128) >> 7);
-        op->phase_inc = inc;
+    v->vca = 0;
+    v->vca_state = 1;
+    v->flt_low = 0;
+    v->flt_band = 0;
+    v->flt_e = v->p.flt_env ? (32767 << 8) : 0;
+    v->lfo_phase = 0;
+    for (o = 0; o < 4; o++) {
+        fm_op_t *op = &v->op[o];
+        int32_t ks = 256 - ((int32_t)v->p.op[o].kvs * (127 - (int32_t)velocity) >> 4);
         op->phase = 0;
-        op->env_state = 1;  /* attack */
-        op->env_level = 0;
-        op->env_counter = 0;
-        op->active = 1;
-        op->last_output = 0;
-        op->output = 0;
+        op->last = 0;
+        op->env = 0;
+        op->state = 1;
+        op->kvs_scale = (uint16_t)clamp32(ks, 64, 256);
     }
 }
 
 void fm_note_off(uint8_t voice, uint8_t note)
 {
-    uint8_t o;
     fm_voice_t *v;
+    uint32_t o;
     if (voice >= FM_MAX_VOICES) return;
     v = &fm_voices[voice];
-    if (v->active && v->key == note) {
-        for (o = 0; o < FM_OPS_PER_VOICE; o++)
-            if (v->ops[o].env_state)
-                v->ops[o].env_state = 4;  /* release */
-        v->active = 0;
+    if (!v->active) return;
+    if (note && v->note != note) return;
+    v->key = 0;
+    if (v->p.gate) {
+        for (o = 0; o < 4; o++)
+            if (v->op[o].state) v->op[o].state = 4;
     }
-}
-
-/* envelope rates -> increments (0-99 -> Q15 rate) */
-uint32_t env_rate_to_inc(uint8_t rate)
-{
-    /* rate 99 = fastest (1 sample), rate 0 = slowest */
-    uint32_t r = 99u - (rate & 99u);
-    if (r >= 99u) return 1;
-    return 1u + (r * r * 32u);
+    /* The VCA always releases so a note can never hang. */
+    v->vca_state = 4;
 }
 
 void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
 {
-    uint32_t f, v, o;
+    uint32_t v, i, o, f;
+
     for (v = 0; v < FM_MAX_VOICES; v++) {
-        fm_voice_t *voice = &fm_voices[v];
-        uint8_t alg = voice->algorithm;
-        if (!voice->active && !voice->ops[0].env_state && !voice->ops[1].env_state &&
-            !voice->ops[2].env_state && !voice->ops[3].env_state)
-            continue;
-        for (f = 0; f < frames; f++) {
-            int32_t sum = 0;
-            int32_t op_out[FM_OPS_PER_VOICE] = {0, 0, 0, 0};
-            /* compute modulators before carriers (reverse order: 3->0) */
-            for (o = FM_OPS_PER_VOICE; o-- > 0;) {
-                fm_op_t *op = &voice->ops[o];
-                int32_t mod_in = 0;
-                uint32_t ph;
-                int32_t s;
-                if (!op->active && !op->env_state) {
-                    op_out[o] = 0;
-                    continue;
-                }
-                /* accumulate modulation inputs from routing */
-                /* routing: op o is modulated by op m where routing[alg][m][o] */
-                {
-                    uint8_t m;
-                    for (m = 0; m < FM_OPS_PER_VOICE; m++) {
-                        if (fm_mod_routing[alg][m][o])
-                            mod_in += op_out[m] * (int32_t)fm_mod_routing[alg][m][o];
-                    }
-                }
-                /* self-feedback */
-                if (op->feedback)
-                    mod_in += (op->last_output * (int32_t)op->feedback) >> 8;
-                /* envelope */
-                if (op->env_state == 1) {
-                    op->env_level += (int32_t)op->env_inc_attack * 2;
-                    if (op->env_level >= 32767) { op->env_level = 32767; op->env_state = 2; }
-                } else if (op->env_state == 2) {
-                    op->env_level -= (int32_t)op->env_inc_decay / 2;
-                    if (op->env_level <= (int32_t)op->sustain_level) { op->env_level = op->sustain_level; op->env_state = 3; }
-                } else if (op->env_state == 3) {
-                    /* sustain: hold at sustain_level */
-                } else if (op->env_state == 4) {
-                    op->env_level -= (int32_t)op->env_inc_release / 4;
-                    if (op->env_level <= 0) { op->env_level = 0; op->env_state = 0; op->active = 0; }
-                }
-                /* phase modulation */
-                ph = op->phase + (uint32_t)((int64_t)mod_in * (int32_t)op->mod_index >> 8);
-                s = fm_sine(ph);
-                /* apply envelope */
-                s = (s * op->env_level) >> 15;
-                op_out[o] = s;
-                op->phase += op->phase_inc;
-                op->last_output = s;
-                op->output = s;
-            }
-            /* apply algorithm: sum carrier outputs */
-            if (alg < FM_ALGORITHMS) {
-                /* In our routing scheme, op 0 is the main carrier */
-                sum = op_out[0];
-                /* check if other ops are carriers too (no modulation out) */
-                /* For algorithms with multiple carriers, add them */
-                {
-                    uint8_t m, is_carrier;
-                    for (m = 1; m < FM_OPS_PER_VOICE; m++) {
-                        is_carrier = 1;
-                        {
-                            uint8_t n;
-                            for (n = 0; n < FM_OPS_PER_VOICE; n++)
-                                if (fm_mod_routing[alg][m][n])
-                                    { is_carrier = 0; break; }
-                        }
-                        if (is_carrier)
-                            sum += op_out[m];
-                    }
-                }
-            } else {
-                sum = op_out[0] + op_out[1] + op_out[2] + op_out[3];
-            }
-            /* apply velocity */
-            sum = (sum * (int32_t)voice->velocity) >> 7;
-            out_l[f] += sum;
-            out_r[f] += sum;
+        fm_voice_t *vo = &fm_voices[v];
+        fm_patch_t *p = &vo->p;
+        uint8_t wave, alg, gate;
+        int32_t level_q8, mod_q8, ratio_ofs;
+        int32_t pitch_q8, am_q15, lfo;
+        int32_t base_note;
+        uint32_t lfo_inc;
+
+        if (!vo->active) continue;
+
+        alg = p->alg & 7u;
+        gate = p->gate;
+        /* Macro A selects the operator waveform. Rotate so the centre value
+         * (64) picks sine (case 0), matching the knob/UI centre. */
+        wave = (uint8_t)((((uint32_t)vo->macro[0] >> 4) + 4u) & 7u);
+        level_q8 = 256 + ((int32_t)vo->macro[3] - 64) * 4;
+        level_q8 = clamp32(level_q8, 0, 512);
+        mod_q8 = 256 + ((int32_t)vo->macro[2] - 64) * 4;
+        mod_q8 = clamp32(mod_q8, 16, 1024);
+        ratio_ofs = ((int32_t)vo->macro[1] - 64) >> 4;   /* -4 .. +3 */
+
+        /* Whole-voice transposition (24 = centre), clamped to +/- one octave. */
+        base_note = (int32_t)vo->note + (int32_t)p->transpose - 24;
+        base_note = clamp32(base_note, 0, 127);
+
+        /* LFO: a block rate oscillator is plenty for vibrato/tremolo. */
+        lfo_inc = 4096u + (uint32_t)p->lfo_speed * p->lfo_speed * 120u;
+        vo->lfo_phase += lfo_inc;
+        lfo = FM_SINE[(vo->lfo_phase >> 22) & 1023u];
+        pitch_q8 = 256 + ((lfo * (int32_t)p->pmd) >> 17);
+        pitch_q8 = clamp32(pitch_q8, 128, 512);
+        am_q15 = 32767 - (((lfo + 32767) >> 1) * (int32_t)p->amd >> 9);
+        am_q15 = clamp32(am_q15, 16384, 32767);
+
+        /* Refresh operator increments so the ratio macro is live. */
+        for (o = 0; o < 4; o++) {
+            int32_t coarse = (int32_t)p->op[o].coarse + ratio_ofs;
+            uint32_t ratio, inc;
+            int32_t det;
+            coarse = clamp32(coarse, 0, 63);
+            ratio = FM_RATIO_Q8[((uint32_t)coarse << 4) | (p->op[o].fine & 15u)];
+            inc = (uint32_t)(((uint64_t)FM_NOTE_INC[base_note] * ratio) >> 8);
+            det = (int32_t)p->op[o].det - 3;
+            if (det) inc = (inc * (uint32_t)(256 + det * 3)) >> 8;
+            vo->op[o].inc = inc;
         }
+
+        for (f = 0; f < frames; f++) {
+            int32_t op_out[4];
+            int32_t sum = 0;
+            int32_t cut, fc, damp;
+
+            for (o = 4; o-- > 0; ) {
+                fm_op_t *op = &vo->op[o];
+                fm_op_patch_t *pp = &p->op[o];
+                int32_t mod = 0;
+                uint32_t mask = FM_MOD_MASK[alg][o];
+
+                if (!op->state) { op_out[o] = 0; op->last = 0; continue; }
+
+                op_env_tick(op, pp, p->loop, gate, p->sustain, vo->key);
+
+                if (mask) {
+                    if (mask & 1u) mod += op_out[0];
+                    if (mask & 2u) mod += op_out[1];
+                    if (mask & 4u) mod += op_out[2];
+                    if (mask & 8u) mod += op_out[3];
+                }
+                /* Feedback lives on OP4, the usual 4-op entry point. */
+                if (o == 3u && p->fb)
+                    mod += (op->last * (int32_t)p->fb) >> 3;
+                /* Polivoks-ish cross modulation: the next operator bleeds in. */
+                if (p->cross)
+                    mod += (vo->op[(o + 1u) & 3u].last * (int32_t)p->cross) >> 8;
+                mod = (mod * mod_q8) >> 8;
+                mod = clamp32(mod, -32767, 32767);
+
+                {
+                    int32_t s = fm_wave(wave, op->phase + ((uint32_t)mod << 16));
+                    s = (s * (op->env >> 8)) >> 15;
+                    s = (s * (int32_t)op->amp) >> 15;
+                    s = (s * (int32_t)op->kvs_scale) >> 8;
+                    op_out[o] = s;
+                    op->last = s;
+                }
+                op->phase += (op->inc * (uint32_t)pitch_q8) >> 8;
+            }
+
+            {
+                uint32_t cm = FM_CARRIER[alg];
+                if (cm & 1u) sum += op_out[0];
+                if (cm & 2u) sum += op_out[1];
+                if (cm & 4u) sum += op_out[2];
+                if (cm & 8u) sum += op_out[3];
+            }
+
+            /* independent VCA envelope */
+            switch (vo->vca_state) {
+            case 1:
+                vo->vca += (int32_t)FM_ENV_INC[p->vca_ar & 31u];
+                if (vo->vca >= (32767 << 8)) { vo->vca = 32767 << 8; vo->vca_state = 2; }
+                break;
+            case 2:
+                if (p->sustain && vo->key) { vo->vca_state = 5; break; }
+                vo->vca -= (int32_t)FM_ENV_INC[p->vca_dr & 31u];
+                if (vo->vca <= 0) {
+                    vo->vca = 0;
+                    if (p->loop && vo->key) vo->vca_state = 1;
+                    else vo->vca_state = 0;
+                }
+                break;
+            case 5:
+                if (!vo->key) vo->vca_state = 4;
+                break;
+            case 4: {
+                uint32_t rr = 16u + (p->op[0].rr & 15u);
+                vo->vca -= (int32_t)FM_ENV_INC[rr];
+                if (vo->vca <= 0) { vo->vca = 0; vo->vca_state = 0; }
+                break;
+            }
+            default:
+                break;
+            }
+
+            sum = (sum * (vo->vca >> 8)) >> 15;
+            sum = (sum * am_q15) >> 15;
+            sum = (sum * level_q8) >> 10;
+
+            /* VCA drive / grit */
+            sum = (sum * (64 + (int32_t)p->drive)) >> 7;
+
+            /* resonant 12 dB state variable filter */
+            cut = (int32_t)p->flt_cut + (((vo->flt_e >> 8) * (int32_t)p->flt_env) >> 15);
+            cut = clamp32(cut, 0, 127);
+            fc = FM_FLT_COEF[cut];
+            damp = 256 - (int32_t)p->flt_res * 2;
+            if (damp < 2) damp = 2;
+            vo->flt_low += (fc * vo->flt_band) >> 12;
+            {
+                int32_t high = sum - vo->flt_low - ((vo->flt_band * damp) >> 8);
+                vo->flt_band += (fc * high) >> 12;
+            }
+            vo->flt_low = clamp32(vo->flt_low, -60000, 60000);
+            vo->flt_band = clamp32(vo->flt_band, -60000, 60000);
+            sum = vo->flt_low;
+
+            if (p->flt_env) {
+                vo->flt_e -= (int32_t)FM_ENV_INC[p->flt_rate & 31u];
+                if (vo->flt_e < 0) vo->flt_e = 0;
+            }
+
+            sum = soft_clip(sum);
+
+            /* stereo spread: voice 0 left, voice 1 centre, voice 2 right */
+            {
+                int32_t lq = 256 + vo->pan;
+                int32_t rq = 256 - vo->pan;
+                out_l[f] += (sum * lq) >> 8;
+                out_r[f] += (sum * rq) >> 8;
+            }
+        }
+
+        if (vo->vca_state == 0 && !p->loop) {
+            uint32_t any = 0;
+            for (o = 0; o < 4; o++) any |= vo->op[o].state;
+            if (!any) vo->active = 0;
+        }
+    }
+
+    /* Keep the engine from ever sending the mixer into hard overflow. */
+    for (i = 0; i < frames; i++) {
+        out_l[i] = clamp32(out_l[i], -30000, 30000);
+        out_r[i] = clamp32(out_r[i], -30000, 30000);
     }
 }

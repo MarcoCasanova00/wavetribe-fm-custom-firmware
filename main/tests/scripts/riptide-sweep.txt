@@ -1,0 +1,32 @@
+# Bank sweep WITHOUT the sequencer (no drums) for clean FM-only audio.
+# Hold GLO, tap OCT-DOWN: 0 (APP) -> 1 (DX7) -> 2 (ROM) -> 0.
+
+100 enc 0 5
+150 btn 6
+200 btndown 7
+
+# Bank 0 patch 0
+280 midi 0x90 60 100
+380 midi 0x80 60 0
+580 shot
+
+# -> bank 1
+600 btn 0
+700 midi 0x90 60 100
+800 midi 0x80 60 0
+1000 shot
+
+# -> bank 2
+1020 btn 0
+1120 midi 0x90 60 100
+1220 midi 0x80 60 0
+1420 shot
+
+# -> bank 0 again
+1440 btn 0
+1540 midi 0x90 60 100
+1640 midi 0x80 60 0
+1840 shot
+
+1900 btnup 7
+2000 end

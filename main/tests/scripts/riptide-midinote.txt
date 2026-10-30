@@ -1,4 +1,7 @@
 # Isolated synth note (channel 1, note 60) to verify FM voices render
+# select the first tonal part (BASS) so MIDI notes reach the FM engine
+# (drums are parts 0-4; the synth voices are parts 5-7)
+100 enc 0 5
 300 midi 0x90 60 100
 1500 midi 0x80 60 0
 2000 midi 0x90 64 100
