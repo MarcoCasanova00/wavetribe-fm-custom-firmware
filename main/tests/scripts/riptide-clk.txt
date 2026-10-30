@@ -1,0 +1,19 @@
+# Bidirectional MIDI clock: slave mode (follow external F8) + MORPH osc mode.
+0 btn 7          # GLO latch
+100 btn 10       # ARP -> COMPOSE
+200 btn 7        # GLO unlatch
+300 btn 1        # OCT+ -> build TECHNO pattern
+500 enc 0 0      # SELECT -> part 0 (kick)
+650 btn 11       # SEQ -> back to parts view
+700 btn 1        # OCT+ -> MIDI OUT on
+900 midi 0xB0 100 2    # clock mode SLAVE
+1000 midi 0xB0 98 127  # osc mode -> MORPH (5)
+1200 shot
+1400 midi 0xFA   # external START
+1500 clock 120 96 # stream 96 F8 clocks (24 PPQ, 120 BPM) = 16 steps
+3200 shot
+3400 midi 0xFC   # external STOP
+3600 shot
+3900 midi 0xB0 100 1   # clock MASTER
+4100 midi 0xB0 100 0   # clock OFF
+4400 end

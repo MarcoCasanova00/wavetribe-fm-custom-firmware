@@ -654,6 +654,8 @@ static void edit_env(uint8_t k, int32_t e)
 
 
 static uint8_t run, bpm;
+static uint8_t clk_mode = 1;         /* 0 off, 1 master (send), 2 slave (follow external) */
+static uint8_t ext_clk;              /* incoming clock count (slave) */
 
 static uint32_t perf_window(void)
 {
@@ -838,7 +840,7 @@ static void app_audio(int32_t *out, uint32_t n)
             done += len;
         }
     }
-    if (midi_out && run) {
+    if (clk_mode == 1u && midi_out && run) {
         uint32_t bpmx = bpm ? (uint32_t)bpm : 120u;
         uint32_t per_tick = (44100u * 60u) / (bpmx * 24u);
         if (per_tick == 0) per_tick = 1u;
@@ -1517,7 +1519,9 @@ static void draw_fx_page(void)
         p = s; p = ap(p, "PERF: "); p = ap(p, perf_name()); fit_text(s, 232);
         cv_text(4, 78, &FONT_S, s, PP_Y);
     }
-    cv_text_wrap(4, 188, 232, &FONT_S, "K1 tempo | K2 swing | K3 accent | K4 page | hold FX + keys = moment FX", UI_DIM);
+    p = s; p = ap(p, "Clock: "); p = ap(p, (const char *[]){"OFF","MASTER","SLAVE"}[clk_mode % 3u]);
+    cv_text(4, 96, &FONT_S, s, UI_LABEL);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 tempo | K2 swing | K3 accent | K4 page | hold FX + keys = moment FX | GLO+FX = clock", UI_DIM);
     cv_text(4, 188, &FONT_S, s, UI_DIM);
     cv_blit(0, 34);
 }
@@ -1548,7 +1552,7 @@ static void draw_wave_page(void)
         }
         fit_text(s, 232);
         cv_text(4, 60, &FONT_S, s, UI_HI);
-        p = s; p = ap(p, "Osc "); p = ap(p, (const char *[]){"NORM","SYNC","RING","PD","VEC"}[part_oscmode[part_sel] % 5u]);
+        p = s; p = ap(p, "Osc "); p = ap(p, (const char *[]){"NORM","SYNC","RING","PD","VEC","MORPH"}[part_oscmode[part_sel] % 6u]);
         p = ap(p, " | OCT+ cycles"); fit_text(s, 232);
         cv_text(4, 100, &FONT_S, s, UI_LABEL);
     }
@@ -1958,6 +1962,7 @@ static void fire_step(void)
 
 static void seq_tick(void)
 {
+    if (clk_mode == 2u) return;        /* slave: stepping is driven by the incoming clock */
     if (!run) { next_step_ms = fm1_ms + step_ms; return; }
     while (next_step_ms <= fm1_ms) {
         if (gen_drift && (step_cur & 15u) == 0) genre_drift();   /* morph each bar */
@@ -2098,9 +2103,9 @@ static void app_tick(void)
                     gen_density = (uint8_t)(v > 127 ? 127 : v);
                     genre_generate(gen_genre);
                     dirty = 1; break;
-                case 98:   /* osc mode: 0 NORM, 1 SYNC, 2 RING, 3 PD, 4 VEC */
-                    part_oscmode[part_sel] = (uint8_t)((v * 5u) / 128u);
-                    if (part_oscmode[part_sel] > 4u) part_oscmode[part_sel] = 4u;
+                case 98:   /* osc mode: 0 NORM, 1 SYNC, 2 RING, 3 PD, 4 VEC, 5 MORPH */
+                    part_oscmode[part_sel] = (uint8_t)((v * 6u) / 128u);
+                    if (part_oscmode[part_sel] > 5u) part_oscmode[part_sel] = 5u;
                     if (part_sel >= NDRUM)
                         fm_set_oscmode((uint8_t)(part_sel - NDRUM), part_oscmode[part_sel]);
                     dirty = 1; break;
@@ -2108,10 +2113,25 @@ static void app_tick(void)
                     if (v <= 7u) perf_trigger(v);
                     else if (v >= 127u) perf_clear();
                     dirty = 1; break;
+                case 100:  /* clock mode: 0 off, 1 master (send), 2 slave (follow external) */
+                    clk_mode = (uint8_t)(v % 3u);
+                    dirty = 1; break;
                 default: break;
             }
-        } else if (midi_st == 0xFAu) { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; dirty = 1; }
-        else if (midi_st == 0xFB || midi_st == 0xFC) { run = 0; step_cur = 0; dirty = 1; }
+        } else if (midi_st == 0xFAu) { run = 1; step_cur = 0; ext_clk = 0; next_step_ms = fm1_ms + step_ms; dirty = 1; }
+        else if (midi_st == 0xFBu) { run = 1; ext_clk = 0; dirty = 1; }
+        else if (midi_st == 0xFCu) { run = 0; step_cur = 0; dirty = 1; }
+        else if (midi_st == 0xF8u && clk_mode == 2u && run) {
+            /* slave: one sequencer step per 6 incoming clocks (24 PPQ -> 16th) */
+            if (++ext_clk >= 6u) {
+                ext_clk = 0;
+                if (gen_drift && (step_cur & 15u) == 0) genre_drift();
+                fire_step();
+                step_cur++;
+                if (step_cur >= 16u * (page + 1u)) step_cur = 0;
+                dirty = 1;
+            }
+        }
     }
 
     seq_tick();
@@ -2131,6 +2151,7 @@ static void app_tick(void)
             dirty = 1;
         }
         if (b & (1u << BTN_FX)) {
+            if (glomode) clk_mode = (uint8_t)((clk_mode + 1u) % 3u);   /* GLO+FX cycles clock OFF/MASTER/SLAVE */
             fx_mode = (uint8_t)((fx_mode + 1u) % 5u);
             goto_page(1);
         }
@@ -2160,7 +2181,7 @@ static void app_tick(void)
             } else if (view_page == 10) {
                 euclid_apply();                         /* EUCLID: OCT+ applies */
             } else if (view_page == 2 && part_sel >= NDRUM) {
-                part_oscmode[part_sel] = (uint8_t)((part_oscmode[part_sel] + 1u) % 5u);
+                part_oscmode[part_sel] = (uint8_t)((part_oscmode[part_sel] + 1u) % 6u);
                 fm_set_oscmode((uint8_t)(part_sel - NDRUM), part_oscmode[part_sel]);
             } else {
                 midi_out = !midi_out;

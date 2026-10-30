@@ -288,7 +288,7 @@ void fm_set_vca(uint8_t voice, uint8_t ar, uint8_t dr, uint8_t sus, uint8_t rr)
 void fm_set_oscmode(uint8_t voice, uint8_t mode)
 {
     if (voice >= FM_MAX_VOICES) return;
-    if (mode > 4u) mode = 4u;
+    if (mode > 5u) mode = 5u;
     fm_voices[voice].oscmode = mode;
 }
 
@@ -437,9 +437,15 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                     uint32_t p = op->phase + ((uint32_t)mod << 16);
                     /* hard sync: OP1 restarts whenever OP4 wraps a cycle */
                     if (o == 0u && vo->oscmode == 1u && sync_latch) op->phase = 0;
-                    /* phase distortion (CZ-style): warp the read index by macro C */
-                    if (vo->oscmode == 3u)
-                        p = (pd_warp(p >> 22, vo->macro[2]) << 22) | (p & 0x3FFFFFu);
+                    /* phase distortion (CZ-style): warp the read index by macro C.
+                     * Mode 5 (MORPH) makes the amount follow the carrier envelope,
+                     * so a note starts crisp and settles to a sine as it decays. */
+                    if (vo->oscmode == 3u || vo->oscmode == 5u) {
+                        uint32_t amt = vo->macro[2];
+                        if (vo->oscmode == 5u)
+                            amt = (amt * (uint32_t)(vo->op[0].env >> 8)) >> 15;
+                        p = (pd_warp(p >> 22, (uint8_t)amt) << 22) | (p & 0x3FFFFFu);
+                    }
                     {
                         int32_t s;
                         /* vector synthesis: bilinear morph across four adjacent waves */

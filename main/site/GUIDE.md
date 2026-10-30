@@ -75,8 +75,9 @@ On **WAVE/EDIT**, **OCT+** cycles the oscillator mode for the selected synth par
 | RING | ring/AM — carrier scaled by OP4 output |
 | PD | phase distortion (CZ-style) — amount follows the C/mod knob |
 | VEC | vector synthesis — morphs four adjacent waves via a slow 2D sweep |
+| MORPH | phase distortion whose amount follows the note envelope (crisp attack that settles to a sine) |
 
-**CC 98** sets the same mode externally (0–4).
+**CC 98** sets the same mode externally (0–5).
 
 ---
 
@@ -194,11 +195,16 @@ Notes: channels 1–3 = the three synth parts; channel 10 = drums (GM).
 | 94 | Genre select (0–7) — generates live |
 | 95 | Seed (1–255) — generates live |
 | 96 | Density (0–127) — generates live |
-| 98 | Osc mode (0 NORM / 1 SYNC / 2 RING / 3 PD / 4 VEC) |
+| 98 | Osc mode (0 NORM / 1 SYNC / 2 RING / 3 PD / 4 VEC / 5 MORPH) |
 | 99 | Live FX trigger (0–7 start: STUT/REV/ECHO/TAPE/CRUSH/GATE/SWEEP/HALF; 127 stop) |
+| 100 | Clock mode (0 off / 1 master / 2 slave) |
 | 123 | All notes off |
 
-Clock (24 ppqn), Start and Stop are emitted over USB + TRS when MIDI OUT is on.
+Clock (24 PPQ), Start and Stop are emitted over **USB** (the TRS jack is
+MIDI in) when clock mode is **MASTER** and MIDI OUT is on. In **SLAVE** mode
+the sequencer follows an external clock (USB or TRS): Start/Continue/Stop and
+one step per 6 incoming ticks. Clock mode cycles with **GLO+FX** (OFF →
+MASTER → SLAVE) or via **CC 100**.
 
 ---
 
@@ -216,7 +222,7 @@ Clock (24 ppqn), Start and Stop are emitted over USB + TRS when MIDI OUT is on.
 **Combos:** GLO+ARP = COMPOSE · GLO+SEQ = EUCLID · GLO+PLAY = drift ·
 GLO+EDIT = SOUNDS · GLO+REC = load slot · GLO+OCT− = category ·
 GLO+step keys = FUNC commands · hold FX + keys = momentary live FX ·
-hold HOME + keys = mute parts.
+hold HOME + keys = mute parts · GLO+FX = clock mode (OFF/MASTER/SLAVE).
 
 ---
 
