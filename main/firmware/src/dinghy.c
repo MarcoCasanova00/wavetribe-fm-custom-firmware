@@ -1023,6 +1023,9 @@ static uint8_t gen_undo[NPART][NSTEP];  /* last pattern snapshot (OCT- undo) */
 static uint8_t gen_undo_ok;
 static uint8_t gen_drift;               /* 0 off, 1 on, 2 locked (GLO+PLAY cycles) */
 static uint8_t gen_follow;              /* chord-follow on COMPOSE (ARP toggles) */
+#define GEN_AUTO 0xFFu                  /* key/scale overrides: unset = genre default */
+static uint8_t gen_key;                 /* key override 12..84 (GEN_AUTO = genre tonic) */
+static uint8_t gen_scale;               /* scale override 0..N_SCALES-1 (GEN_AUTO = genre scale) */
 
 /* Euclidean rhythm (Björklund-style balanced spacing) write helpers. */
 static uint8_t eu_steps, eu_hits, eu_rot;
@@ -1060,6 +1063,32 @@ static const uint8_t SCALE_NAT_MINOR[]  = { 0, 2, 3, 5, 7, 8, 10 };
 static const uint8_t SCALE_PHRYGIAN[]   = { 0, 1, 3, 5, 7, 8, 10 };
 static const uint8_t SCALE_MAJOR[]           = { 0, 2, 4, 5, 7, 9, 11 };
 static const uint8_t SCALE_HARMONIC_MINOR[]  = { 0, 2, 3, 5, 7, 8, 11 };
+static const uint8_t SCALE_MAJOR_PENT[]      = { 0, 2, 4, 7, 9 };
+static const uint8_t SCALE_MELODIC_MINOR[]   = { 0, 2, 3, 5, 7, 9, 11 };
+static const uint8_t SCALE_LYDIAN[]          = { 0, 2, 4, 6, 7, 9, 11 };
+static const uint8_t SCALE_MIXOLYDIAN[]      = { 0, 2, 4, 5, 7, 9, 10 };
+static const uint8_t SCALE_BLUES[]           = { 0, 3, 5, 6, 7, 10 };
+static const uint8_t SCALE_CHROMATIC[]       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+
+/* selectable scale pool (COMPOSE: PRESETS cycles these; AUTO = genre default) */
+struct scale_def { const char *name; const uint8_t *iv; uint8_t n; };
+enum { SC_MAJOR = 0, SC_NAT_MINOR, SC_HARM_MINOR, SC_MEL_MINOR, SC_DORIAN,
+       SC_PHRYGIAN, SC_LYDIAN, SC_MIXOLYDIAN, SC_MIN_PENT, SC_MAJ_PENT,
+       SC_BLUES, SC_CHROMATIC, N_SCALES };
+static const struct scale_def SCALES[N_SCALES] = {
+    { "major",            SCALE_MAJOR,          7 },
+    { "natural minor",    SCALE_NAT_MINOR,      7 },
+    { "harmonic minor",   SCALE_HARMONIC_MINOR, 7 },
+    { "melodic minor",    SCALE_MELODIC_MINOR,  7 },
+    { "dorian",           SCALE_DORIAN,         7 },
+    { "phrygian",         SCALE_PHRYGIAN,       7 },
+    { "lydian",           SCALE_LYDIAN,         7 },
+    { "mixolydian",       SCALE_MIXOLYDIAN,     7 },
+    { "minor pentatonic", SCALE_MINOR_PENT,     5 },
+    { "major pentatonic", SCALE_MAJOR_PENT,     5 },
+    { "blues",            SCALE_BLUES,          6 },
+    { "chromatic",        SCALE_CHROMATIC,     12 },
+};
 
 struct genre_profile {
     const char *name;
@@ -1121,8 +1150,10 @@ static const struct genre_profile GENRE_PROFILE[N_GENRE] = {
 };
 
 /* Fill the three synth rows + the lead arp bank from a profile (notes only).
- * tonic may differ from the profile's (chord-follow). */
-static void genre_fill(const struct genre_profile *q, uint8_t tonic)
+ * tonic may differ from the profile's (chord-follow).  sc/nsc are the
+ * effective scale (user override or the profile's own). */
+static void genre_fill(const struct genre_profile *q, uint8_t tonic,
+                       const uint8_t *sc, uint8_t nsc)
 {
     uint8_t base[4], bar, s, k, note, cidx, den;
 
@@ -1130,9 +1161,9 @@ static void genre_fill(const struct genre_profile *q, uint8_t tonic)
         uint16_t st;
         /* triad rooted at prog[bar % nprog] (scale degree), voiced in the bass register */
         cidx = q->prog[(bar % q->nprog) * 3u];
-        base[0] = (uint8_t)(tonic + q->scale[cidx % q->nscale]);
-        base[1] = (uint8_t)(tonic + q->scale[(cidx + 2u) % q->nscale]);
-        base[2] = (uint8_t)(tonic + q->scale[(cidx + 4u) % q->nscale]);
+        base[0] = (uint8_t)(tonic + sc[cidx % nsc]);
+        base[1] = (uint8_t)(tonic + sc[(cidx + 2u) % nsc]);
+        base[2] = (uint8_t)(tonic + sc[(cidx + 4u) % nsc]);
         base[3] = (uint8_t)(base[0] + 12);
 
         /* lead arp bank: play the generated chord an octave up */
@@ -1148,9 +1179,9 @@ static void genre_fill(const struct genre_profile *q, uint8_t tonic)
             if (q->bass_grid[s]) {
                 uint8_t r = gen_rnd(100);
                 note = (uint8_t)(tonic + 12u * q->bass_oct);
-                if (r < 65) note += q->scale[0];
-                else if (r < 85) note += q->scale[gen_rnd(q->nscale)];
-                else note = (uint8_t)(note + q->scale[gen_rnd(q->nscale)] + 12);
+                if (r < 65) note += sc[0];
+                else if (r < 85) note += sc[gen_rnd(nsc)];
+                else note = (uint8_t)(note + sc[gen_rnd(nsc)] + 12);
                 while (note > 48) note -= 12;
                 pat.notes[GEN_BASS][st] = note;
             }
@@ -1179,16 +1210,42 @@ static uint8_t chord_root_pc(void)
     return low;
 }
 
+/* Effective tonic/scale for a genre after user overrides (AUTO = profile default). */
+static void genre_eff(const struct genre_profile *q,
+                      uint8_t *ton, const uint8_t **sc, uint8_t *nsc)
+{
+    *ton = q->tonic;
+    if (gen_scale != GEN_AUTO && gen_scale < N_SCALES) {
+        *sc = SCALES[gen_scale].iv;
+        *nsc = SCALES[gen_scale].n;
+    } else {
+        *sc = q->scale;
+        *nsc = q->nscale;
+    }
+    if (!gen_follow && gen_key != GEN_AUTO) *ton = gen_key;
+}
+
+/* Deterministic seed; key/scale overrides are mixed in only when set, so the
+ * factory defaults reproduce the original phrases exactly. */
+static uint32_t genre_seed(void)
+{
+    uint32_t seed = (uint32_t)pat_sel << 20 | (uint32_t)gen_genre << 12
+                  | (uint32_t)gen_density << 5 | (gen_seed & 31u) | 0x9E3779B9u;
+    if (gen_scale != GEN_AUTO) seed ^= (uint32_t)gen_scale << 24;
+    if (gen_key != GEN_AUTO) seed ^= (uint32_t)gen_key << 16;
+    return seed;
+}
+
 static void genre_generate(uint8_t g)
 {
     const struct genre_profile *q;
-    uint32_t k, s, seed;
-    uint8_t ton;
+    uint32_t k, s;
+    uint8_t ton; const uint8_t *sc; uint8_t nsc;
 
     if (g >= N_GENRE) g = 0;
     q = &GENRE_PROFILE[g];
     gen_genre = g;
-    ton = q->tonic;
+    genre_eff(q, &ton, &sc, &nsc);
     if (gen_follow) {          /* chord-follow: root from the held keys */
         uint8_t pc = chord_root_pc();
         if (pc < 12u) {
@@ -1197,9 +1254,7 @@ static void genre_generate(uint8_t g)
         }
     }
 
-    seed = (uint32_t)pat_sel << 20 | (uint32_t)g << 12 | (uint32_t)gen_density << 5
-         | (gen_seed & 31u) | 0x9E3779B9u;
-    gen_rng = seed ? seed : 1u;
+    gen_rng = genre_seed(); if (!gen_rng) gen_rng = 1u;
 
     /* genre defaults: transport, FX and the lead arp flavour */
     bpm = q->bpm;
@@ -1217,7 +1272,7 @@ static void genre_generate(uint8_t g)
     for (k = NDRUM; k < NPART; k++)
         for (s = 0; s < NSTEP; s++) pat.notes[k][s] = 0;
 
-    genre_fill(q, ton);
+    genre_fill(q, ton, sc, nsc);
 }
 
 /* Live drift: bump the seed and re-fill the notes only, once per bar while
@@ -1226,15 +1281,14 @@ static void genre_generate(uint8_t g)
 static void genre_drift(void)
 {
     const struct genre_profile *q;
-    uint32_t seed;
+    uint8_t ton; const uint8_t *sc; uint8_t nsc;
     if (!gen_undo_ok) return;        /* only drift a built pattern */
     if (gen_drift != 1) return;      /* OFF or LOCKED: keep the phrase */
     gen_seed++;
     q = &GENRE_PROFILE[gen_genre];
-    seed = (uint32_t)pat_sel << 20 | (uint32_t)gen_genre << 12
-         | (uint32_t)gen_density << 5 | (gen_seed & 31u) | 0x9E3779B9u;
-    gen_rng = seed ? seed : 1u;
-    genre_fill(q, q->tonic);
+    genre_eff(q, &ton, &sc, &nsc);
+    gen_rng = genre_seed(); if (!gen_rng) gen_rng = 1u;
+    genre_fill(q, ton, sc, nsc);
 }
 
 /* Restore the last generated pattern (one-step undo). */
@@ -1871,6 +1925,22 @@ static const char *genre_name(uint8_t g)
     return g < N_GENRE ? N[g] : "??";
 }
 
+/* Index of the current effective scale in the pool (AUTO = the genre's own). */
+static uint8_t genre_scale_index(void)
+{
+    const struct genre_profile *q = &GENRE_PROFILE[gen_genre];
+    uint8_t i;
+    if (gen_scale != GEN_AUTO && gen_scale < N_SCALES) return gen_scale;
+    for (i = 0; i < N_SCALES; i++)
+        if (SCALES[i].iv == q->scale) return i;
+    return 0;
+}
+
+static const char *genre_scale_name(void)
+{
+    return SCALES[genre_scale_index()].name;
+}
+
 static void draw_arp_page(void)
 {
     char s[48]; char *p = s;
@@ -1900,6 +1970,7 @@ static void draw_compose_page(void)
 {
     char s[48]; char *p = s;
     static const char *const OCTLAB[3] = { "LO", "MID", "HI" };
+    static const char *const PC[12] = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
     cv_begin(240, 206, PP_INK);
     pp_title("COMPOSE", PP_R);
     p = s; p = ap(p, "Genre: "); p = ap(p, genre_name(gen_genre));
@@ -1922,7 +1993,27 @@ static void draw_compose_page(void)
     p = s; p = ap(p, "ChordFollow: "); p = ap(p, gen_follow ? "ON" : "OFF");
     p = ap(p, "  (ARP)"); fit_text(s, 232);
     cv_text(4, 112, &FONT_S, s, UI_LABEL);
-    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 oct | OCT+ build | OCT- undo | GLO+PLAY drift", UI_DIM);
+    {
+        uint8_t ton = GENRE_PROFILE[gen_genre].tonic;
+        p = s; p = ap(p, "Key: ");
+        if (gen_follow) {
+            p = ap(p, "follow");           /* root comes from the held keys */
+        } else {
+            if (gen_key != GEN_AUTO) ton = gen_key;
+            if (ton < 12u) ton = 12u;
+            p = ap(p, PC[ton % 12u]); p = apu(p, ton / 12u - 1u);
+            if (gen_key == GEN_AUTO) p = ap(p, " [auto]");
+        }
+        p = ap(p, "  (SELECT)"); fit_text(s, 232);
+        cv_text(4, 132, &FONT_S, s, UI_LABEL);
+    }
+    {
+        p = s; p = ap(p, "Scale: "); p = ap(p, genre_scale_name());
+        if (gen_scale == GEN_AUTO) p = ap(p, " [auto]");
+        p = ap(p, "  (PRESETS)"); fit_text(s, 232);
+        cv_text(4, 150, &FONT_S, s, UI_LABEL);
+    }
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 oct | SELECT key | PRESETS scale | OCT+ build | OCT- undo | GLO+PLAY drift", UI_DIM);
     cv_blit(0, 34);
 }
 
@@ -2157,6 +2248,7 @@ static void app_init(void)
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
     gen_genre = DEMO_GENRE[pat_sel % N_DEMO_PAT];
     gen_seed = 0; gen_density = 60; gen_oct = 1; gen_drift = 0; gen_follow = 0;
+    gen_key = GEN_AUTO; gen_scale = GEN_AUTO;
     eu_steps = 16; eu_hits = 4; eu_rot = 0;
     step_ms = 15000u / (bpm ? bpm : 128u);
     drum_kit = 1;   /* default to the TR-808 kit (full-bodied); APP is thinner */
@@ -2230,6 +2322,13 @@ static void app_tick(void)
                     gen_density = (uint8_t)(v > 127 ? 127 : v);
                     genre_generate(gen_genre);
                     dirty = 1; break;
+                case 97:   /* COMPOSE scale override (0..N_SCALES-1) */
+                    { uint8_t s = (uint8_t)((v * N_SCALES) / 128u);
+                      if (s >= N_SCALES) s = (uint8_t)(N_SCALES - 1);
+                      gen_scale = s; genre_generate(gen_genre); dirty = 1; break; }
+                case 101:  /* COMPOSE key override (12..84) */
+                    { uint8_t k = (uint8_t)(12u + (v * 72u) / 128u);
+                      gen_key = k; genre_generate(gen_genre); dirty = 1; break; }
                 case 98:   /* osc mode: 0 NORM, 1 SYNC, 2 RING, 3 PD, 4 VEC, 5 MORPH, 6 VMORPH */
                     part_oscmode[part_sel] = (uint8_t)((v * 7u) / 128u);
                     if (part_oscmode[part_sel] > 6u) part_oscmode[part_sel] = 6u;
@@ -2373,6 +2472,16 @@ static void app_tick(void)
                 if (c < 0) c = tot - 1; else if (c >= tot) c = 0;
                 sb_idx = (uint16_t)c; dirty = 1;
             }
+            if (view_page == 9 && (e = fm1_enc_take(ENC_SELECT)) != 0) {
+                /* COMPOSE: SELECT chooses the key (tonic) */
+                int32_t c = (gen_key == GEN_AUTO) ? (int32_t)GENRE_PROFILE[gen_genre].tonic
+                                                  : (int32_t)gen_key;
+                c += e;
+                while (c < 12) c += 72;
+                while (c > 84) c -= 72;
+                gen_key = (uint8_t)c;
+                genre_generate(gen_genre);
+            }
             if ((e = fm1_enc_take(ENC_SELECT)) != 0) {
                 int32_t c = (int32_t)part_sel + e;
                 part_sel = (uint8_t)(c < 0 ? 0 : c > 7 ? 7 : c);
@@ -2384,6 +2493,15 @@ static void app_tick(void)
                 while (c < 0) c += tot;
                 while (c >= tot) c -= tot;
                 sb_idx = (uint16_t)c; dirty = 1;
+            }
+            if (view_page == 9 && (e = fm1_enc_take(ENC_PRESETS)) != 0) {
+                /* COMPOSE: PRESETS chooses the scale */
+                int32_t s = (gen_scale == GEN_AUTO) ? (int32_t)genre_scale_index()
+                                                    : (int32_t)gen_scale;
+                s = (s + e) % N_SCALES;
+                if (s < 0) s += N_SCALES;
+                gen_scale = (uint8_t)s;
+                genre_generate(gen_genre);
             }
             e = fm1_enc_take(ENC_PRESETS);
             if (e) {

@@ -157,6 +157,11 @@ TECHNO · HOUSE · DUBSTEP · D&B · ELECTRO · AMBIENT · LOFI · ACID.
 
 - KNOB1 = genre (live) · KNOB2 = seed (live) · KNOB3 = density (live)
   · KNOB4 = octave spread (LO/MID/HI)
+- **SELECT** = key (tonic, all 12 notes, shown as note name, e.g. C2);
+  **PRESETS** = scale (major · natural/harmonic/melodic minor · dorian ·
+  phrygian · lydian · mixolydian · minor/major pentatonic · blues · chromatic).
+  Overrides show `[auto]` until you touch them; both re-generate live and are
+  included in the deterministic seed. MIDI CC 97 = scale, CC 101 = key.
 - **OCT+** builds; **OCT−** undoes the build, then backs out.
 - Building applies genre defaults (BPM, swing, accent, FX, arp flavour) —
   previewed on the page.

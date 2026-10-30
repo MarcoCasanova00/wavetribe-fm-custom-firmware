@@ -1,0 +1,31 @@
+# COMPOSE key/scale overrides (SELECT = key, PRESETS = scale).
+# MIDI OUT on so generated notes appear in the log; the overrides must
+# visibly change the generated phrase vs the genre default.
+# (FM-1 encoders: SELECT=0 ALGO=1 K1=2 K2=3 K3=4 K4=5 PRESETS=6)
+
+100 btn 1          # OCT_UP -> MIDI OUT on
+300 btn 12         # PLAY -> start the sequencer
+
+# --- open COMPOSE (default TECHNO: minor pentatonic, auto key) ---
+600 btn 7          # GLO latch
+800 btn 10         # ARP -> COMPOSE page
+1000 btn 7         # GLO unlatch
+1200 shot
+
+# --- key override: SELECT +3 -> tonic up a minor third ---
+1400 enc 0 3       # SELECT +3
+1700 shot
+
+# --- scale override: PRESETS +2 -> minor pent (0) -> harmonic minor (2) ---
+2000 enc 6 2       # PRESETS +2
+2300 shot
+
+# --- build with the overrides, then undo ---
+2500 btn 1         # OCT+ -> build
+2800 shot
+3000 btn 0         # OCT- -> undo
+3200 btn 0         # OCT- again -> back to SEQ
+3400 shot
+
+3700 btn 12        # STOP
+4200 end
