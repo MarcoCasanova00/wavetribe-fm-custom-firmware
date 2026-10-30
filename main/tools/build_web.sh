@@ -28,7 +28,7 @@ OUT="$(pwd)/../docs"
   -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -Itests \
   -sMODULARIZE=1 -sEXPORT_NAME='createRiptide' -sENVIRONMENT=web \
   -sALLOW_MEMORY_GROWTH=1 -sNO_EXIT_RUNTIME=1 --no-entry \
-  -sEXPORTED_FUNCTIONS='["_web_init","_web_run","_web_fb_ptr","_web_fb_words","_web_leds_lo","_web_leds_hi","_web_glow_lo","_web_glow_hi","_web_key","_web_btn","_web_enc","_web_midi","_web_audio","_malloc","_free"]' \
+  -sEXPORTED_FUNCTIONS='["_web_init","_web_run","_web_fb_ptr","_web_fb_words","_web_leds_lo","_web_leds_hi","_web_glow_lo","_web_glow_hi","_web_key","_web_btn","_web_enc","_web_midi","_web_audio","_web_snap_bytes","_web_snap_count","_web_snap_export","_web_snap_import","_malloc","_free"]' \
   -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","HEAPU8","HEAPU16"]' \
   firmware/src/dinghy.c firmware/src/fm_engine.c -o "$OUT/riptide.js"
 

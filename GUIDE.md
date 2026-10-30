@@ -34,20 +34,23 @@ Knobs 1–4 edit whichever part is selected:
 - **Knob 4 (D) — Level** — how loud this part is.
 
 ## 5. Patch banks & presets
-- **Cycle bank:** latch **GLO** (Shift+click, or hold key `6`) then tap **OCT-**
+- **Cycle category/bank:** latch **GLO** (Shift+click, or hold key `6`) then tap **OCT-**
   (`[`) — cycles APP → DX7 → ROM → TX81Z → FB01.
-- **Cycle patch within bank:** while GLO is held, turn **PRESETS**.
-- The screen shows the active bank name + patch number + patch name.
+- **Cycle sound within category:** while GLO is held, turn **PRESETS**.
+- The screen shows the category (bank) name + patch name + `sound n/count`.
 
 ## 6. Global mode (holding GLO)
 With GLO active, the four knobs become:
 - **Tempo** · **Swing** (0–100%, deeper MPC-style feel) · **Accent** · **Page**.
 
-## 7. Save / load slots (8 flash slots)
-- **SAVE** (key `8`) — store the current snapshot to the active slot.
-- **GLO + SAVE** — cycle the active slot (1–8).
-- **GLO + REC** — load the active slot.
-- The HOME page shows `Slot: n/8` and these shortcuts.
+## 7. Save / load slots (8 slots)
+- **SAVE** (key `8`) opens the **SAVE / SOUNDS** page.
+- On that page: **KNOB 1** picks the slot (1–8, shows `[USED]`/`[empty]`),
+  **KNOB 4** picks the action (**LOAD / SAVE / CLEAR**), and **OCT+** confirms
+  (OCT− backs out).
+- Quick combos: **GLO + REC** loads the current slot directly.
+- In the browser emulator the 8 slots are **persisted to localStorage**, so your
+  saves survive reloads.
 
 ## 8. MIDI OUT
 With MIDI out toggled, the sequencer emits clock (24 ppqn), Start (0xFA) and

@@ -704,6 +704,24 @@ static int user_load_slot(uint8_t i)
     restore_state();
     return 0;
 }
+/* True if slot i holds a valid snapshot (CRC-checked read succeeds). */
+static int slot_in_use(uint8_t i)
+{
+    struct set tmp;
+    if (i >= NSLOT) return 0;
+    return slot_load(i, &tmp, sizeof tmp) == 0;
+}
+/* Best-effort clear (real host/web RAM; on hardware, overwrite is left no-op). */
+static void user_clear_slot(uint8_t i)
+{
+    if (i >= NSLOT) return;
+#if defined(DINGHY_HOST) || defined(DINGHY_WEB)
+    host_slot[i][0] = 0;
+#endif
+}
+
+/* GR!MM-style SAVE page state: action + selected slot. */
+static uint8_t action_sel;   /* 0 LOAD, 1 SAVE, 2 CLEAR */
 
 /* ================= the screen: groovy ================= */
 static void draw_header(uint32_t playing)
@@ -838,21 +856,19 @@ static void draw_wave_page(void)
         cv_text(4, 42, &FONT_S, s, UI_AMB);
         p = s;
         if (patchbank < N_PATCHBANKS) {
-            p = ap(p, "bank "); p = ap(p, PATCHBANK_NAME[patchbank]);
-            p = ap(p, "/"); p = apu(p, patch_ix); p = ap(p, " ");
+            p = ap(p, PATCHBANK_NAME[patchbank]);
+            p = ap(p, " · "); p = ap(p, patch_display_name(patchbank, patch_ix));
         }
-        p = ap(p, patch_display_name(patchbank, patch_ix));
         fit_text(s, 232);
         cv_text(4, 60, &FONT_S, s, UI_HI);
     }
     if (patchbank < N_PATCHBANKS) {
-        p = s; p = ap(p, "Patch bank: "); p = ap(p, PATCHBANK_NAME[patchbank]);
-        p = ap(p, " / "); p = apu(p, patch_ix);
+        p = s; p = ap(p, "sound "); p = apu(p, patch_ix + 1); p = ap(p, "/"); p = apu(p, PATCHBANK_COUNT[patchbank]);
+        p = ap(p, " · "); p = ap(p, PATCHBANK_NAME[patchbank]);
+        fit_text(s, 232);
         cv_text(4, 82, &FONT_S, s, UI_LABEL);
-        p = s; p = ap(p, patch_display_name(patchbank, patch_ix));
-        cv_text(4, 100, &FONT_S, s, UI_HI);
+        cv_text(4, 188, &FONT_S, "A: wave  GLO+PRESET: sound  GLO+OCT-: cat", UI_DIM);
     }
-    cv_text(4, 188, &FONT_S, "A: wave  B: kit (drum parts)  GLO+PRESET: patch", UI_DIM);
     cv_blit(0, 34);
 }
 static const char *wave_label_direct(uint8_t w)
@@ -1015,9 +1031,29 @@ static void draw_sys_page(void)
     p = ap(p, "  FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]); fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "Slot: "); p = apu(p, slot_sel + 1); p = ap(p, "/"); p = apu(p, NSLOT);
-    p = ap(p, "  SAVE->store  GLO+SAVE->pick  GLO+REC->load"); fit_text(s, 232);
+    p = ap(p, "  SAVE=page  GLO+REC=load"); fit_text(s, 232);
     cv_text(4, 96, &FONT_S, s, UI_HI);
     cv_text(4, 188, &FONT_S, "A: colour  pages: SEQ FX EDIT LFO ENV  OCT+ MIDI", UI_DIM);
+    cv_blit(0, 34);
+}
+static void draw_save_page(void)
+{
+    char s[48]; char *p = s;
+    static const char *const ACT[3] = { "LOAD", "SAVE", "CLEAR" };
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "SAVE / SOUNDS", UI_HI);
+    page_rule(18);
+    p = s; p = ap(p, "Slot: "); p = apu(p, slot_sel + 1); p = ap(p, "/"); p = apu(p, NSLOT);
+    p = ap(p, slot_in_use(slot_sel) ? "   [USED]" : "   [empty]");
+    fit_text(s, 232);
+    cv_text(4, 24, &FONT_S, s, UI_HI);
+    p = s; p = ap(p, "Source: "); p = ap(p, PATCHBANK_NAME[patchbank]);
+    p = ap(p, " · "); p = ap(p, patch_display_name(patchbank, patch_ix)); fit_text(s, 232);
+    cv_text(4, 42, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "Action: "); p = ap(p, ACT[action_sel]);
+    fit_text(s, 232);
+    cv_text(4, 60, &FONT_S, s, UI_HI);
+    cv_text(4, 188, &FONT_S, "K1 slot · K4 action · OCT+ go · OCT- back", UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_screen(uint32_t playing)
@@ -1033,6 +1069,8 @@ static void draw_screen(uint32_t playing)
         draw_env_page();
     } else if (view_page == 5) {
         draw_sys_page();
+    } else if (view_page == 6) {
+        draw_save_page();
     } else {
         draw_parts();
         draw_footer(playing);
@@ -1120,6 +1158,7 @@ static void app_init(void)
     drum_kit = 1;   /* default to the TR-808 kit (full-bodied); APP is thinner */
     view_page = 0;
     slot_sel = 0;
+    action_sel = 1;   /* SAVE default action */
     prev_keys = 0;
     for (k = 0; k < 27u; k++) held[k] = 0;
 
@@ -1203,14 +1242,25 @@ static void app_tick(void)
             dirty = 1;
         }
         if (b & (1u << BTN_OCT_UP)) {
-            midi_out = !midi_out;
-           dirty = 1;
+            if (view_page == 6) {
+                /* execute the chosen action (grimm-style confirm) */
+                if (action_sel == 0) user_load_slot(slot_sel);
+                else if (action_sel == 1) user_save_slot(slot_sel);
+                else user_clear_slot(slot_sel);
+            } else {
+                midi_out = !midi_out;
+            }
+            dirty = 1;
         }
         if (b & (1u << BTN_OCT_DOWN) && glomode) {
             patchbank = (uint8_t)((patchbank + 1u) % N_PATCHBANKS);
             patch_ix = 0;
             dx7bank_sel = (patchbank == 1u);
             load_bank_patch(patchbank, patch_ix);
+            dirty = 1;
+        }
+        if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 6) {
+            view_page = 5;          /* back out to HOME */
             dirty = 1;
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
@@ -1220,11 +1270,7 @@ static void app_tick(void)
         }
         if (b & (1u << BTN_REC) && !glomode) { write_arm = !write_arm; dirty = 1; }
         if (b & (1u << BTN_SAVE)) {
-            if (glomode) {
-                slot_sel = (uint8_t)((slot_sel + 1u) % NSLOT);
-            } else {
-                if (user_save_slot(slot_sel) == 0) { /* saved */ }
-            }
+            view_page = 6;          /* SAVE page (grimm-style slots) */
             dirty = 1;
         }
         if (b & (1u << BTN_HOME)) {
@@ -1272,6 +1318,10 @@ static void app_tick(void)
                 fm_palette_set(pal_idx);
                 dirty = 1;
             }
+            else if (e && view_page == 6) {
+                slot_sel = (uint8_t)((slot_sel + e + NSLOT) % NSLOT);
+                dirty = 1;
+            }
             else if (e && view_page == 3 && part_sel >= NDRUM) edit_lfo(0, e);
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(0, e);
             else if (e) { int32_t c = part_prm[part_sel][0] + e; part_prm[part_sel][0] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
@@ -1289,6 +1339,10 @@ static void app_tick(void)
             else if (e) { int32_t c = part_prm[part_sel][2] + e; part_prm[part_sel][2] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB4);
             if (glomode && e) { int32_t c = (int32_t)page + (e > 0 ? 1 : -1); page = (uint8_t)(c < 0 ? 0 : c > 3 ? 3 : c); dirty = 1; }
+            else if (e && view_page == 6) {
+                action_sel = (uint8_t)((action_sel + (e > 0 ? 1u : 2u)) % 3u);
+                dirty = 1;
+            }
             else if (e && view_page == 3 && part_sel >= NDRUM) edit_lfo(3, e);
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(3, e);
             else if (e) { int32_t c = part_prm[part_sel][3] + e; part_prm[part_sel][3] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
@@ -1352,3 +1406,46 @@ static void app_main(void)
         app_tick();
     }
 }
+
+#ifdef DINGHY_WEB
+/* Persist the 8 user slots to the page across reloads. We expose the slot
+ * payloads (valid flag + struct-set bytes each) to the worklet, which hands
+ * them to main.js for localStorage.
+ */
+#include <emscripten.h>
+EMSCRIPTEN_KEEPALIVE
+uint32_t web_snap_bytes(void) { return (uint32_t)sizeof(struct set); }
+EMSCRIPTEN_KEEPALIVE
+uint32_t web_snap_count(void) { return NSLOT; }
+EMSCRIPTEN_KEEPALIVE
+void web_snap_export(uint8_t *dst)
+{
+    uint32_t i, n = (uint32_t)sizeof(struct set);
+    for (i = 0; i < NSLOT; i++) {
+        if (host_slot[i][0]) {
+            dst[0] = 1;
+            memcpy(dst + 4, host_slot[i] + 4, n);
+        } else {
+            dst[0] = 0;
+        }
+        dst += n + 4;
+    }
+}
+EMSCRIPTEN_KEEPALIVE
+void web_snap_import(const uint8_t *src)
+{
+    uint32_t i, n = (uint32_t)sizeof(struct set);
+    for (i = 0; i < NSLOT; i++) {
+        if (src[0]) {
+            host_slot[i][0] = 1;
+            host_slot[i][1] = (uint8_t)n;
+            host_slot[i][2] = (uint8_t)(n >> 8);
+            host_slot[i][3] = (uint8_t)(n >> 16);
+            memcpy(host_slot[i] + 4, src + 4, n);
+        } else {
+            host_slot[i][0] = 0;
+        }
+        src += n + 4;
+    }
+}
+#endif /* DINGHY_WEB */

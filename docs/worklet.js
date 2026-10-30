@@ -8,7 +8,7 @@
 const N = 240 * 240;
 const MAX_FRAMES = 2048;
 
-let ex = null, memory = null, audioPtr = 0;
+let ex = null, memory = null, audioPtr = 0, snapPtr = 0, snapLen = 0;
 
 /* printf goes nowhere in the audio thread: report every byte written so libc does not retry */
 function fdWrite(fd, iov, iovLen, pwritten)
@@ -54,6 +54,8 @@ class Riptide extends AudioWorkletProcessor {
                 ex.__wasm_call_ctors?.();
                 ex.web_init();
                 audioPtr = ex.malloc(MAX_FRAMES * 4);
+                snapLen = ex.web_snap_bytes() * ex.web_snap_count() + 4 * ex.web_snap_count();
+                snapPtr = ex.malloc(snapLen);
                 this.port.postMessage({ type: "ready" });
             } catch (err) {
                 this.port.postMessage({ type: "error", message: String(err && err.message || err) });
@@ -66,6 +68,14 @@ class Riptide extends AudioWorkletProcessor {
         else if (m.type === "enc") ex.web_enc(m.role | 0, m.n | 0);
         else if (m.type === "midi") ex.web_midi(m.data[0] | 0, m.data[1] | 0, m.data[2] | 0);
         else if (m.type === "visible") this.period = m.on ? 1 / 30 : 1 / 4;
+        else if (m.type === "snapGet") {
+            ex.web_snap_export(snapPtr);
+            const snap = new Uint8Array(memory.buffer, snapPtr, snapLen).slice();
+            this.port.postMessage({ type: "snapOut", data: snap }, [snap.buffer]);
+        } else if (m.type === "snapSet") {
+            new Uint8Array(memory.buffer, snapPtr, snapLen).set(m.data);
+            ex.web_snap_import(snapPtr);
+        }
     }
 
     publish()

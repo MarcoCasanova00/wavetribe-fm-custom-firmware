@@ -66,6 +66,22 @@ const btnBy = new Map(), keyBy = new Map();
 const releaseTimers = new Map();
 const send = (m) => { if (node) node.port.postMessage(m); };
 
+/* Persist the 8 user slots to localStorage (survives reloads). */
+const SLOTS_KEY = "frankentribe_slots";
+function persistSlots(data) {
+  try { localStorage.setItem(SLOTS_KEY, JSON.stringify(Array.from(data))); }
+  catch (e) { /* storage full/blocked: ignore */ }
+}
+function restoreSlots() {
+  try {
+    const raw = localStorage.getItem(SLOTS_KEY);
+    if (!raw || !node) return;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr) || !arr.length) return;
+    send({ type: "snapSet", data: new Uint8Array(arr) });
+  } catch (e) { /* corrupt/blocked: ignore */ }
+}
+
 function build(name) {
   const L = LAYOUTS[name];
   layout = name;
@@ -346,6 +362,8 @@ async function switchOn() {
         else if (m.type === "frame") {
           if (m.fb) drawScreen(m.fb);
           if (m.leds) drawLights(m.leds);
+        } else if (m.type === "snapOut") {
+          persistSlots(m.data);
         }
       };
       node.port.postMessage({ type: "load", wasm }, [wasm]);
@@ -354,6 +372,9 @@ async function switchOn() {
     document.getElementById("start").hidden = true;
     send({ type: "visible", on: !document.hidden });
     document.addEventListener("visibilitychange", () => send({ type: "visible", on: !document.hidden }));
+    /* restore saved slots from localStorage, then keep them persisted */
+    restoreSlots();
+    setInterval(() => send({ type: "snapGet" }), 2000);
   } catch (err) {
     node = null;
     go.disabled = false;

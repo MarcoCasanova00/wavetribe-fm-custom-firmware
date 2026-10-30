@@ -58,6 +58,7 @@ From **Abuse** (Crack dot Com, DOS 1995) — `~/Abuse_DOS_EN.zip`.
 |---|---|---|
 | **Hortator** (DEADACTIVE FM-1 firmware, `https://deadactive.github.io/hortator/`) | UI pattern: *"four knobs edit the four values on screen per page"* + dedicated LFO / ENV menus | ideas |
 | **AKAI MPC3000** (Vailixi 3.50 OS, `~/AKAI MPC3000 - Mansell Labs OS Vailixi 3.50 (CFW).zip`) | sequencer feel: deeper **swing** (MPC-style), beat-division/step-size readouts, multi-slot **save/load** pattern | ideas (see `REPORT-MPC3000.md`) |
+| **GR!MM** (M-VAVE FM-1 firmware, `https://github.com/GRiMMBIENT/grimm`) | **SAVE/SOUNDS page** (`SLOT / ACTION:LOAD·SAVE·CLEAR`, OCT+ confirm), category-first sound browsing | ideas (UX/selection pattern) |
 | **KORG iELECTRIBE** `~/KORG_iELECTRIBE_1.5.1_ios_4.2.ipa` | currently **unused** (listed for completeness) | — |
 | Other EPROMs in `~/eeproms/` (AAC-Tiracon, Bohm-DD16, Cheetah-MD16, Crumar-Bit, Doepfer ms404, …) | **untapped** — candidates for further banks | — |
 
