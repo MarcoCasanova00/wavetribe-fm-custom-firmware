@@ -40,6 +40,9 @@ the changes apply to **all three synth parts** (the sound is shared) — so you'
 hear them whichever part you play. These tweaks are saved with your sound — a
 **SAVE / LOAD** slot keeps them.
 
+Held keyboard notes release when you switch page, part, or mode — so a note
+can't keep ringing after you move elsewhere.
+
 ## 5. Patch banks & presets (GR!MM-style sound browsing)
 - **Browse sounds:** turn **PRESETS** on any page except SEQ — it steps the the
   whole list (each bank acts as a category) and shows the patch name. Each part

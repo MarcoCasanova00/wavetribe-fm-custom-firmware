@@ -796,9 +796,12 @@ static int user_save_slot(uint8_t i)
     snapshot_state();
     return slot_save(i, &S, sizeof S);
 }
+static void release_held_keys(void);
+
 static int user_load_slot(uint8_t i)
 {
     if (i >= NSLOT) return -1;
+    release_held_keys();   /* the slot may change part/sound; stop held notes */
     if (slot_load(i, &S, sizeof S)) return -1;
     restore_state();
     return 0;
@@ -1266,6 +1269,28 @@ static void app_idle(void) { if (idle_ok) { /* nothing to do here: sequencer run
 
 static uint32_t prev_keys, last_step = 0xFFFFu, last_pat = 0xFFFFu;
 static uint8_t held[27];
+static uint8_t heldp[27];           /* the part each held key belongs to */
+
+/* Release every manually-held keyboard note (routed to the part that owns
+ * it).  Used when navigation would otherwise orphan a sustained note. */
+static void release_held_keys(void)
+{
+    uint8_t k;
+    for (k = 0; k < 27u; k++)
+        if (held[k]) {
+            eq_put(EV_NOTEOFF, heldp[k], held[k], 0);
+            held[k] = 0;
+            heldp[k] = 0;
+        }
+}
+
+/* Switch pages, releasing any held keyboard notes so none get stranded. */
+static void goto_page(uint8_t p)
+{
+    release_held_keys();
+    view_page = p;
+    dirty = 1;
+}
 
 static void app_init(void)
 {
@@ -1297,7 +1322,7 @@ static void app_init(void)
     slot_sel = 0;
     action_sel = 1;   /* SAVE default action */
     prev_keys = 0;
-    for (k = 0; k < 27u; k++) held[k] = 0;
+    for (k = 0; k < 27u; k++) { held[k] = 0; heldp[k] = 0; }
 
     lcd_fill(0, 0, 240, 240, C_BG);
     palette_set(0);                  /* default palette: "default" (Abuse look) */
@@ -1315,9 +1340,9 @@ static void app_tick(void)
                 uint8_t kk = (uint8_t)(midi_d1 - 36u);
                 if (midi_d2 > 0) {
                     if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, (uint8_t)(midi_d2 > 127u ? 127u : midi_d2));
-                    else { held[kk] = midi_d1; eq_put(EV_NOTEON, part_sel, midi_d1, (uint8_t)(midi_d2 > 127u ? 127u : midi_d2)); }
+                    else { held[kk] = midi_d1; heldp[kk] = part_sel; eq_put(EV_NOTEON, part_sel, midi_d1, (uint8_t)(midi_d2 > 127u ? 127u : midi_d2)); }
                 } else {
-                    if (part_sel >= NDRUM && held[kk]) { eq_put(EV_NOTEOFF, part_sel, held[kk], 0); held[kk]=0; }
+                    if (part_sel >= NDRUM && held[kk]) { eq_put(EV_NOTEOFF, heldp[kk], held[kk], 0); held[kk]=0; heldp[kk]=0; }
                 }
             }
         } else if (midi_st >= 0xB0u && midi_st <= 0xBFu) {
@@ -1358,24 +1383,19 @@ static void app_tick(void)
         }
         if (b & (1u << BTN_FX)) {
             fx_mode = (uint8_t)((fx_mode + 1u) % 4u);
-            view_page = 1;
-            dirty = 1;
+            goto_page(1);
         }
         if (b & (1u << BTN_SEQ)) {
-            view_page = 0;
-            dirty = 1;
+            goto_page(0);
         }
         if (b & (1u << BTN_EDIT)) {
-            view_page = glomode ? 7 : 2;   /* GLO+EDIT = SOUNDS browse page */
-            dirty = 1;
+            goto_page(glomode ? 7u : 2u);   /* GLO+EDIT = SOUNDS browse page */
         }
         if (b & (1u << BTN_LFO)) {
-            view_page = 3;
-            dirty = 1;
+            goto_page(3);
         }
         if (b & (1u << BTN_ENV)) {
-            view_page = 4;
-            dirty = 1;
+            goto_page(4);
         }
         if (b & (1u << BTN_OCT_UP)) {
             if (view_page == 6) {
@@ -1392,22 +1412,23 @@ static void app_tick(void)
             snd_apply((uint8_t)((patchbank + 1u) % N_PATCHBANKS), 0);  /* next category, first sound */
         }
         if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 6) {
-            view_page = 5;          /* back out to HOME */
-            dirty = 1;
+            goto_page(5);               /* back out to HOME */
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
         if (b & (1u << BTN_REC) && glomode) {
             user_load_slot(slot_sel);
             dirty = 1;
         }
-        if (b & (1u << BTN_REC) && !glomode) { write_arm = !write_arm; dirty = 1; }
-        if (b & (1u << BTN_SAVE)) {
-            view_page = 6;          /* SAVE page (grimm-style slots) */
+        if (b & (1u << BTN_REC) && !glomode) {
+            write_arm = !write_arm;
+            if (write_arm) release_held_keys();   /* entering write mode: stop held notes */
             dirty = 1;
         }
+        if (b & (1u << BTN_SAVE)) {
+            goto_page(6);               /* SAVE page (grimm-style slots) */
+        }
         if (b & (1u << BTN_HOME)) {
-            view_page = 5;          /* HOME: system + colour selector */
-            dirty = 1;
+            goto_page(5);               /* HOME: system + colour selector */
         }
 
         /* --- encoders --- */
@@ -1416,6 +1437,7 @@ static void app_tick(void)
             if ((e = fm1_enc_take(ENC_SELECT)) != 0) {
                 int32_t c = (int32_t)part_sel + e;
                 part_sel = (uint8_t)(c < 0 ? 0 : c > 7 ? 7 : c);
+                release_held_keys();   /* a held note belongs to the old part */
                 dirty = 1;
             }
             e = fm1_enc_take(ENC_PRESETS);
@@ -1513,11 +1535,12 @@ static void app_tick(void)
                     if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, 110);
                     else {
                         held[k] = (uint8_t)(36 + k);
+                        heldp[k] = part_sel;
                         eq_put(EV_NOTEON, part_sel, held[k], 110);
                     }
                 }
                 if (up >> k & 1u) {
-                    if (part_sel >= NDRUM && held[k]) eq_put(EV_NOTEOFF, part_sel, held[k], 0), held[k] = 0;
+                    if (part_sel >= NDRUM && held[k]) eq_put(EV_NOTEOFF, heldp[k], held[k], 0), held[k] = 0, heldp[k] = 0;
                 }
             }
         }

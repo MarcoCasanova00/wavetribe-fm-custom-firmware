@@ -1,0 +1,14 @@
+# Regression: a held note must not get stranded when you navigate.
+# - change part while holding a key (the release routes to the owning part)
+# - switch to a menu while holding a key (navigation releases held notes)
+# Verified against the rendered WAV: the tail is silent afterwards.
+
+100 enc 0 5
+200 keys 1          # note on (part 5)
+800 enc 0 1        # change to part 6 while held
+1200 keys 0        # release
+1500 enc 0 -1      # back to part 5
+1700 keys 1        # note on again
+2300 btn 5         # switch to the LFO menu while held
+2700 keys 0        # release
+3500 end
