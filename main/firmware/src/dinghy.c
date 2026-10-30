@@ -222,7 +222,8 @@ static uint8_t drum_kit;
 static uint8_t patchbank, patch_ix;
 static uint8_t dx7bank_sel;
 static uint8_t midi_out;
-static uint8_t fx_mode; /* 0 off, 1 chorus, 2 delay, 3 chorus+delay */
+static uint8_t fx_mode; /* 0 off, 1 chorus, 2 delay, 3 chorus+delay, 4 stutter */
+static uint32_t fx_st_pos, fx_st_cycle;   /* stutter window state */
 static uint8_t view_page;   /* 0 Seq, 1 FX, 2 wave/patch, 3 LFO, 4 Env, 5 Home */
 static uint32_t dirty;
 static uint8_t part_sel;    /* declared here so the edit helpers can use it */
@@ -655,7 +656,27 @@ static void app_audio(int32_t *out, uint32_t n)
         }
     }
     /* --- simple global effect chain (no FPU) --- */
-    if (fx_mode) {
+    if (fx_mode == 4u) {
+        /* stutter: capture one 8192-sample window, then replay it twice
+         * (SP-202/303-style loop roll). */
+        uint32_t i, W = FX_MASK + 1u;
+        for (i = 0; i < n; i++) {
+            int32_t x = (int32_t)out[2u * i];
+            uint32_t ph = fx_st_pos & FX_MASK;
+            if (fx_st_cycle == 0u) {
+                fx_buf[ph] = (int16_t)x;         /* capture + pass-through */
+            } else {
+                x = (int32_t)fx_buf[ph];         /* replay loop */
+            }
+            fx_st_pos++;
+            if ((fx_st_pos & FX_MASK) == 0u)
+                fx_st_cycle = (fx_st_cycle + 1u) % 3u;
+            if (x > 32767) x = 32767; else if (x < -32768) x = -32768;
+            out[2u * i] = (int16_t)x;
+            out[2u * i + 1u] = (int16_t)x;
+        }
+        (void)W;
+    } else if (fx_mode) {
         uint32_t i;
         for (i = 0; i < n; i++) {
             int32_t x = (int32_t)out[2u * i];
@@ -1269,7 +1290,7 @@ static void draw_fx_page(void)
     cv_begin(240, 206, UI_BG);
     cv_text(4, 2, &FONT_S, "FX", UI_HI);
     cv_rect(0, 18, 240, 1, UI_PANEL);
-    p = ap(s, "FX mode: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
+    p = ap(s, "FX mode: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO","STUT"}[fx_mode]);
     cv_text(4, 24, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "MIDI OUT: "); p = ap(p, midi_out ? "ON" : "OFF");
     cv_text(4, 42, &FONT_S, s, UI_AMB);
@@ -1501,7 +1522,7 @@ static void draw_sys_page(void)
     p = ap(p, "  Waves: "); p = apu(p, TOTAL_WT_COUNT); fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "MIDI I/O: "); p = ap(p, (midi_out ? "ON" : "OFF"));
-    p = ap(p, "  FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]); fit_text(s, 232);
+    p = ap(p, "  FX: "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO","STUT"}[fx_mode]); fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "Slot: "); p = apu(p, slot_sel + 1); p = ap(p, "/"); p = apu(p, NSLOT);
     p = ap(p, "  SAVE=page  GLO+REC=load"); fit_text(s, 232);
@@ -1571,7 +1592,7 @@ static void draw_compose_page(void)
     fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_LABEL);
     p = s; p = ap(p, "Build applies: "); p = apu(p, bpm); p = ap(p, " BPM | sw"); p = apu(p, swing);
-    p = ap(p, "% | FX "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
+    p = ap(p, "% | FX "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO","STUT"}[fx_mode]);
     fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_LABEL);
     p = s; p = ap(p, "Drift: "); p = ap(p, (const char *[]){"OFF","ON","LOCK"}[gen_drift % 3u]);
@@ -1846,7 +1867,7 @@ static void app_tick(void)
                 case 2: if (part_sel >= NDRUM) { part_prm[part_sel][1] = v; dirty = 1; } break;
                 case 5: if (part_sel >= NDRUM) { part_prm[part_sel][2] = (uint8_t)(v >> 1); dirty = 1; } break;
                 case 7: if (part_sel >= NDRUM) { part_prm[part_sel][3] = v; dirty = 1; } break;
-                case 91: fx_mode = (uint8_t)((v * 4) / 128); if (fx_mode > 3) fx_mode = 3; dirty = 1; break;
+                case 91: fx_mode = (uint8_t)((v * 5) / 128); if (fx_mode > 4) fx_mode = 4; dirty = 1; break;
                 case 92: drum_kit = (uint8_t)((v * TOTAL_DRUMS) / 128); if (drum_kit >= TOTAL_DRUMS) drum_kit = TOTAL_DRUMS-1; dirty = 1; break;
                 case 93: {
                     uint8_t ps = (uint8_t)((v * PATCHBANK_COUNT[patchbank]) / 128); if (ps >= PATCHBANK_COUNT[patchbank]) ps = PATCHBANK_COUNT[patchbank] - 1;
@@ -1895,7 +1916,7 @@ static void app_tick(void)
             dirty = 1;
         }
         if (b & (1u << BTN_FX)) {
-            fx_mode = (uint8_t)((fx_mode + 1u) % 4u);
+            fx_mode = (uint8_t)((fx_mode + 1u) % 5u);
             goto_page(1);
         }
         if (b & (1u << BTN_SEQ)) {

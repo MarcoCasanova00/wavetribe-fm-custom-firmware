@@ -24,7 +24,7 @@ Each patch controls 3 FM parts × 4 params (`A` wavetable, `B` ratio, `C` mod, `
 | 2 | Part B (ratio) |
 | 5 | Part C (mod) |
 | 7 | Part D (level) |
-| 91 | FX mode (0..3) |
+| 91 | FX mode (0..4: 0 OFF / 1 CHORUS / 2 ECHO / 3 COMBO / 4 STUT) |
 | 92 | Drum kit (0..N) |
 | 93 | Patch selector — cycles current bank (0..N-1) |
 | 94 | Genre select (0..7) — generates live |

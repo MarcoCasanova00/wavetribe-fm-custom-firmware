@@ -96,8 +96,11 @@ identity.
 
 ## 7. FX page
 
-Mode (OFF/CHORUS/ECHO/COMBO) cycles with the FX key; MIDI OUT toggle; clock
-readout. As in §2, the knobs edit the transport right here.
+Mode cycles with the FX key: **OFF → CHORUS → ECHO → COMBO → STUT** (STUT is an
+SP-202/303-style stutter: it captures a window and replays it twice). MIDI OUT
+toggle and clock readout also live here. As in §2, the knobs edit the transport.
+
+
 
 ---
 

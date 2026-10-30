@@ -20,5 +20,9 @@
 1700 midi 0x80 60 0
 1800 shot
 
-2200 btn 12        # STOP
-2700 end
+1900 midi 0xB0 91 110  # FX -> STUTTER (mode 4)
+2000 shot
+2100 midi 0xB0 91 0   # FX -> OFF
+
+2500 btn 12        # STOP
+3000 end
