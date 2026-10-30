@@ -405,8 +405,10 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
             int32_t cut, fc, damp;
             uint8_t sync_latch = 0;
 
-            /* vector sweep advances once per sample (mode 4 only; mode 6 is envelope-driven) */
-            if (vo->oscmode == 4u) vo->vec_phase += 2u + (p->lfo_speed >> 3);
+            /* vector sweep advances once per sample (the morph/drift clock for
+             * modes 4-6; mode 4 uses it directly, 5/6 borrow it for drift) */
+            if (vo->oscmode >= 4u && vo->oscmode <= 6u)
+                vo->vec_phase += 2u + (p->lfo_speed >> 3);
 
             for (o = 4; o-- > 0; ) {
                 fm_op_t *op = &vo->op[o];
@@ -442,8 +444,17 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                      * so a note starts crisp and settles to a sine as it decays. */
                     if (vo->oscmode == 3u || vo->oscmode == 5u) {
                         uint32_t amt = vo->macro[2];
-                        if (vo->oscmode == 5u)
+                        if (vo->oscmode == 5u) {
                             amt = (amt * (uint32_t)(vo->op[0].env >> 8)) >> 15;
+                            /* per-voice drift: wander the PD amount with a slow,
+                             * voice-unique clock so textures evolve (depth tracks
+                             * the LFO speed knob) */
+                            int32_t dip = (int32_t)((vo->vec_phase >> 14) & 63u) - 32;
+                            int32_t depth = 4 + (vo->p.lfo_speed >> 4);
+                            int32_t a = (int32_t)amt + ((dip * depth) >> 4);
+                            if (a < 0) a = 0; else if (a > 127) a = 127;
+                            amt = (uint32_t)a;
+                        }
                         p = (pd_warp(p >> 22, (uint8_t)amt) << 22) | (p & 0x3FFFFFu);
                     }
                     {
@@ -459,6 +470,13 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                                 if (en > 32767) en = 32767;
                                 fx = (uint32_t)((int32_t)en * 255u / 32767u);
                                 fy = (255u - fx) >> 1;
+                                /* per-voice drift: nudge the morph position with a
+                                 * slow voice-unique clock (depth tracks the LFO knob) */
+                                int32_t dip = (int32_t)((vo->vec_phase >> 14) & 63u) - 32;
+                                int32_t depth = 4 + (vo->p.lfo_speed >> 4);
+                                int32_t fxd = (int32_t)fx + ((dip * depth) >> 4);
+                                if (fxd < 0) fxd = 0; else if (fxd > 255) fxd = 255;
+                                fx = (uint32_t)fxd;
                             } else {
                                 uint32_t vp = vo->vec_phase;
                                 fx = (vp >> 16) & 255u;

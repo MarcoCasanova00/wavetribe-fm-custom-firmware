@@ -84,6 +84,13 @@ kbd { font: 600 11px ui-monospace, Menlo, monospace; border: 1px solid var(--rul
 footer { margin-top: 12px; font-size: 12px; }
 footer nav a { margin: 0 6px; }
 footer small { font-size: 11px; opacity: .8; }
+.ref { margin-top: 20px; color: var(--fg); }
+.ref h2 { font-size: 14px; letter-spacing: 2px; color: var(--amber); border-bottom: 1px solid var(--rule); padding-bottom: 4px; }
+.ref table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
+.ref caption { text-align: left; color: var(--dim); font-size: 11px; letter-spacing: 1px; margin-bottom: 4px; }
+.ref td, .ref th { border: 1px solid var(--rule); padding: 3px 10px; text-align: left; }
+.ref th { font-weight: 600; background: rgba(255,255,255,.05); }
+.ref td { color: var(--body); }
 </style>
 </head>
 <body>
@@ -110,6 +117,46 @@ footer small { font-size: 11px; opacity: .8; }
   <span><kbd>←</kbd> <kbd>→</kbd> PAGE</span>
   <span>drag a knob, wheel it, or use the arrows</span>
 </p>
+
+<section class="ref">
+  <h2>Key combinations</h2>
+  <p>Everything here works the same on the physical FM-1. In the web emulator,
+  press a panel button with the mouse, or hold it (Shift+click latches it) while
+  pressing the other half of a combo. Knobs: drag, wheel, or select and use ↑↓←→.</p>
+
+  <table>
+    <caption>Computer keyboard → panel</caption>
+    <tr><th>Keys</th><th>Panel</th></tr>
+    <tr><td><kbd>Z X C V B N M , . /</kbd></td><td>keys F3–A4 (white)</td></tr>
+    <tr><td><kbd>S D F H J L ; '</kbd></td><td>black keys F#3–A#4</td></tr>
+    <tr><td><kbd>Q W E R T Y U I O</kbd></td><td>keys B4–G5</td></tr>
+    <tr><td><kbd>1 2 3 4 5 6 7 8 9 0 - =</kbd></td>
+        <td>FX · SEL · ENV · LFO · EDIT · GLO · HOME · SAVE · ARP · SEQ · PLAY · REC</td></tr>
+    <tr><td><kbd>[ ]</kbd></td><td>OCT− / OCT+</td></tr>
+    <tr><td><kbd>↑ ↓</kbd> / <kbd>← →</kbd></td><td>SELECT / ALGORITHM encoders</td></tr>
+  </table>
+
+  <table>
+    <caption>Combos — identical on the FM-1 hardware</caption>
+    <tr><th>Combo</th><th>What it does</th></tr>
+    <tr><td>GLO + ARP</td><td>COMPOSE generative genre page</td></tr>
+    <tr><td>GLO + SEQ</td><td>EUCLID rhythm generator</td></tr>
+    <tr><td>GLO + PLAY</td><td>drift OFF → ON → LOCK</td></tr>
+    <tr><td>GLO + EDIT</td><td>SOUNDS browse page</td></tr>
+    <tr><td>GLO + REC</td><td>load the current slot</td></tr>
+    <tr><td>GLO + OCT−</td><td>next patch bank / category</td></tr>
+    <tr><td>GLO + step keys</td><td>FUNC grid: clear · save · load · pattern ∓ · copy · paste · step mode</td></tr>
+    <tr><td>GLO + FX</td><td>clock mode OFF → MASTER → SLAVE</td></tr>
+    <tr><td>hold <kbd>FX</kbd> + F3–C4</td>
+        <td>live FX: STUT · REV · ECHO · TAPE · CRUSH · GATE · SWEEP · HALF (D4/E4 throws)</td></tr>
+    <tr><td>hold <kbd>HOME</kbd> ≥300 ms + F3–C4</td>
+        <td>quick-mute parts 0–7 (a quick tap of HOME still opens the system page)</td></tr>
+    <tr><td>OCT+ on a non-SAVE page</td><td>MIDI OUT on/off</td></tr>
+    <tr><td>OCT+ on COMPOSE / ARP / EUCLID</td><td>build · toggle arp · apply gates</td></tr>
+    <tr><td>OCT− on COMPOSE</td><td>undo the build</td></tr>
+    <tr><td>ARP on COMPOSE</td><td>chord-follow toggle</td></tr>
+  </table>
+</section>
 
 <footer>
   <small class="version">FRANKENTRIBE OS · Wavetribe FM-1</small><br>
