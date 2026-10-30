@@ -742,6 +742,7 @@ static uint8_t part_sel, pat_sel, page, swing, accent, bpm;
 static uint8_t mute[NPART];
 static uint16_t snd_mem[NPART];   /* per-part sound browse cursor (GR!MM-style) */
 static uint8_t hold_note[NPART];       /* the note each tonal part is sustaining from the sequencer */
+static uint8_t part_oscmode[NPART];    /* per-part osc mode: 0 normal, 1 sync, 2 ring */
 static uint16_t step_cur;            /* the step being played (0..63) */
 static uint32_t next_step_ms, step_ms;
 
@@ -1267,6 +1268,9 @@ static void draw_wave_page(void)
         }
         fit_text(s, 232);
         cv_text(4, 60, &FONT_S, s, UI_HI);
+        p = s; p = ap(p, "Osc "); p = ap(p, (const char *[]){"NORM","SYNC","RING"}[part_oscmode[part_sel] % 3u]);
+        p = ap(p, " | OCT+ cycles"); fit_text(s, 232);
+        cv_text(4, 100, &FONT_S, s, UI_LABEL);
     }
     if (patchbank < N_PATCHBANKS) {
         p = s; p = ap(p, "sound "); p = apu(p, patch_ix + 1); p = ap(p, "/"); p = apu(p, PATCHBANK_COUNT[patchbank]);
@@ -1820,6 +1824,12 @@ static void app_tick(void)
                     gen_density = (uint8_t)(v > 127 ? 127 : v);
                     genre_generate(gen_genre);
                     dirty = 1; break;
+                case 98:   /* osc mode for the selected part: 0 normal, 1 sync, 2 ring */
+                    part_oscmode[part_sel] = (uint8_t)((v * 3u) / 128u);
+                    if (part_oscmode[part_sel] > 2u) part_oscmode[part_sel] = 2u;
+                    if (part_sel >= NDRUM)
+                        fm_set_oscmode((uint8_t)(part_sel - NDRUM), part_oscmode[part_sel]);
+                    dirty = 1; break;
                 default: break;
             }
         } else if (midi_st == 0xFAu) { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; dirty = 1; }
@@ -1870,6 +1880,9 @@ static void app_tick(void)
                 arp_on[part_sel] = !arp_on[part_sel];   /* ARP: OCT+ toggles */
             } else if (view_page == 10) {
                 euclid_apply();                         /* EUCLID: OCT+ applies */
+            } else if (view_page == 2 && part_sel >= NDRUM) {
+                part_oscmode[part_sel] = (uint8_t)((part_oscmode[part_sel] + 1u) % 3u);
+                fm_set_oscmode((uint8_t)(part_sel - NDRUM), part_oscmode[part_sel]);
             } else {
                 midi_out = !midi_out;
             }

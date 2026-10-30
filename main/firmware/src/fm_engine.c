@@ -86,6 +86,7 @@ typedef struct {
     uint8_t    vca_state;
     uint8_t    note, vel, key, active;
     uint8_t    pan;
+    uint8_t    oscmode;    /* 0 normal, 1 hard sync (OP1 <- OP4), 2 ring/AM */
     uint32_t   lfo_phase;
 } fm_voice_t;
 
@@ -271,6 +272,12 @@ void fm_set_vca(uint8_t voice, uint8_t ar, uint8_t dr, uint8_t sus, uint8_t rr)
     v->p.vca_rr = rr & 31u;
 }
 
+void fm_set_oscmode(uint8_t voice, uint8_t mode)
+{
+    if (voice >= FM_MAX_VOICES) return;
+    fm_voices[voice].oscmode = mode & 3u;
+}
+
 void fm_get_patch(uint8_t voice, fm_patch_t *out)
 {
     if (voice >= FM_MAX_VOICES || !out) return;
@@ -382,6 +389,7 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
             int32_t op_out[4];
             int32_t sum = 0;
             int32_t cut, fc, damp;
+            uint8_t sync_latch = 0;
 
             for (o = 4; o-- > 0; ) {
                 fm_op_t *op = &vo->op[o];
@@ -409,14 +417,22 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                 mod = clamp32(mod, -32767, 32767);
 
                 {
+                    /* hard sync: OP1 restarts whenever OP4 wraps a cycle */
+                    if (o == 0u && vo->oscmode == 1u && sync_latch) op->phase = 0;
                     int32_t s = fm_wave(wave, op->phase + ((uint32_t)mod << 16));
                     s = (s * (op->env >> 8)) >> 15;
                     s = (s * (int32_t)op->amp) >> 15;
                     s = (s * (int32_t)op->kvs_scale) >> 8;
+                    /* ring/AM: scale the carrier by OP4's output */
+                    if (o == 0u && vo->oscmode == 2u) s = (s * op_out[3]) >> 15;
                     op_out[o] = s;
                     op->last = s;
                 }
-                op->phase += (op->inc * (uint32_t)pitch_q8) >> 8;
+                {
+                    uint32_t ph = op->phase;
+                    op->phase += (op->inc * (uint32_t)pitch_q8) >> 8;
+                    if (o == 3u && op->phase < ph) sync_latch = 1;
+                }
             }
 
             {

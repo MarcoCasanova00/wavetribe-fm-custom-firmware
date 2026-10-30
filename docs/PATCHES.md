@@ -30,6 +30,7 @@ Each patch controls 3 FM parts × 4 params (`A` wavetable, `B` ratio, `C` mod, `
 | 94 | Genre select (0..7) — generates live |
 | 95 | Seed (1..255) — generates live (0 = no-op) |
 | 96 | Density (0..127) — generates live |
+| 98 | Osc mode, selected part (0 NORM / 1 SYNC / 2 RING) |
 | 123 | All notes off |
 
 Genre CCs (94–96) generate immediately on receipt and follow the same deterministic

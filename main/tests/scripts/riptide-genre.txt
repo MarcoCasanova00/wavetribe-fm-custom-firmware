@@ -69,5 +69,15 @@
 9600 enc 3 1       # K2 -> hits 5 (E(5,16))
 9700 btn 1         # OCT+ -> apply gates to kick
 11000 shot         # kick now follows E(5,16)
+
+# --- 8) osc modes on the synth part: WAVE page OCT+ cycle + CC98 ---
+11800 enc 0 6       # SELECT -> part 6 (synth)
+11900 btn 6         # EDIT -> WAVE page
+12000 btn 1         # OCT+ -> SYNC
+12100 btn 1         # OCT+ -> RING
+12200 shot
+12300 midi 0xB0 98 85   # CC98 -> mode 2 (RING) for selected part
+12400 btn 11        # SEQ -> back to sequencer page
+
 12500 btn 12        # STOP
 13200 end
