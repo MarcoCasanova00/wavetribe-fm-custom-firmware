@@ -83,3 +83,454 @@ Live (hard-refresh `Ctrl+Shift+R`): https://MarcoCasanova00.github.io/frankentri
 
 ---
 *Brand: FRA N K E N T R I B E OS — built from scraps, redeems nothing.*
+
+## Catalog of sounds
+
+Every sound below is selectable in the firmware: browse them in the
+**Soundbook** (`GLO+HOME`), or pick patches on the SOUNDS page / CC 93.
+
+### Patch banks (397 patches)
+
+**APP** — 13 patches
+- Init
+- Bright
+- Dark
+- Pluck
+- Soft
+- Bell
+- SawLead
+- Organ
+- Strings
+- NoiseBass
+- Chimes
+- PWM
+- Acid
+
+**DX7** — 64 patches
+- SYN-LEAD 2
+- SYN-LEAD 3
+- SYN-LEAD 4
+- SYN-LEAD 5
+- SYN-CLAV 1
+- SYN-CLAV 2
+- SYN-CLAV 3
+- SYN-PIANO
+- SYNBRASS 1
+- SYNBRASS 2
+- SYNORGAN 1
+- SYNORGAN 2
+- SYN-VOX
+- SYN-ORCH
+- SYN-BASS 1
+- SYN-BASS 2
+- HARP-FLUTE
+- BELL-FLUTE
+- E.P-BRS BC
+- T.BL-EXPA
+- CHIME-STRG
+- B.DRM-SNAR
+- SHIMMER
+- EVOLUTION
+- WATER GDN
+- WASP STING
+- LASER GUN
+- DESCENT
+- OCTAVE WAR
+- GRAND PRIX
+- ST.HELENS
+- EXPLOSION
+- PICCOLO
+- FLUTE   2
+- OBOE
+- CLARINET
+- SAX BC
+- BASSOON
+- STRINGS 4
+- STRINGS 5
+- STRINGS 6
+- STRINGS 7
+- STRINGS 8
+- BRASS   4
+- BRASS   5
+- BRASS 6 BC
+- BRASS   7
+- BRASS   8
+- RECORDER
+- HARMONICA1
+- HRMNCA2 BC
+- VOICE   2
+- VOICE   3
+- GLOKENSPL
+- VIBE    2
+- XYLOPHONE
+- CHIMES
+- GONG    1
+- GONG    2
+- BELLS
+- COW BELL
+- BLOCK
+- FLEXATONE
+- LOG DRUM
+
+**ROM** — 32 patches
+- DX7_Voice_Rom2-0
+- DX7_Voice_Rom2-1
+- DX7_Voice_Rom2-2
+- DX7_Voice_Rom2-3
+- Doepfer_ms404_v1_0
+- Doepfer_ms404_v1_0
+- Doepfer_ms404_v1_0
+- Doepfer_ms404_v1_0
+- Trinity-0
+- Trinity-1
+- Trinity-2
+- Trinity-3
+- Lexicon_LXP1_v1.06
+- Lexicon_LXP1_v1.06
+- Lexicon_LXP1_v1.06
+- Lexicon_LXP1_v1.06
+- Linn_9000_roms_2-0
+- Linn_9000_roms_2-1
+- Linn_9000_roms_2-2
+- Linn_9000_roms_2-3
+- Moog_MemoryMoog_v2
+- Moog_MemoryMoog_v2
+- Moog_MemoryMoog_v2
+- Moog_MemoryMoog_v2
+- Nord_Lead_1_(27c40
+- Nord_Lead_1_(27c40
+- Nord_Lead_1_(27c40
+- Nord_Lead_1_(27c40
+- OSCAR_7_64_TomMora
+- OSCAR_7_64_TomMora
+- OSCAR_7_64_TomMora
+- OSCAR_7_64_TomMora
+
+**4OP-A** — 128 patches
+- GrandPiano
+- Uprt piano
+- Deep Grd
+- HonkeyTonk
+- Elec Grand
+- Fuzz Piano
+- SkoolPiano
+- Thump Pno
+- LoTine81Z
+- HiTine81Z
+- ElectroPno
+- NewElectro
+- DynomiteEP
+- DynoWurlie
+- Wood Piano
+- Reed Piano
+- PercOrgan
+- 16 8 4 2 F
+- PumpOrgan
+- <6 Tease>
+- Farcheeza
+- Small Pipe
+- Big Church
+- AnalogOrgn
+- Thin Clav
+- EZ Clav
+- Fuzz Clavi
+- LiteHarpsi
+- RichHarpsi
+- Celeste
+- BriteCelst
+- Squeezebox
+- Trumpet81Z
+- Full Brass
+- Flugelhorn
+- ChorusBras
+- FrenchHorn
+- AtackBrass
+- SpitBoneBC
+- Horns BC
+- MelloTenor
+- RaspAlto
+- Flute
+- Pan Floot
+- Bassoon
+- Oboe
+- Clarinet
+- Harmonica
+- DoubleBass
+- BowCello
+- BoxCello
+- SoloViolin
+- HiString 1
+- LowString
+- Pizzicato
+- Harp
+- ReverbStrg
+- SynString
+- Voices
+- HarmoPad
+- FanfarTpts
+- HiString 2
+- PercFlute
+- BreathOrgn
+- NylonGuit
+- Guitar #1
+- TwelveStrg
+- Funky Pick
+- AllThatJaz
+- HeavyMetal
+- Old Banjo
+- Zither
+- ElecBass 1
+- SqncrBass
+- SynFunkBas
+- ElecBass 2
+- AnalogBass
+- Jaco Bass
+- LatelyBass
+- MonophBass
+- StadiumSol
+- TrumptSolo
+- BCSexyPhon
+- Lyrisyn
+- WarmSquare
+- Sync Lead
+- MellowSqar
+- Jazz Flute
+- HeavyLead
+- Java Jive
+- Xylophone
+- GreatVibes
+- Sitar
+- Bell Pad
+- PlasticHit
+- DigiAnnie
+- BaadBreath
+- VocalNuts
+- KrstlChoir
+- Metalimba
+- WaterGlass
+- BowedBell
+- >>WOW<<
+- Fuzzy Koto
+- Spc Midiot
+- Gurgle
+- Hole in 1
+- Birds
+- MalibuNite
+- Helicopter
+- Flight Sim
+- Brthbells
+- Storm Wind
+- Alarm Call
+- Racing Car
+- Whistling
+- Space Talk
+- Space Vibe
+- Timpani
+- FM Hi-Hats
+- Bass Drum
+- Tube Bells
+- Noise Shot
+- Snare 1
+- Snare 2
+- Hand Drum
+- Synballs
+- Efem Toms
+
+**4OP-B** — 144 patches
+- Brass
+- Horn
+- Trumpet
+- LoStrig
+- Strings
+- Piano
+- NewEP
+- EGrand
+- Jazz Gt
+- EBass
+- WodBass
+- EOrgan1
+- EOrgan2
+- POrgan1
+- POrgan2
+- Flute
+- Piccolo
+- Oboe
+- Clarine
+- Glocken
+- Vibes
+- Xylophn
+- Koto
+- Zither
+- Clav
+- Harpsic
+- Bells
+- Harp
+- SmadSyn
+- Harmoni
+- SteelDr
+- Timpani
+- LoStrg2
+- Horn Lo
+- Whistle
+- ZingPlp
+- Metal
+- Heavy
+- FunkSyn
+- Voices
+- Marimba
+- EBass 2
+- SnareDr
+- RD Cymb
+- Tom Tom
+- Mars to
+- Storm
+- Windbel
+- rom2
+-  p    K
+-  PP ^  F
+-  P  V  4
+-  p  W
+- 1P`AZ  5
+- #P     D
+- Pp    D
+- ;p B
+- Horn2
+- Horn3
+- Horns
+- Flugelh
+- Trombon
+- Trumpt2
+- Brass2
+- Brass3
+- HradBr1
+- HardBr2
+- HardBr3
+- HardBr4
+- HuffBrs
+- PercBr1
+- PercBr2
+- String1
+- String2
+- String3
+- String4
+- SoloVio
+- RichSt1
+- RichSt2
+- RichSt3
+- RichSt4
+- Cello1
+- Cello2
+- LoStrg3
+- LoStrg4
+- LoStrg5
+- Orchest
+- 5th Str
+- Pizzic1
+- Pizzic2
+- Flute2
+- Flute3
+- Flute4
+- Pan Flt
+- SlowFlt
+- 5th Flt
+- Oboe2
+- Bassoon
+- Reed
+- Harmon2
+- Harmon3
+- Harmon4
+- MonoSax
+- Sax 1
+- Sax 2
+- rom4
+-  P  T
+-  p q
+-  ` s   S
+-  P A
+-  ` r   x
+-  P q
+-  p0E
+- (p u   f
+- (` v   f
+-  p z[
+- 
+-  0Pp   $
+-  p @   u
+-  p C  JU
+-  ` B   U
+- JOrgan1
+- JOrgan2
+- COrgan1
+- COrgan2
+- EOrgan3
+- EOrgan4
+- EOrgan5
+
+**LOST** — 16 patches
+- FM-EP
+- Motown Bass
+- Finger Bass
+- Glass Pad
+- Warm Strings
+- Breath Brass
+- Tine Clav
+- Space Bell
+- Chiff Organ
+- Airy Choir
+- Pulse Lead
+- Saw Stack
+- Deep Pluck
+- Shimmer
+- Sub Drop
+- Magic Marimba
+
+### Drum kits (6 kits, 5 samples each)
+
+**APP**
+- KICK
+- SNARE
+- CLAP
+- CHH
+- OHH
+
+**TR808**
+- KICK
+- SNARE
+- CLAP
+- CHH
+- OHH
+
+**TR909**
+- KICK
+- SNARE
+- CLAP
+- CHH
+- OHH
+
+**CR78**
+- KICK
+- SNARE
+- CLAP
+- CHH
+- OHH
+
+**LINN**
+- KICK
+- SNARE
+- CLAP
+- CHH
+- OHH
+
+**MD110**
+- KICK
+- SNARE
+- CLAP
+- CHH
+- OHH
+
+### Wave libraries
+
+- **WAVELIB** — 256 single-cycle waves (Factory/FunkBox/Linn)
+- **EPROM BÖHM-DD16** — 64 mined waves
+- **ZOOM MS-60B/70CDR** — 64 mined waves
+
