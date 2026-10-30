@@ -218,7 +218,7 @@ void fm_init(void)
         def.coarse[o] = (o == 0) ? 128 : (o == 1) ? 64 : 0;
         def.fine[o] = 0; def.detune[o] = 0;
         def.am[o] = 0; def.vib[o] = 0; def.eg_bias[o] = 0;
-        def.ks[o] = 0; def.ars[o] = 0; def.ams[o] = 0; def.fms[o] = 0;
+        def.ks[o] = 0; def.ars[o] = 0; def.ams[o] = 0; def.fms[o] = (o == 0) ? 0 : 80;
     }
     for (v = 0; v < FM_MAX_VOICES; v++)
         fm_load_patch(v, &def);
@@ -233,7 +233,7 @@ void fm_load_patch(uint8_t voice, const fm_patch_t *patch)
         fm_op_t *op = &fm_voices[voice].ops[o];
         op->freq_base = patch->coarse[o] ? patch->coarse[o] * 128 : 0;
         op->detune = patch->detune[o] * 8;
-        op->mod_index = patch->tl[o];  /* use total level as mod index base */
+        op->mod_index = patch->fms[o];  /* FM sensitivity -> modulation depth */
         op->feedback = patch->fb & 7;
         /* Store envelope rates for use in fm_process */
         op->env_inc_attack = env_rate_to_inc(patch->ar[o]);
@@ -309,8 +309,8 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
         for (f = 0; f < frames; f++) {
             int32_t sum = 0;
             int32_t op_out[FM_OPS_PER_VOICE] = {0, 0, 0, 0};
-            /* first compute all modulator outputs, then carriers */
-            for (o = 0; o < FM_OPS_PER_VOICE; o++) {
+            /* compute modulators before carriers (reverse order: 3->0) */
+            for (o = FM_OPS_PER_VOICE; o-- > 0;) {
                 fm_op_t *op = &voice->ops[o];
                 int32_t mod_in = 0;
                 uint32_t ph;
@@ -334,14 +334,12 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                 /* envelope */
                 if (op->env_state == 1) {
                     op->env_level += (int32_t)op->env_inc_attack * 2;
-                    if (op->env_level >= 32767) op->env_level = 32767;
-                    if (op->env_level >= 32767) { op->env_state = 2; }
+                    if (op->env_level >= 32767) { op->env_level = 32767; op->env_state = 2; }
                 } else if (op->env_state == 2) {
                     op->env_level -= (int32_t)op->env_inc_decay / 2;
-                    if (op->env_level <= (int32_t)(32767 * 30 / 100)) op->env_state = 3;
+                    if (op->env_level <= (int32_t)op->sustain_level) { op->env_level = op->sustain_level; op->env_state = 3; }
                 } else if (op->env_state == 3) {
-                    op->env_level -= (int32_t)op->env_inc_decay / 4;
-                    if (op->env_level <= 0) { op->env_level = 0; op->env_state = 0; }
+                    /* sustain: hold at sustain_level */
                 } else if (op->env_state == 4) {
                     op->env_level -= (int32_t)op->env_inc_release / 4;
                     if (op->env_level <= 0) { op->env_level = 0; op->env_state = 0; op->active = 0; }
