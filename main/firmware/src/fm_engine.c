@@ -178,6 +178,8 @@ int32_t fm_sine(uint32_t phase)
 fm_voice_t fm_voices[FM_MAX_VOICES];
 fm_patch_t fm_patches[32];
 
+uint32_t env_rate_to_inc(uint8_t rate);
+
 static void fm_op_reset(fm_op_t *op)
 {
     op->phase = 0;
@@ -187,11 +189,17 @@ static void fm_op_reset(fm_op_t *op)
     op->active = 0;
     op->output = 0;
     op->last_output = 0;
+    /* default envelope rates (moderate) */
+    op->env_inc_attack = env_rate_to_inc(60);
+    op->env_inc_decay = env_rate_to_inc(60);
+    op->env_inc_release = env_rate_to_inc(70);
+    op->sustain_level = 32767 * 30 / 100;
 }
 
 void fm_init(void)
 {
     uint32_t v, o;
+    fm_patch_t def;
     for (v = 0; v < FM_MAX_VOICES; v++) {
         fm_voices[v].algorithm = 0;
         fm_voices[v].active = 0;
@@ -201,9 +209,20 @@ void fm_init(void)
         for (o = 0; o < FM_OPS_PER_VOICE; o++)
             fm_op_reset(&fm_voices[v].ops[o]);
     }
+    /* default patch: simple 2-op FM (op1 modulates op0) */
+    def.alg = 1;
+    def.fb = 0;
+    for (o = 0; o < FM_OPS_PER_VOICE; o++) {
+        def.ar[o] = 60; def.dr[o] = 60; def.sr[o] = 0; def.rr[o] = 70;
+        def.sl[o] = 50; def.tl[o] = 99;
+        def.coarse[o] = (o == 0) ? 128 : (o == 1) ? 64 : 0;
+        def.fine[o] = 0; def.detune[o] = 0;
+        def.am[o] = 0; def.vib[o] = 0; def.eg_bias[o] = 0;
+        def.ks[o] = 0; def.ars[o] = 0; def.ams[o] = 0; def.fms[o] = 0;
+    }
+    for (v = 0; v < FM_MAX_VOICES; v++)
+        fm_load_patch(v, &def);
 }
-
-uint32_t env_rate_to_inc(uint8_t rate);
 
 void fm_load_patch(uint8_t voice, const fm_patch_t *patch)
 {
