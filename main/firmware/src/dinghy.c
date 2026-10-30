@@ -1022,7 +1022,7 @@ static void draw_wave_page(void)
         p = ap(p, " · "); p = ap(p, PATCHBANK_NAME[patchbank]);
         fit_text(s, 232);
         cv_text(4, 82, &FONT_S, s, UI_LABEL);
-        cv_text(4, 188, &FONT_S, "A: wave · PRESETS browses sound · GLO+EDIT: SOUNDS", UI_DIM);
+        cv_text_wrap(4, 188, 232, &FONT_S, "A: wave · PRESETS browses sound · GLO+EDIT: SOUNDS", UI_DIM);
     }
     cv_blit(0, 34);
 }
@@ -1187,7 +1187,7 @@ static void draw_env_page(void)
         fit_text(s, 232);
         cv_text(4, 24, &FONT_S, s, UI_AMB);
         draw_env_plot(8, 54, 224, 80, &pp);
-        cv_text(4, 188, &FONT_S, "A: attack  B: decay  C: sustain  D: release", UI_DIM);
+        cv_text_wrap(4, 188, 232, &FONT_S, "A: attack  B: decay  C: sustain  D: release", UI_DIM);
     }
     cv_blit(0, 34);
 }
@@ -1231,7 +1231,7 @@ static void draw_save_page(void)
     p = s; p = ap(p, "Action: "); p = ap(p, ACT[action_sel]);
     fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_HI);
-    cv_text(4, 188, &FONT_S, "K1 slot · K4 action · OCT+ go · OCT- back", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 slot · K4 action · OCT+ go · OCT- back", UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_screen(uint32_t playing)
