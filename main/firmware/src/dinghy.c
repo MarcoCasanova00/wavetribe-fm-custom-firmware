@@ -181,7 +181,7 @@ static uint8_t fx_mode; /* 0 off, 1 chorus, 2 delay, 3 chorus+delay */
 static uint8_t view_page;   /* 0 Seq, 1 FX, 2 wave/patch, 3 LFO, 4 Env, 5 Home */
 static uint32_t dirty;
 static uint8_t part_sel;    /* declared here so the edit helpers can use it */
-static uint8_t pal_idx = 1; /* current screen palette (default AMBER) */
+static uint8_t pal_idx = 0; /* current screen palette (default) */
 
 static void drum_trigger(uint32_t d, uint32_t vel)
 {
@@ -365,7 +365,7 @@ static void fm_load_fb01_patch(uint8_t ix)
     p.transpose = 24;
     p.sustain = 0;
     p.cross = (uint8_t)(6 + p.fb * 3);
-    p.drive = (uint8_t)(36 + p.fb * 4);   /* FB-01 voices decode quieter: bring the bank up */
+    p.drive = (uint8_t)(12 + p.fb * 4);
     p.flt_cut = (uint8_t)(88 + (p.op[0].out >> 3));
     p.flt_res = 18;
     p.flt_env = 14;
@@ -389,16 +389,7 @@ static void fm_load_fb01_patch(uint8_t ix)
         p.op[o].out = FM_PATCH_FB01_OUT[ix][o];
         p.op[o].coarse = FM_PATCH_FB01_CRS[ix][o] & 63u;
         p.op[o].fine = 0;
-        p.op[o].det = 3;
-    }
-    /* Per-patch loudness: lift the quiet voices so none is inaudible. */
-    {
-        static const uint8_t CM[8] = { 1, 3, 3, 1, 1, 1, 3, 15 };
-        int32_t cs = 0;
-        uint32_t kk;
-        for (kk = 0; kk < 4u; kk++)
-            if (CM[p.alg & 7u] & (1u << kk)) cs += p.op[kk].out;
-        if (cs > 0 && cs < 170) p.drive += (uint8_t)((170 - cs) >> 2);
+        p.op[o].det = FM_PATCH_FB01_DET[ix][o] & 7u;
     }
     for (v = 0; v < 3u; v++) fm_load_patch(v, &p);
 }
@@ -1081,7 +1072,7 @@ static void app_init(void)
     for (k = 0; k < 27u; k++) held[k] = 0;
 
     lcd_fill(0, 0, 240, 240, C_BG);
-    palette_set(1);                  /* default palette: AMBER */
+    palette_set(0);                  /* default palette: "default" (Abuse look) */
     draw_screen(0);
     last_repaint = 0; saved_ms = 0; dirty = 0;
 }

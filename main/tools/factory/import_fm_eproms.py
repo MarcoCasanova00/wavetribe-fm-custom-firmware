@@ -179,39 +179,75 @@ def ensure_audible(ops: list[dict[str, int]], alg: int):
 
 
 def decode_fb01(data: bytes):
-    """Read the three ROM voice banks (48 patches each)."""
+    """Read the three ROM voice banks (48 patches each).
+
+    FB-01 voice format (64 bytes), per the FB01Editor model:
+      0..6  name (7)
+      7     user code
+      8     LFO speed
+      9     b7 loadLFOData; b0..6 amplitude-mod depth
+      10    b7 LFO sync; b0..6 pitch-mod depth
+      11    bits3..6 operator enable
+      12    b0..2 algorithm; b3..5 feedback; b6 right-out; b7 left-out
+      13    b4..6 pitch-mod sens; b0..1 amp-mod sens
+      14    b5..6 LFO waveform
+      15    transpose (signed)
+      16..  4 x 8-byte operator blocks, stored OP4,OP3,OP2,OP1
+    Operator (8 bytes): b0 total level (0=loudest, inverted); b1 KLS/vel;
+      b2 KLS depth / level adjust; b3 detune1 / multiple; b4 rate-scale / AR;
+      b5 carrier flag / vel / D1R; b6 detune2 / D2R; b7 sustain / RR.
+    """
+    def op(b):
+        total = b[0] & 0x7F
+        return {
+            "ar": b[4] & 0x1F,
+            "d1r": b[5] & 0x0F,
+            "d2r": b[6] & 0x1F,
+            "rr": b[7] & 0x0F,
+            "d1l": (b[7] >> 4) & 0x0F,
+            "ls": (b[2] >> 4) & 0x0F,
+            "kvs": (b[1] >> 4) & 0x07,
+            "ebs": 0,
+            "ame": 0,
+            "out": 99 - min(99, (total * 99) // 127),
+            "crs": b[3] & 0x0F,          # multiple
+            "det": (b[3] >> 4) & 0x07,
+            "rs": (b[4] >> 5) & 0x07,
+        }
     voices = []
-    bases = [0x4380, 0x5BC0, 0x7400]
-    for base in bases:
+    for base in (0x4380, 0x5BC0, 0x7400):
         for i in range(48):
             off = base + 64 * i
             rec = data[off:off + 64]
             if len(rec) < 64:
                 break
-            name = slot_name(rec[:8])
+            name = slot_name(rec[:7])
             if not name or name.lower().startswith("rom"):
                 continue
-            blocks = [decode_op(rec[8 + 10 * k:18 + 10 * k]) for k in range(4)]
-            # The FB-01 lays operators out as OP1..OP4.
-            ops = blocks
-            # Total operator output is sometimes stored with the high bit as
-            # a flag; the low seven bits are the level.  If a voice decodes
-            # silent, lift its loudest operator so every patch is playable.
-            if sum(o["out"] for o in ops) < 12:
-                loud = max(range(4), key=lambda k: ops[k]["ls"])
-                ops[loud]["out"] = 90
-            g = rec[48:64]
-            common = rec[59]
-            alg = common & 0x07
-            ensure_audible(ops, alg)
+            blocks = [op(rec[16 + 8 * k:24 + 8 * k]) for k in range(4)]
+            # ROM stores OP4,OP3,OP2,OP1; the engine wants OP1..OP4.
+            ops = [blocks[3], blocks[2], blocks[1], blocks[0]]
+            alg = rec[12] & 0x07
+            # FB-01 carrier sets; map to an engine algorithm with the same
+            # carriers where possible (engine alg0: OP1 only; alg2: OP1+OP2;
+            # alg7: all four).
+            carriers = ({1}, {1}, {1}, {1}, {1, 3}, {1, 2, 3}, {1, 2, 3}, {1, 2, 3, 4})[alg]
+            if len(carriers) == 1:
+                ealg = 0
+            elif len(carriers) == 2:
+                ealg = 2
+            else:
+                ealg = 7
+            sust = (rec[7] >> 4) & 0x0F
             voices.append({
                 "name": name, "ops": ops,
-                "alg": alg, "fb": (common >> 3) & 0x07,
-                "lfo_speed": g[0] & 0x7F, "lfo_delay": g[1] & 0x7F,
-                "pmd": g[2] & 0x7F, "amd": g[3] & 0x7F,
-                "lfo_wave": g[4] & 0x03, "ams": (g[4] >> 2) & 0x03,
-                "pms": (g[4] >> 4) & 0x07,
-                "transpose": 24, "pb_range": 2, "sustain": 1,
+                "alg": ealg, "fb": (rec[12] >> 3) & 0x07,
+                "lfo_speed": rec[8] & 0x7F, "lfo_delay": 0,
+                "pmd": rec[10] & 0x7F, "amd": rec[9] & 0x7F,
+                "lfo_wave": (rec[14] >> 5) & 0x03,
+                "ams": rec[13] & 0x03, "pms": (rec[13] >> 4) & 0x07,
+                "transpose": 24, "pb_range": 2, "sustain": 0,
+                "_sust": sust,
             })
     return voices
 

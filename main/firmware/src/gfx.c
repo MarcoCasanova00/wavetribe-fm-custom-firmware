@@ -31,13 +31,13 @@ typedef struct {
     uint16_t c[5];
 } palette_t;
 static const palette_t PALETTES[] = {
+    {"default", {RGB(12, 20, 18), RGB(38, 59, 46), RGB(78, 106, 80), RGB(166, 192, 138), RGB(255, 127, 247)}}, /* Abuse (Crack dot Com): olive + magenta glow */
     {"GREEN", {RGB(0, 40, 12), RGB(0, 84, 30), RGB(16, 140, 54), RGB(56, 200, 92), RGB(120, 255, 146)}},
     {"AMBER", {RGB(60, 26, 0), RGB(110, 50, 0), RGB(170, 82, 0), RGB(225, 120, 8), RGB(255, 166, 40)}},
     {"CYAN", {RGB(0, 30, 50), RGB(0, 62, 96), RGB(16, 112, 160), RGB(56, 172, 222), RGB(140, 222, 255)}},
     {"RED", {RGB(52, 8, 8), RGB(100, 18, 14), RGB(170, 36, 26), RGB(226, 64, 48), RGB(255, 112, 92)}},
     {"MONO", {RGB(40, 40, 40), RGB(80, 80, 80), RGB(130, 130, 130), RGB(186, 186, 186), RGB(226, 226, 226)}},
     {"DX", {RGB(16, 46, 46), RGB(26, 90, 92), RGB(40, 150, 152), RGB(56, 210, 212), RGB(66, 245, 245)}},   /* sloopDX: cyan */
-    {"ABUSE", {RGB(12, 20, 18), RGB(38, 59, 46), RGB(78, 106, 80), RGB(166, 192, 138), RGB(255, 127, 247)}}, /* Abuse (Crack dot Com): olive + magenta glow */
     {"ALIEN", {RGB(8, 10, 28), RGB(20, 18, 52), RGB(48, 40, 98), RGB(118, 96, 172), RGB(160, 140, 255)}}, /* Abuse alien blue/violet */
     {"LAVA", {RGB(40, 8, 4), RGB(88, 20, 8), RGB(158, 44, 12), RGB(226, 102, 20), RGB(255, 178, 60)}},    /* Abuse fire/ember */
 };
