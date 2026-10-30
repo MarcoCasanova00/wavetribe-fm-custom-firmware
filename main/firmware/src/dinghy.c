@@ -395,12 +395,23 @@ static void fm_load_fb01_patch(uint8_t ix)
     for (v = 0; v < 3u; v++) fm_load_patch(v, &p);
 }
 
+/* Release every ringing FM voice.  A patch change must not leave the old note
+ * sustaining; GR!MM restarts a track's notes when its sound changes (a fade),
+ * so we release with the voice envelope rather than cutting abruptly.
+ * fm_note_off with note 0 releases the voice regardless of its pitch. */
+static void fm_release_all(void)
+{
+    uint8_t v;
+    for (v = 0; v < 3u; v++) fm_note_off(v, 0);
+}
+
 /* Load a patch from any bank, applying the macro banks where needed. */
 static void load_bank_patch(uint8_t bank, uint8_t ix)
 {
     uint8_t i, q;
     if (bank >= N_PATCHBANKS) bank = 0;
     if (ix >= PATCHBANK_COUNT[bank]) ix = 0;
+    fm_release_all();              /* stop any sounding notes first */
     if (bank == 3u) {
         fm_load_tx81z_patch(ix);
     } else if (bank == 4u) {

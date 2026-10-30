@@ -40,6 +40,8 @@ Knobs 1–4 edit whichever part is selected:
   (`[`) — cycles APP → DX7 → ROM → TX81Z → FB01.
 - **Cycle sound within category:** while GLO is held, turn **PRESETS**.
 - The screen shows the category (bank) name + patch name + `sound n/count`.
+- Changing a sound releases any ringing note (GR!MM-style): the old patch can't
+  keep sustaining after the switch.
 
 ## 6. Global mode (holding GLO)
 With GLO active, the four knobs become:
