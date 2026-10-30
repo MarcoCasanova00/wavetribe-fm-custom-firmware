@@ -337,6 +337,36 @@ static uint32_t midi_clk_acc;  /* frames until next 0xF8 clock pulse */
 static int16_t fx_buf[8192];
 static uint32_t fx_w;
 #define FX_MASK 8191u
+
+/* ---- live performance FX (Bunker-style) -------------------------------------
+ * Hold FX and press a key to momentarily trigger a whole-mix effect. White/black
+ * keys F3..C4 are the main row; D4 / E4 are extra REV / ECHO throws. While the
+ * key (or FX) is held the effect runs; release returns to normal audio. */
+#define PERF_NONE  0xFFu
+#define PERF_STUT  0u
+#define PERF_REV   1u
+#define PERF_ECHO  2u
+#define PERF_TAPE  3u
+#define PERF_CRSH  4u
+#define PERF_GATE  5u
+#define PERF_SWEEP 6u
+#define PERF_HALF  7u
+
+static uint8_t perf_fx = PERF_NONE;
+static uint32_t perf_w;       /* loop/reverse window length */
+static uint32_t perf_pos;     /* progress inside the active effect */
+static uint32_t perf_ph;      /* gate/crush phase */
+static int32_t  perf_y;       /* sweep filter / hold state */
+static uint32_t perf_a;       /* sweep coefficient (Q16) */
+static int32_t  perf_gain = 256;
+
+static const char *perf_name(void)
+{
+    static const char *const N[8] = {
+        "STUT", "REV", "ECHO", "TAPE", "CRUSH", "GATE", "SWEEP", "HALF"
+    };
+    return perf_fx < 8u ? N[perf_fx] : "-";
+}
 static int16_t lfo_phase;
 
 /* A neutral 4-op patch used by the APP / DX7 / ROM macro banks. */
@@ -623,6 +653,113 @@ static void edit_env(uint8_t k, int32_t e)
 
 static uint8_t run, bpm;
 
+static uint32_t perf_window(void)
+{
+    uint32_t spp = bpm ? (uint32_t)bpm : 120u;
+    uint32_t w = (44100u * 60u) / (spp * 4u);    /* one 16th note */
+    if (w > 4096u) w = 4096u;
+    if (w < 256u) w = 256u;
+    return w;
+}
+
+static void perf_trigger(uint8_t k)
+{
+    static const uint8_t MAP[27] = {
+        PERF_STUT, PERF_REV, PERF_ECHO, PERF_TAPE, PERF_CRSH, PERF_GATE,
+        PERF_SWEEP, PERF_HALF, PERF_NONE, PERF_REV, PERF_NONE, PERF_ECHO,
+        PERF_NONE, PERF_NONE, PERF_NONE, PERF_NONE, PERF_NONE, PERF_NONE,
+        PERF_NONE, PERF_NONE, PERF_NONE, PERF_NONE, PERF_NONE, PERF_NONE,
+        PERF_NONE, PERF_NONE, PERF_NONE
+    };
+    uint8_t fx;
+    if (k >= 27u) return;
+    fx = MAP[k];
+    if (fx >= 8u) return;
+    perf_fx = fx;
+    perf_w = perf_window();
+    perf_pos = 0;
+    perf_ph = 0;
+    perf_y = 0;
+    perf_a = 700u;
+    perf_gain = 0;
+    dirty = 1;
+}
+
+static void perf_clear(void)
+{
+    if (perf_fx != PERF_NONE) { perf_fx = PERF_NONE; dirty = 1; }
+}
+
+/* Apply the momentary performance effect to one block of stereo audio. */
+static void perf_fx_block(int32_t *out, uint32_t n)
+{
+    uint32_t i;
+    if (perf_gain < 256) { perf_gain += 24; if (perf_gain > 256) perf_gain = 256; }
+    for (i = 0; i < n; i++) {
+        int32_t x = (int32_t)out[2u * i];
+        fx_buf[fx_w] = (int16_t)x;
+        fx_w = (fx_w + 1u) & FX_MASK;
+        switch (perf_fx) {
+        case PERF_STUT: {
+            uint32_t W = perf_w;
+            if (perf_pos >= W) {
+                uint32_t base = (fx_w - W) & FX_MASK;
+                x = (int32_t)fx_buf[(base + (perf_pos % W)) & FX_MASK];
+            }
+            perf_pos++;
+            break;
+        }
+        case PERF_REV: {
+            uint32_t off = (fx_w - 1u - (perf_pos % perf_w)) & FX_MASK;
+            x = (x + (int32_t)fx_buf[off]) >> 1;
+            perf_pos++;
+            break;
+        }
+        case PERF_ECHO: {
+            int32_t e = (int32_t)fx_buf[(fx_w - perf_w) & FX_MASK];
+            x += e >> 1;
+            break;
+        }
+        case PERF_TAPE: {
+            uint32_t speed = 256u - ((perf_pos * 256u) / 9000u);
+            if (speed > 256u) speed = 256u;
+            x = (int32_t)fx_buf[(fx_w - ((perf_pos * (speed + 1u)) >> 8)) & FX_MASK];
+            perf_pos++;
+            break;
+        }
+        case PERF_CRSH: {
+            if ((perf_ph++ % 12u) == 0u) perf_y = x;
+            x = perf_y & ~0x0FFF;
+            break;
+        }
+        case PERF_GATE: {
+            if (perf_ph >= perf_w) perf_ph = 0;
+            x = (perf_ph < (perf_w >> 1)) ? x : (x >> 2);
+            perf_ph++;
+            break;
+        }
+        case PERF_SWEEP: {
+            if (perf_a < 32000u) perf_a += 4u;
+            perf_y += ((int32_t)perf_a * (x - perf_y)) >> 16;
+            x = perf_y;
+            break;
+        }
+        case PERF_HALF: {
+            if ((perf_pos & 1u) == 0u)
+                perf_y = (int32_t)fx_buf[(fx_w - (perf_pos >> 1)) & FX_MASK];
+            x = perf_y;
+            perf_pos++;
+            break;
+        }
+        default: break;
+        }
+        x = (x * perf_gain) >> 8;
+        if (x > 32767) x = 32767; else if (x < -32768) x = -32768;
+        out[2u * i] = (int16_t)x;
+        out[2u * i + 1u] = (int16_t)x;
+    }
+}
+
 /* --- the event queue between the main loop and the audio ISR --- */
 #define EVQN 48u
 enum { EV_NONE, EV_DRUM, EV_NOTEON, EV_NOTEOFF };
@@ -710,7 +847,9 @@ static void app_audio(int32_t *out, uint32_t n)
         }
     }
     /* --- simple global effect chain (no FPU) --- */
-    if (fx_mode == 4u) {
+    if (perf_fx != PERF_NONE) {
+        perf_fx_block(out, n);
+    } else if (fx_mode == 4u) {
         /* stutter: capture one 8192-sample window, then replay it twice
          * (SP-202/303-style loop roll). */
         uint32_t i, W = FX_MASK + 1u;
@@ -1372,7 +1511,11 @@ static void draw_fx_page(void)
     p = s; p = ap(p, "Clock: "); p = apu(p, bpm); p = ap(p, " BPM | 1/16 | sw"); p = apu(p, swing); p = ap(p, "%");
     fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_LABEL);
-    cv_text_wrap(4, 188, 232, &FONT_S, "K1 tempo | K2 swing | K3 accent | K4 page | FX key cycles modes", UI_DIM);
+    if (perf_fx != PERF_NONE) {
+        p = s; p = ap(p, "PERF: "); p = ap(p, perf_name()); fit_text(s, 232);
+        cv_text(4, 78, &FONT_S, s, PP_Y);
+    }
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 tempo | K2 swing | K3 accent | K4 page | hold FX + keys = moment FX", UI_DIM);
     cv_text(4, 188, &FONT_S, s, UI_DIM);
     cv_blit(0, 34);
 }
@@ -1985,6 +2128,7 @@ static void app_tick(void)
             fx_mode = (uint8_t)((fx_mode + 1u) % 5u);
             goto_page(1);
         }
+        if (rel & (1u << BTN_FX)) perf_clear();   /* live FX layer ends */
         if (b & (1u << BTN_SEQ)) {
             goto_page(glomode ? 10u : 0u);   /* GLO+SEQ = EUCLID page */
         }
@@ -2235,7 +2379,8 @@ static void app_tick(void)
                 if ((down >> k & 1u) && k == 0) { pattern_clear(); dirty = 1; }
             } else {
                 if (down >> k & 1u) {
-                    if (glomode && k < 16u) { func_command((uint8_t)k); }   /* Volca-style FUNC */
+                    if (fm1_in.buttons & (1u << BTN_FX)) { perf_trigger((uint8_t)k); }   /* live FX layer */
+                    else if (glomode && k < 16u) { func_command((uint8_t)k); }   /* Volca-style FUNC */
                     else if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, 110);
                     else {
                         held[k] = (uint8_t)(36 + k); heldp[k] = part_sel;

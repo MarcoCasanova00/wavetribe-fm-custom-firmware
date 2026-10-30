@@ -107,6 +107,19 @@ Mode cycles with the FX key: **OFF → CHORUS → ECHO → COMBO → STUT** (STU
 SP-202/303-style stutter: it captures a window and replays it twice). MIDI OUT
 toggle and clock readout also live here. As in §2, the knobs edit the transport.
 
+**Live FX layer (performance):** hold **FX** and press a key to momentarily
+trigger a whole-mix effect — release (key or FX) to return to normal audio:
+
+| Key | Effect | Key | Effect |
+|-----|--------|-----|--------|
+| F3 | Stutter (16th loop roll) | A3 | Bitcrush (4-bit hold) |
+| F#3 | Reverse throw | A#3 | Gate (16th square) |
+| G3 | Echo throw | B3 | Filter sweep (LP climb) |
+| G#3 | Tape stop | C4 | Half speed (octave down) |
+| D4 / E4 | REV / ECHO throws | | |
+
+While an effect is running its name shows on the FX page (`PERF: …`).
+
 
 
 ---
@@ -197,7 +210,7 @@ Clock (24 ppqn), Start and Stop are emitted over USB + TRS when MIDI OUT is on.
 
 **Combos:** GLO+ARP = COMPOSE · GLO+SEQ = EUCLID · GLO+PLAY = drift ·
 GLO+EDIT = SOUNDS · GLO+REC = load slot · GLO+OCT− = category ·
-GLO+step keys = FUNC commands.
+GLO+step keys = FUNC commands · hold FX + keys = momentary live FX.
 
 ---
 

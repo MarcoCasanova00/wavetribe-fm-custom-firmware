@@ -288,7 +288,8 @@ void fm_set_vca(uint8_t voice, uint8_t ar, uint8_t dr, uint8_t sus, uint8_t rr)
 void fm_set_oscmode(uint8_t voice, uint8_t mode)
 {
     if (voice >= FM_MAX_VOICES) return;
-    fm_voices[voice].oscmode = mode & 3u;
+    if (mode > 4u) mode = 4u;
+    fm_voices[voice].oscmode = mode;
 }
 
 void fm_get_patch(uint8_t voice, fm_patch_t *out)

@@ -1,0 +1,17 @@
+# Live performance FX layer (Bunker-style): hold FX + keys = momentary effects.
+# F3..C4: STUT REV ECHO TAPE CRUSH GATE SWEEP HALF; D4/E4 REV/ECHO throws.
+100 btn 2          # open FX page
+200 btn 12         # PLAY
+
+300 btndown 2      # hold FX (enter live FX layer)
+400 keys 0x0001    # F3 -> STUT
+600 shot
+800 keys 0x0002    # F#3 -> REV
+1000 shot
+1200 keys 0x0010   # A3 -> CRUSH
+1400 shot
+1600 keys 0        # release keys (still holding FX)
+1800 btnup 2       # release FX -> layer ends
+2000 shot
+2200 btn 12        # STOP
+2700 end
