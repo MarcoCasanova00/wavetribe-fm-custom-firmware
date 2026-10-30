@@ -1,5 +1,7 @@
 # Frankentribe OS — FM-1 Groovebox Firmware
 
+TRY IT LIVE: https://marcocasanova00.github.io/wavetribe-fm-custom-firmware/
+
 <p align="center">
   <img src="docs/logo.png" width="192" height="208" alt="Frankentribe OS logo">
 </p>
@@ -79,7 +81,7 @@ record survives; a damaged package leaves the loader waiting). `bootguard.h`
 adds a recovery/ROM fallback after repeated failed boots. Rollback to stock
 remains possible (its resources are kept and protected).
 
-Live (hard-refresh `Ctrl+Shift+R`): https://MarcoCasanova00.github.io/frankentribe-os/
+Live (hard-refresh `Ctrl+Shift+R`): [https://MarcoCasanova00.github.io/frankentribe-os/](https://marcocasanova00.github.io/wavetribe-fm-custom-firmware/)
 
 ---
 *Brand: FRA N K E N T R I B E OS — built from scraps, redeems nothing.*
