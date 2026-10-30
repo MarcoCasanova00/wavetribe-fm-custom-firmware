@@ -1399,13 +1399,13 @@ static void draw_header(uint32_t playing)
     /* face badge (left) + brand on the strip */
     draw_franken(3, 2, 15, 18);
     cv_text(23, 1, &FONT_S, "FRANKENTRIBE OS", PP_INK);
-    /* tempo pill (right) */
+    /* tempo pill (right): large, bold, distinct from the banner frame */
     {
         char *p = ap(s, "");
         p = apu(p, bpm);
         p = ap(p, "BPM");
-        pp_panel(184, 1, 52, 10, playing ? PP_W : PP_PANEL, PP_INK);
-        cv_text(188, 2, &FONT_S, s, playing ? PP_INK : PP_W);
+        pp_panel(176, 2, 60, 13, playing ? PP_G : PP_PANEL, PP_INK);
+        cv_text(182, 3, &FONT_B, s, playing ? PP_INK : PP_W);
     }
     /* line 2: pattern name + genre, centred and clamped to the width */
     i = pat_sel < N_CATALOG ? pat_sel : N_CATALOG - 1u;
