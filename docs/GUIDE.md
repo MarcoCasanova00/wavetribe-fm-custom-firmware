@@ -127,7 +127,24 @@ synth parts, channel 10 = drums) the CC map is:
 | 95 | Seed (1–255) — generates live |
 | 96 | Density (0–127) — generates live |
 
-## 13. EUCLID — rhythm generator
+## 13. Volca-style FUNC keys
+Hold **GLO** (latch) and press the first 16 white keys — like a Volca's step keys —
+to run grid-key shortcuts instead of playing notes:
+
+| Key | Command | Key | Command |
+|-----|---------|-----|---------|
+| F3 (0) | Clear pattern | F#4 (8) | — |
+| F#3 (1) | Save → slot | G4 (9) | — |
+| G3 (2) | Load ← slot | G#4 (10) | — |
+| G#3 (3) | Pattern − | A4 (11) | — |
+| A3 (4) | Pattern + | A#4 (12) | — |
+| A#3 (5) | Copy pattern | B4 (13) | — |
+| B3 (6) | Paste pattern | C5 (14) | — |
+| C4 (7) | Step mode (REC) | C#5 (15) | — |
+
+Unlatch GLO to play the keys normally.
+
+## 14. EUCLID — rhythm generator
 Hold **GLO + SEQ** to open the EUCLID page: it writes a **Euclidean rhythm** (evenly spaced
 hits, the classic algorithmic pattern) onto the selected part's gates.
 - **KNOB1** = steps (4–64) · **KNOB2** = hits (1–steps) · **KNOB3** = rotation.

@@ -743,6 +743,7 @@ static uint8_t mute[NPART];
 static uint16_t snd_mem[NPART];   /* per-part sound browse cursor (GR!MM-style) */
 static uint8_t hold_note[NPART];       /* the note each tonal part is sustaining from the sequencer */
 static uint8_t part_oscmode[NPART];    /* per-part osc mode: 0 normal, 1 sync, 2 ring */
+static uint8_t held[27];               /* live note keys (for chord-follow) */
 static uint16_t step_cur;            /* the step being played (0..63) */
 static uint32_t next_step_ms, step_ms;
 
@@ -802,6 +803,7 @@ static uint32_t gen_rng;
 static uint8_t gen_undo[NPART][NSTEP];  /* last pattern snapshot (OCT- undo) */
 static uint8_t gen_undo_ok;
 static uint8_t gen_drift;               /* 0 off, 1 on, 2 locked (GLO+PLAY cycles) */
+static uint8_t gen_follow;              /* chord-follow on COMPOSE (ARP toggles) */
 
 /* Euclidean rhythm (Björklund-style balanced spacing) write helpers. */
 static uint8_t eu_steps, eu_hits, eu_rot;
@@ -899,8 +901,9 @@ static const struct genre_profile GENRE_PROFILE[N_GENRE] = {
     { "ACID",   31, SCALE_HARMONIC_MINOR, 7, PROG_ACID, 4, GRID_ACID_BASS,    GRID_ACID_LEAD,    0, 0, 140, 18, 60, 2, ARP_UD,   1 },
 };
 
-/* Fill the three synth rows + the lead arp bank from a profile (notes only). */
-static void genre_fill(const struct genre_profile *q)
+/* Fill the three synth rows + the lead arp bank from a profile (notes only).
+ * tonic may differ from the profile's (chord-follow). */
+static void genre_fill(const struct genre_profile *q, uint8_t tonic)
 {
     uint8_t base[4], bar, s, k, note, cidx, den;
 
@@ -908,9 +911,9 @@ static void genre_fill(const struct genre_profile *q)
         uint16_t st;
         /* triad rooted at prog[bar % nprog] (scale degree), voiced in the bass register */
         cidx = q->prog[(bar % q->nprog) * 3u];
-        base[0] = (uint8_t)(q->tonic + q->scale[cidx % q->nscale]);
-        base[1] = (uint8_t)(q->tonic + q->scale[(cidx + 2u) % q->nscale]);
-        base[2] = (uint8_t)(q->tonic + q->scale[(cidx + 4u) % q->nscale]);
+        base[0] = (uint8_t)(tonic + q->scale[cidx % q->nscale]);
+        base[1] = (uint8_t)(tonic + q->scale[(cidx + 2u) % q->nscale]);
+        base[2] = (uint8_t)(tonic + q->scale[(cidx + 4u) % q->nscale]);
         base[3] = (uint8_t)(base[0] + 12);
 
         /* lead arp bank: play the generated chord an octave up */
@@ -925,7 +928,7 @@ static void genre_fill(const struct genre_profile *q)
             st = (uint16_t)(bar * 16u + s);
             if (q->bass_grid[s]) {
                 uint8_t r = gen_rnd(100);
-                note = (uint8_t)(q->tonic + 12u * q->bass_oct);
+                note = (uint8_t)(tonic + 12u * q->bass_oct);
                 if (r < 65) note += q->scale[0];
                 else if (r < 85) note += q->scale[gen_rnd(q->nscale)];
                 else note = (uint8_t)(note + q->scale[gen_rnd(q->nscale)] + 12);
@@ -948,14 +951,32 @@ static void genre_fill(const struct genre_profile *q)
     dirty = 1;
 }
 
+/* Lowest pitch class of the held keys (255 when nothing is held). */
+static uint8_t chord_root_pc(void)
+{
+    uint8_t k, low = 255;
+    for (k = 0; k < 27u; k++)
+        if (held[k]) { uint8_t pc = (uint8_t)(held[k] % 12u); if (pc < low) low = pc; }
+    return low;
+}
+
 static void genre_generate(uint8_t g)
 {
     const struct genre_profile *q;
     uint32_t k, s, seed;
+    uint8_t ton;
 
     if (g >= N_GENRE) g = 0;
     q = &GENRE_PROFILE[g];
     gen_genre = g;
+    ton = q->tonic;
+    if (gen_follow) {          /* chord-follow: root from the held keys */
+        uint8_t pc = chord_root_pc();
+        if (pc < 12u) {
+            ton = (uint8_t)(24 + pc);
+            if (ton > 48) ton -= 12;
+        }
+    }
 
     seed = (uint32_t)pat_sel << 20 | (uint32_t)g << 12 | (uint32_t)gen_density << 5
          | (gen_seed & 31u) | 0x9E3779B9u;
@@ -977,7 +998,7 @@ static void genre_generate(uint8_t g)
     for (k = NDRUM; k < NPART; k++)
         for (s = 0; s < NSTEP; s++) pat.notes[k][s] = 0;
 
-    genre_fill(q);
+    genre_fill(q, ton);
 }
 
 /* Live drift: bump the seed and re-fill the notes only, once per bar while
@@ -994,7 +1015,7 @@ static void genre_drift(void)
     seed = (uint32_t)pat_sel << 20 | (uint32_t)gen_genre << 12
          | (uint32_t)gen_density << 5 | (gen_seed & 31u) | 0x9E3779B9u;
     gen_rng = seed ? seed : 1u;
-    genre_fill(q);
+    genre_fill(q, q->tonic);
 }
 
 /* Restore the last generated pattern (one-step undo). */
@@ -1123,6 +1144,25 @@ static void pattern_clear(void)
     memset(pat.gates, 0, sizeof pat.gates);
     memset(pat.notes, 0, sizeof pat.notes);
     step_cur = 0;
+}
+
+/* Volca-style FUNC commands: with GLO latched, the first 16 white keys run
+ * classic grid-key shortcuts instead of playing notes (key 0 = F3). */
+static struct pat func_clip;
+static void func_command(uint8_t k)
+{
+    switch (k) {
+    case 0:  pattern_clear(); break;                      /* CLEAR */
+    case 1:  user_save_slot(slot_sel); break;             /* SAVE -> slot */
+    case 2:  user_load_slot(slot_sel); break;             /* LOAD <- slot */
+    case 3:  pat_sel = (uint8_t)((pat_sel + N_DEMO_PAT - 1u) % N_DEMO_PAT); pattern_load(pat_sel); break;  /* PATTERN - */
+    case 4:  pat_sel = (uint8_t)((pat_sel + 1u) % N_DEMO_PAT); pattern_load(pat_sel); break;                   /* PATTERN + */
+    case 5:  memcpy(&func_clip, &pat, sizeof pat); break; /* COPY */
+    case 6:  memcpy(&pat, &func_clip, sizeof pat); break; /* PASTE */
+    case 7:  write_arm = !write_arm; if (write_arm) release_held_keys(); break;  /* STEP MODE */
+    default: break;
+    }
+    dirty = 1;
 }
 
 /* GR!MM-style SAVE page state: action + selected slot. */
@@ -1537,6 +1577,9 @@ static void draw_compose_page(void)
     p = s; p = ap(p, "Drift: "); p = ap(p, (const char *[]){"OFF","ON","LOCK"}[gen_drift % 3u]);
     p = ap(p, "  (GLO+PLAY)"); fit_text(s, 232);
     cv_text(4, 96, &FONT_S, s, UI_LABEL);
+    p = s; p = ap(p, "ChordFollow: "); p = ap(p, gen_follow ? "ON" : "OFF");
+    p = ap(p, "  (ARP)"); fit_text(s, 232);
+    cv_text(4, 112, &FONT_S, s, UI_LABEL);
     cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 oct | OCT+ build | OCT- undo | GLO+PLAY drift", UI_DIM);
     cv_blit(0, 34);
 }
@@ -1701,7 +1744,6 @@ static void seq_tick(void)
 static void app_idle(void) { if (idle_ok) { /* nothing to do here: sequencer runs on the main loop */ } }
 
 static uint32_t prev_keys, last_step = 0xFFFFu, last_pat = 0xFFFFu;
-static uint8_t held[27];
 static uint8_t heldp[27];           /* the part each held key belongs to */
 
 /* Release every manually-held keyboard note (routed to the part that owns
@@ -1750,7 +1792,7 @@ static void app_init(void)
     fm_sync_macros();
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
     gen_genre = DEMO_GENRE[pat_sel % N_DEMO_PAT];
-    gen_seed = 0; gen_density = 60; gen_oct = 1; gen_drift = 0;
+    gen_seed = 0; gen_density = 60; gen_oct = 1; gen_drift = 0; gen_follow = 0;
     eu_steps = 16; eu_hits = 4; eu_rot = 0;
     step_ms = 15000u / (bpm ? bpm : 128u);
     drum_kit = 1;   /* default to the TR-808 kit (full-bodied); APP is thinner */
@@ -1921,8 +1963,9 @@ static void app_tick(void)
             goto_page(5);               /* HOME: system + colour selector */
         }
         if (b & (1u << BTN_ARP)) {
-            if (glomode) goto_page(9);   /* GLO+ARP opens COMPOSE */
-            else goto_page(8);            /* ARP alone: open ARPEGGIATOR */
+            if (view_page == 9 && !glomode) { gen_follow = !gen_follow; dirty = 1; }  /* chord-follow toggle */
+            else if (glomode) goto_page(9);   /* GLO+ARP opens COMPOSE */
+            else goto_page(8);                /* ARP alone: open ARPEGGIATOR */
         }
 
         /* --- encoders --- */
@@ -2105,7 +2148,8 @@ static void app_tick(void)
                 if ((down >> k & 1u) && k == 0) { pattern_clear(); dirty = 1; }
             } else {
                 if (down >> k & 1u) {
-                    if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, 110);
+                    if (glomode && k < 16u) { func_command((uint8_t)k); }   /* Volca-style FUNC */
+                    else if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, 110);
                     else {
                         held[k] = (uint8_t)(36 + k); heldp[k] = part_sel;
                         if (arp_on[part_sel]) arp_collate_note(part_sel, held[k]);

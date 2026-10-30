@@ -82,5 +82,26 @@
 12600 shot
 12700 btn 11        # SEQ -> back to sequencer page
 
-12800 btn 12        # STOP
-13500 end
+# --- 9) chord-follow: open COMPOSE, then hold C (pc 0), enable, build ---
+12900 btn 7          # GLO latch
+13000 btn 10         # ARP -> COMPOSE
+13100 btn 7         # GLO unlatch
+13250 keys 0x1001   # hold C2 (bit 0) + C3 (bit 12): root pc 0
+13300 btn 10         # ARP -> chord-follow ON
+13400 btn 1         # OCT+ -> build (root C => bass 24/36)
+13500 shot
+14500 btn 0         # OCT- -> undo
+14600 keys 0        # release keys
+
+# --- 10) Volca-style FUNC: GLO + step keys ---
+14700 btn 7          # GLO latch
+14800 keys 0x0002   # key 1 -> FUNC SAVE slot
+14900 keys 0x0010   # key 4 -> FUNC PATTERN +
+15000 keys 0x0020   # key 5 -> FUNC COPY
+15100 keys 0x0040   # key 6 -> FUNC PASTE
+15200 keys 0        # release keys
+15300 btn 7         # GLO unlatch
+15400 shot
+
+15500 btn 12        # STOP
+16200 end
