@@ -79,17 +79,27 @@ Stop (0xFC) on the USB + TRS outlets.
 - The knobs edit the transport right on this page — **KNOB1 = tempo** (60–250 BPM),
   KNOB2 = swing, KNOB3 = accent, KNOB4 = loop length (no need to enter GLO).
 
-## 10. GEN — generative genre engine
-- Open the **GEN** page with the **ARP** key, or hold **GLO + ARP** to generate instantly without leaving the page you're on.
-- **KNOB1** picks the genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO — and regenerates live.
-- **KNOB2** bumps the variation seed (regenerates live). **KNOB3** adjusts note density.
-  **KNOB4** sets the octave spread (LO / MID / HI).
-- **OCT+** generates a fresh pattern; **OCT−** returns to SEQ.
-- Generating also applies **genre-appropriate defaults**: BPM, swing, accent, FX mode, and the lead part's arp mode/rate — the generated chord is fed into the arpeggiator automatically, so switching on ARP arpeggiates it.
-- The engine is **deterministic**: the same genre/seed/density always yields the same pattern, so you can find a variation you like and return to it.
-- Notes: generated chord tones are a block triad across three consecutive steps (parts are monophonic), and the genre state (genre/seed/density) is **not persisted** — it resets on boot.
+## 10. ARPEGGIATOR
+The **ARP** button (key `9`) opens the arpeggiator page for the selected synth part (5–7):
+- **KNOB1** — on/off · **KNOB2** — mode (UP / DN / UD / RND / CHD)
+- **KNOB3** — octaves (0–3) · **KNOB4** — rate (x1 / x2 / x4)
+- **OCT+** also toggles on/off; **OCT−** returns to SEQ.
+- Hold keys (or play MIDI notes) into that part to feed the arp its notes — while running,
+  those notes override the step pattern for the part. When COMPOSE builds a chord, the lead
+  part's arp bank is pre-loaded with it.
 
-## 11. MIDI control (external)
+## 11. COMPOSE — auto-compose
+Hold **GLO + ARP** (press **GLO**, then **ARP**) to open the COMPOSE page:
+- **KNOB1** picks the genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO — and regenerates live.
+- **KNOB2** bumps the variation seed (live) · **KNOB3** note density · **KNOB4** octave spread (LO / MID / HI).
+- **OCT+** builds a fresh pattern; **OCT−** returns to SEQ.
+- Building applies **genre defaults**: BPM, swing, accent, FX mode and the lead arp flavour
+  (the bottom line previews them).
+- Deterministic: the same genre/seed/density always yields the same pattern.
+- Notes: generated chord tones are a block triad across three consecutive steps (parts are
+  monophonic); genre state (genre/seed/density) is NOT persisted — it resets on boot.
+
+## 12. MIDI control (external)
 Drive the box over MIDI (USB / TRS). In addition to notes (channels 1–3 = the three
 synth parts, channel 10 = drums) the CC map is:
 

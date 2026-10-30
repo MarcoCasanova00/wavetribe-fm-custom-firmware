@@ -1397,12 +1397,38 @@ static const char *genre_name(uint8_t g)
     return g < N_GENRE ? N[g] : "??";
 }
 
-static void draw_gen_page(void)
+static void draw_arp_page(void)
+{
+    char s[48]; char *p = s;
+    uint8_t r = arp_rate[part_sel], ridx = r == 1 ? 0u : (r == 2 ? 1u : 2u);
+    static const char *const RL[3] = { "x1", "x2", "x4" };
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "ARPEGGIATOR", UI_HI);
+    cv_rect(0, 18, 240, 1, UI_PANEL);
+    p = s; p = ap(p, PNAME[part_sel]); p = ap(p, ": "); p = ap(p, arp_on[part_sel] ? "ON" : "OFF");
+    fit_text(s, 232);
+    cv_text(4, 24, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "Mode "); p = ap(p, arp_mode_name(arp_mode[part_sel]));
+    p = ap(p, "   Oct "); p = apu(p, arp_oct[part_sel]);
+    p = ap(p, "   Rate "); p = ap(p, RL[ridx]);
+    fit_text(s, 232);
+    cv_text(4, 44, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "Hold keys (or play MIDI) to feed notes.");
+    fit_text(s, 232);
+    cv_text(4, 64, &FONT_S, s, UI_LABEL);
+    p = s; p = ap(p, "GLO+ARP opens COMPOSE (auto pattern).");
+    fit_text(s, 232);
+    cv_text(4, 82, &FONT_S, s, UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 on/off | K2 mode | K3 oct | K4 rate | OCT+ toggle | OCT- back", UI_DIM);
+    cv_blit(0, 34);
+}
+
+static void draw_compose_page(void)
 {
     char s[48]; char *p = s;
     static const char *const OCTLAB[3] = { "LO", "MID", "HI" };
     cv_begin(240, 206, UI_BG);
-    cv_text(4, 2, &FONT_S, "GENERATIVE", UI_HI);
+    cv_text(4, 2, &FONT_S, "COMPOSE", UI_HI);
     cv_rect(0, 18, 240, 1, UI_PANEL);
     p = s; p = ap(p, "Genre: "); p = ap(p, genre_name(gen_genre));
     fit_text(s, 232);
@@ -1412,14 +1438,13 @@ static void draw_gen_page(void)
     fit_text(s, 232);
     cv_text(4, 42, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "Octave: "); p = ap(p, OCTLAB[gen_oct % 3u]);
-    p = ap(p, "  BPM "); p = apu(p, bpm); p = ap(p, " sw"); p = apu(p, swing); p = ap(p, "%");
     fit_text(s, 232);
     cv_text(4, 60, &FONT_S, s, UI_LABEL);
-    p = s; p = ap(p, "FX "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
-    p = ap(p, "  Arp "); p = ap(p, arp_mode_name(arp_mode[GEN_LEAD]));
+    p = s; p = ap(p, "Build applies: "); p = apu(p, bpm); p = ap(p, " BPM | sw"); p = apu(p, swing);
+    p = ap(p, "% | FX "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
     fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_LABEL);
-    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 octave | OCT+ new | OCT- back", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 octave | OCT+ build | OCT- back", UI_DIM);
     cv_blit(0, 34);
 }
 
@@ -1461,7 +1486,9 @@ static void draw_screen(uint32_t playing)
     } else if (view_page == 7) {
         draw_sounds_page();
     } else if (view_page == 8) {
-        draw_gen_page();
+        draw_arp_page();
+    } else if (view_page == 9) {
+        draw_compose_page();
     } else {
         draw_parts();
         draw_footer(playing);
@@ -1725,8 +1752,10 @@ static void app_tick(void)
                 if (action_sel == 0) user_load_slot(slot_sel);
                 else if (action_sel == 1) user_save_slot(slot_sel);
                 else user_clear_slot(slot_sel);
+            } else if (view_page == 9) {
+                genre_generate(gen_genre);   /* COMPOSE: OCT+ builds */
             } else if (view_page == 8) {
-                genre_generate(gen_genre);   /* GEN: OCT+ generates */
+                arp_on[part_sel] = !arp_on[part_sel];   /* ARP: OCT+ toggles */
             } else {
                 midi_out = !midi_out;
             }
@@ -1738,7 +1767,7 @@ static void app_tick(void)
         if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 6) {
             goto_page(5);               /* back out to HOME */
         }
-        if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 8) {
+        if (b & (1u << BTN_OCT_DOWN) && !glomode && (view_page == 8 || view_page == 9)) {
             goto_page(0);               /* back out to SEQ */
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
@@ -1758,8 +1787,8 @@ static void app_tick(void)
             goto_page(5);               /* HOME: system + colour selector */
         }
         if (b & (1u << BTN_ARP)) {
-            if (glomode) genre_generate(gen_genre);   /* GLO+ARP generates */
-            else goto_page(8);                         /* ARP alone: open the GEN page */
+            if (glomode) goto_page(9);   /* GLO+ARP opens COMPOSE */
+            else goto_page(8);            /* ARP alone: open ARPEGGIATOR */
         }
 
         /* --- encoders --- */
@@ -1799,7 +1828,11 @@ static void app_tick(void)
                 dirty = 1;
             }
             e = fm1_enc_take(ENC_KNOB1);
-            if (e && view_page == 8) {   /* GEN: KNOB1 picks the genre (live) */
+            if (e && view_page == 8) {   /* ARP: KNOB1 on/off */
+                arp_on[part_sel] = !arp_on[part_sel];
+                dirty = 1;
+            }
+            else if (e && view_page == 9) {   /* COMPOSE: KNOB1 genre (live) */
                 int32_t ng = (int32_t)gen_genre + e;
                 gen_genre = (uint8_t)((ng % N_GENRE + N_GENRE) % N_GENRE);
                 genre_generate(gen_genre);
@@ -1831,7 +1864,11 @@ static void app_tick(void)
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(0, e);
             else if (e) { int32_t c = part_prm[part_sel][0] + e; part_prm[part_sel][0] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB2);
-            if (e && view_page == 8) {   /* GEN: KNOB2 bumps the seed (live) */
+            if (e && view_page == 8) {   /* ARP: KNOB2 mode */
+                arp_mode[part_sel] = (uint8_t)((arp_mode[part_sel] + 1u) % 5u);
+                dirty = 1;
+            }
+            else if (e && view_page == 9) {   /* COMPOSE: KNOB2 seed (live) */
                 gen_seed = (uint8_t)(gen_seed + (int32_t)e);
                 genre_generate(gen_genre);
             }
@@ -1854,7 +1891,12 @@ static void app_tick(void)
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(1, e);
             else if (e) { int32_t c = part_prm[part_sel][1] + e; part_prm[part_sel][1] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB3);
-            if (e && view_page == 8) {   /* GEN: KNOB3 density (live) */
+            if (e && view_page == 8) {   /* ARP: KNOB3 octaves */
+                int32_t o = (int32_t)arp_oct[part_sel] + (e > 0 ? 1 : -1);
+                arp_oct[part_sel] = (uint8_t)(o < 0 ? 0 : o > 3 ? 3 : o);
+                dirty = 1;
+            }
+            else if (e && view_page == 9) {   /* COMPOSE: KNOB3 density (live) */
                 int32_t d = (int32_t)gen_density + e;
                 gen_density = (uint8_t)(d < 0 ? 0 : d > 127 ? 127 : d);
                 genre_generate(gen_genre);
@@ -1869,7 +1911,13 @@ static void app_tick(void)
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(2, e);
             else if (e) { int32_t c = part_prm[part_sel][2] + e; part_prm[part_sel][2] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB4);
-            if (e && view_page == 8) {   /* GEN: KNOB4 octave spread */
+            if (e && view_page == 8) {   /* ARP: KNOB4 rate 1/2/4 */
+                uint8_t r = arp_rate[part_sel], ridx = r == 1 ? 0u : (r == 2 ? 1u : 2u);
+                ridx = (uint8_t)((ridx + 1u) % 3u);
+                arp_rate[part_sel] = (uint8_t[]){ 1, 2, 4 }[ridx];
+                dirty = 1;
+            }
+            else if (e && view_page == 9) {   /* COMPOSE: KNOB4 octave spread */
                 int32_t oc = (int32_t)gen_oct + e;
                 gen_oct = (uint8_t)((oc % 3 + 3) % 3);
                 dirty = 1;
