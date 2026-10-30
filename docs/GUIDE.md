@@ -90,9 +90,10 @@ The **ARP** button (key `9`) opens the arpeggiator page for the selected synth p
 
 ## 11. COMPOSE — auto-compose
 Hold **GLO + ARP** (press **GLO**, then **ARP**) to open the COMPOSE page:
-- **KNOB1** picks the genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO — and regenerates live.
+- **KNOB1** picks the genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO / AMBIENT / LOFI / ACID — and regenerates live.
 - **KNOB2** bumps the variation seed (live) · **KNOB3** note density · **KNOB4** octave spread (LO / MID / HI).
-- **OCT+** builds a fresh pattern; **OCT−** returns to SEQ.
+- **OCT+** builds a fresh pattern; **OCT−** undoes the last build (one step), and a second
+  **OCT−** returns to SEQ.
 - Building applies **genre defaults**: BPM, swing, accent, FX mode and the lead arp flavour
   (the bottom line previews them).
 - Deterministic: the same genre/seed/density always yields the same pattern.
@@ -112,7 +113,7 @@ synth parts, channel 10 = drums) the CC map is:
 | 91 | FX mode (0–3) |
 | 92 | Drum kit (0..N) |
 | 93 | Patch browse (current bank) |
-| 94 | Genre select (0–4) — generates live |
+| 94 | Genre select (0–7) — generates live |
 | 95 | Seed (1–255) — generates live |
 | 96 | Density (0–127) — generates live |
 

@@ -1,6 +1,7 @@
 # Generative engine + UI:
 #   ARP button (alone) -> ARPEGGIATOR page (on/off, mode, oct, rate)
-#   GLO+ARP           -> COMPOSE page (genre/seed/density/octave; OCT+ builds)
+#   GLO+ARP           -> COMPOSE page (genre/seed/density/octave; OCT+ builds,
+#                        OCT- undoes the build, then backs out)
 #   MIDI CCs 94/95/96 -> genre/seed/density (live)
 # MIDI OUT is on, so generated synth notes appear in the MIDI-out log.
 # (FM-1 encoders: SELECT=0 ALGO=1 K1=2 K2=3 K3=4 K4=5 PRESETS=6)
@@ -9,41 +10,45 @@
 200 btn 1          # OCT_UP -> MIDI OUT on (non-SAVE page)
 400 btn 12         # PLAY -> start the sequencer
 
-# --- 1) GLO+ARP opens COMPOSE; OCT+ builds (TECHNO demo slot 0) ---
+# --- 1) GLO+ARP opens COMPOSE; OCT+ builds (TECHNO), OCT- undoes ---
 700 btn 7          # GLO latch
 900 btn 10         # ARP -> COMPOSE page
-1100 btn 1         # OCT+ -> build
+1100 btn 1         # OCT+ -> build (TECHNO)
 1300 btn 7         # GLO unlatch
-1500 shot          # SEQ grid after build
+1400 btn 0         # OCT- -> undo (back to the original demo notes)
+1500 shot
+1700 btn 0         # OCT- again -> back to SEQ
 
 # --- 2) ARP button alone -> ARPEGGIATOR controls ---
-1700 btn 10
-2000 shot          # ARP page
-2200 enc 2 1       # K1 -> arp ON
-2300 enc 3 1       # K2 -> next mode
-2400 enc 4 1       # K3 -> octave up
-2500 enc 5 1       # K4 -> next rate
-2700 btn 1         # OCT+ -> toggle again
-2900 shot
-3100 btn 0         # OCT- -> back to SEQ
+1900 btn 10
+2200 shot          # ARP page
+2400 enc 2 1       # K1 -> arp ON
+2500 enc 3 1       # K2 -> next mode
+2600 enc 4 1       # K3 -> octave up
+2700 enc 5 1       # K4 -> next rate
+2900 btn 1         # OCT+ -> toggle again
+3100 shot
+3300 btn 0         # OCT- -> back to SEQ
 
-# --- 3) COMPOSE knobs + build ---
-3300 btn 7         # GLO latch
-3400 btn 10        # ARP -> COMPOSE
-3500 btn 7         # GLO unlatch
-3600 enc 2 1       # K1 -> HOUSE (live)
-3800 enc 3 3       # K2 -> seed +3
-4000 enc 4 4       # K3 -> density +4
-4200 enc 5 1       # K4 -> octave HI
-4400 btn 1         # OCT+ -> build
-4600 btn 0         # OCT- -> back to SEQ
-4800 shot
+# --- 3) COMPOSE knobs, build, then undo ---
+3500 btn 7         # GLO latch
+3600 btn 10        # ARP -> COMPOSE
+3700 btn 7         # GLO unlatch
+3800 enc 2 1       # K1 -> HOUSE (live)
+4000 enc 3 3       # K2 -> seed +3
+4200 enc 4 4       # K3 -> density +4
+4400 enc 5 1       # K4 -> octave HI
+4600 btn 1         # OCT+ -> build (HOUSE)
+4800 btn 0         # OCT- -> undo
+4900 shot
+5100 btn 0         # OCT- again -> back to SEQ
+5300 shot
 
 # --- 4) MIDI control surface: CC94 genre, CC95 seed+generate, CC96 density ---
-5000 midi 0xB0 94 51     # CC94 -> genre 1 (HOUSE) + live generate
-5200 midi 0xB0 95 3      # CC95 -> seed 3 + generate
-5400 midi 0xB0 96 80     # CC96 -> density 80 + generate
-5600 shot                # SEQ after CC-driven generation
+5500 midi 0xB0 94 16     # CC94 -> genre 1 (HOUSE) + live generate
+5700 midi 0xB0 95 3      # CC95 -> seed 3 + generate
+5900 midi 0xB0 96 80     # CC96 -> density 80 + generate
+6100 shot                # SEQ after CC-driven generation
 
-6000 btn 12        # STOP
-6500 end
+6500 btn 12        # STOP
+7000 end

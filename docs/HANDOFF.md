@@ -24,7 +24,7 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - **Save/load slots**: 8 flash slots (`SAVE` store, `GLO+SAVE` pick, `GLO+REC` load).
 - HOME system page: theme palettes ("default"/AMBER/CYAN/RED/ALIEN/LAVA + more).
 - Web emulator (Shift+click latches buttons for combos).
-- **Generative genre engine** (COMPOSE page via `GLO+ARP`, build with OCT+): seeded, deterministic rules fill the three synth rows (bass/chord/lead) per genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO — and apply genre defaults (BPM, swing, accent, FX, arp flavour). MIDI CCs 94–96 drive it externally.
+- **Generative genre engine** (COMPOSE page via `GLO+ARP`, build with OCT+, one-step undo with OCT-): seeded, deterministic rules fill the three synth rows (bass/chord/lead) per genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO / AMBIENT / LOFI / ACID — and apply genre defaults (BPM, swing, accent, FX, arp flavour). MIDI CCs 94–96 drive it externally.
 - **ARPEGGIATOR page** (ARP button): per-part on/off, mode, octaves and rate; fed by held keys / MIDI / COMPOSE chord bank.
 - Transport knobs live on the **FX page** (tempo / swing / accent / loop length), so tempo changes don't require entering GLO.
 

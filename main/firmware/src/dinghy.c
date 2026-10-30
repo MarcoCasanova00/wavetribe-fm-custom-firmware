@@ -787,8 +787,8 @@ static void pattern_load(uint8_t i)
  * a chord progression and 16-step bass/lead grids.  genre_generate() fills the
  * three synth rows (bass/chord/lead parts 5-7) and loads the lead part's arp
  * bank, so the arpeggiator plays the generated harmony for free.  Same seed =>
- * same pattern (deterministic, testable). */
-#define N_GENRE 5u
+ * same pattern (deterministic, testable), with a one-step OCT- undo. */
+#define N_GENRE 8u   /* genre profiles */
 #define GEN_BASS  5u    /* part index: bass row */
 #define GEN_LEAD  6u    /* part index: lead row (also feeds the arp bank) */
 #define GEN_CHORD 7u    /* part index: chord/pad row */
@@ -798,6 +798,8 @@ static uint8_t gen_seed;      /* variation seed (0..255) */
 static uint8_t gen_density;   /* lead density 0..127 */
 static uint8_t gen_oct;       /* octave spread 0..2 */
 static uint32_t gen_rng;
+static uint8_t gen_undo[NPART][NSTEP];  /* last pattern snapshot (OCT- undo) */
+static uint8_t gen_undo_ok;
 
 static uint32_t gen_rng_next(void)
 {
@@ -810,6 +812,8 @@ static const uint8_t SCALE_MINOR_PENT[] = { 0, 3, 5, 7, 10 };
 static const uint8_t SCALE_DORIAN[]     = { 0, 2, 3, 5, 7, 9, 10 };
 static const uint8_t SCALE_NAT_MINOR[]  = { 0, 2, 3, 5, 7, 8, 10 };
 static const uint8_t SCALE_PHRYGIAN[]   = { 0, 1, 3, 5, 7, 8, 10 };
+static const uint8_t SCALE_MAJOR[]           = { 0, 2, 4, 5, 7, 9, 11 };
+static const uint8_t SCALE_HARMONIC_MINOR[]  = { 0, 2, 3, 5, 7, 8, 11 };
 
 struct genre_profile {
     const char *name;
@@ -843,6 +847,18 @@ static const uint8_t GRID_DUBSTEP_LEAD[]= { 1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0 }
 static const uint8_t GRID_DANDB_LEAD[]  = { 1,0,1,0, 1,1,1,0, 1,0,1,0, 1,1,1,0 };
 static const uint8_t GRID_ELECTRO_LEAD[]= { 1,0,1,0, 0,1,0,1, 1,0,1,0, 0,1,0,1 };
 
+static const uint8_t PROG_AMBIENT[] = { 0, 4, 5, 3 };   /* I - V - vi - IV */
+static const uint8_t PROG_LOFI[]    = { 0, 5, 3, 6 };   /* i - VI - iv - VII */
+static const uint8_t PROG_ACID[]    = { 0, 6, 5, 6 };   /* i - VII - VI - VII */
+
+static const uint8_t GRID_AMBIENT_BASS[] = { 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0 };
+static const uint8_t GRID_LOFI_BASS[]    = { 1,0,0,1, 0,0,1,0, 1,0,0,1, 0,0,1,0 };
+static const uint8_t GRID_ACID_BASS[]    = { 1,1,1,0, 1,1,1,1, 1,1,1,0, 1,1,1,1 };
+
+static const uint8_t GRID_AMBIENT_LEAD[] = { 1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0 };
+static const uint8_t GRID_LOFI_LEAD[]    = { 1,0,0,0, 1,0,0,0, 0,0,1,0, 1,0,0,0 };
+static const uint8_t GRID_ACID_LEAD[]    = { 1,0,0,0, 1,0,0,1, 0,0,1,0, 1,0,0,0 };
+
 /* demo slot -> genre index (matches DEMO_PAT order) */
 static const uint8_t DEMO_GENRE[N_DEMO_PAT] = { 0, 1, 2, 3, 4, 0, 1, 2 };
 
@@ -854,6 +870,9 @@ static void genre_generate(uint8_t g)
         { "DUBSTEP",34, SCALE_NAT_MINOR,  7, PROG_DUBSTEP,  4, GRID_DUBSTEP_BASS, GRID_DUBSTEP_LEAD, 0, 0, 140, 35, 44, 3, ARP_DOWN, 2 },
         { "D&B",    26, SCALE_NAT_MINOR,  7, PROG_DANDB,    4, GRID_DANDB_BASS,   GRID_DANDB_LEAD,   0, 1, 174, 30, 48, 2, ARP_UP,   1 },
         { "ELECTRO",28, SCALE_PHRYGIAN,   7, PROG_ELECTRO,  4, GRID_ELECTRO_BASS, GRID_ELECTRO_LEAD, 0, 1, 128, 25, 40, 1, ARP_RAND, 2 },
+        { "AMBIENT",36, SCALE_MAJOR,      7, PROG_AMBIENT, 4, GRID_AMBIENT_BASS, GRID_AMBIENT_LEAD, 0, 1,  80, 20, 20, 3, ARP_CHORD, 4 },
+        { "LOFI",   33, SCALE_MINOR_PENT, 5, PROG_LOFI,    4, GRID_LOFI_BASS,    GRID_LOFI_LEAD,    0, 1,  85, 40, 30, 1, ARP_UP,   2 },
+        { "ACID",   31, SCALE_HARMONIC_MINOR, 7, PROG_ACID, 4, GRID_ACID_BASS,    GRID_ACID_LEAD,    0, 0, 140, 18, 60, 2, ARP_UD,   1 },
     };
     const struct genre_profile *q;
     uint8_t base[4], bar, s, k, note, cidx, den;
@@ -876,7 +895,10 @@ static void genre_generate(uint8_t g)
     arp_mode[GEN_LEAD] = q->arp_mode;
     arp_rate[GEN_LEAD] = q->arp_rate;
 
-    /* clear the three synth rows first */
+    /* snapshot the current rows (OCT- undo), then clear them */
+    for (k = NDRUM; k < NPART; k++)
+        for (s = 0; s < NSTEP; s++) gen_undo[k][s] = pat.notes[k][s];
+    gen_undo_ok = 1;
     for (k = NDRUM; k < NPART; k++)
         for (s = 0; s < NSTEP; s++) pat.notes[k][s] = 0;
 
@@ -921,6 +943,17 @@ static void genre_generate(uint8_t g)
             }
         }
     }
+    dirty = 1;
+}
+
+/* Restore the last generated pattern (one-step undo). */
+static void genre_undo(void)
+{
+    uint32_t k, s;
+    if (!gen_undo_ok) return;
+    for (k = NDRUM; k < NPART; k++)
+        for (s = 0; s < NSTEP; s++) pat.notes[k][s] = gen_undo[k][s];
+    gen_undo_ok = 0;
     dirty = 1;
 }
 
@@ -1393,7 +1426,10 @@ static const char *arp_mode_name(uint8_t m)
 /* generative genre names (match GENRE_PROFILE order) */
 static const char *genre_name(uint8_t g)
 {
-    static const char *const N[N_GENRE] = { "TECHNO", "HOUSE", "DUBSTEP", "D&B", "ELECTRO" };
+    static const char *const N[N_GENRE] = {
+        "TECHNO", "HOUSE", "DUBSTEP", "D&B", "ELECTRO",
+        "AMBIENT", "LOFI", "ACID"
+    };
     return g < N_GENRE ? N[g] : "??";
 }
 
@@ -1444,7 +1480,7 @@ static void draw_compose_page(void)
     p = ap(p, "% | FX "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
     fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_LABEL);
-    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 octave | OCT+ build | OCT- back", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 octave | OCT+ build | OCT- undo/back", UI_DIM);
     cv_blit(0, 34);
 }
 
@@ -1767,7 +1803,11 @@ static void app_tick(void)
         if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 6) {
             goto_page(5);               /* back out to HOME */
         }
-        if (b & (1u << BTN_OCT_DOWN) && !glomode && (view_page == 8 || view_page == 9)) {
+        if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 9) {
+            if (gen_undo_ok) genre_undo();   /* COMPOSE: OCT- undoes the build */
+            else goto_page(0);                /* ... or backs out to SEQ */
+        }
+        if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 8) {
             goto_page(0);               /* back out to SEQ */
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
