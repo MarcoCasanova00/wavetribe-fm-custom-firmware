@@ -1,0 +1,22 @@
+# Live performance pack: quick-mute layer (hold HOME >= 300 ms + keys) and MIDI CC99 FX triggers.
+50 shot           # baseline parts view (row 0 = KICK)
+
+100 btn 11        # SEQ -> parts view
+200 enc 0 0       # SELECT -> part 0 (kick)
+
+300 btndown 8     # hold HOME (tap-vs-hold window)
+700 keys 0x0001   # F3 -> mute kick (after 300 ms hold)
+900 keys 0
+1100 btnup 8      # release HOME (should NOT open HOME page)
+1300 shot         # expect still on parts, row0 muted ('M', dim cells)
+
+1500 midi 0xB0 99 4    # CC99 -> CRUSH (live FX)
+1700 shot
+1900 midi 0xB0 99 127  # CC99 -> clear
+2100 shot
+
+2300 btn 12        # STOP
+2400 btn 8         # tap HOME -> should open HOME page (tap-vs-hold)
+2600 shot
+2700 btn 11        # SEQ -> back to parts
+2900 end

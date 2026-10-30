@@ -282,6 +282,8 @@ static uint8_t view_page;   /* 0 Seq, 1 FX, 2 wave/patch, 3 LFO, 4 Env, 5 Home *
 static uint32_t dirty;
 static uint8_t part_sel;    /* declared here so the edit helpers can use it */
 static uint8_t pal_idx = 0; /* current screen palette (default) */
+static uint32_t home_press_ms;
+static uint8_t home_pending, home_open;   /* HOME tap-vs-hold (mute layer) */
 
 static void drum_trigger(uint32_t d, uint32_t vel)
 {
@@ -2102,6 +2104,10 @@ static void app_tick(void)
                     if (part_sel >= NDRUM)
                         fm_set_oscmode((uint8_t)(part_sel - NDRUM), part_oscmode[part_sel]);
                     dirty = 1; break;
+                case 99:   /* live FX layer: 0..7 trigger (STUT REV ECHO TAPE CRUSH GATE SWEEP HALF), 127 clear */
+                    if (v <= 7u) perf_trigger(v);
+                    else if (v >= 127u) perf_clear();
+                    dirty = 1; break;
                 default: break;
             }
         } else if (midi_st == 0xFAu) { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; dirty = 1; }
@@ -2190,8 +2196,15 @@ static void app_tick(void)
         if (b & (1u << BTN_SAVE)) {
             goto_page(6);               /* SAVE page (grimm-style slots) */
         }
-        if (b & (1u << BTN_HOME)) {
-            goto_page(5);               /* HOME: system + colour selector */
+        if (b & (1u << BTN_HOME)) {            /* tap = open HOME; hold 300 ms = mute layer */
+            home_pending = 1; home_open = 0; home_press_ms = fm1_ms;
+        }
+        if (home_pending && (fm1_in.buttons & (1u << BTN_HOME))) {
+            if (!home_open && fm1_ms - home_press_ms >= 300u) home_open = 1;
+        }
+        if (rel & (1u << BTN_HOME)) {
+            if (home_pending && !home_open) goto_page(5);   /* a quick tap opens HOME */
+            home_pending = 0; home_open = 0;
         }
         if (b & (1u << BTN_ARP)) {
             if (view_page == 9 && !glomode) { gen_follow = !gen_follow; dirty = 1; }  /* chord-follow toggle */
@@ -2380,6 +2393,7 @@ static void app_tick(void)
             } else {
                 if (down >> k & 1u) {
                     if (fm1_in.buttons & (1u << BTN_FX)) { perf_trigger((uint8_t)k); }   /* live FX layer */
+                    else if ((fm1_in.buttons & (1u << BTN_HOME)) && home_open && k < NPART) { mute[k] ^= 1u; dirty = 1; }  /* hold HOME: quick mute parts */
                     else if (glomode && k < 16u) { func_command((uint8_t)k); }   /* Volca-style FUNC */
                     else if (part_sel < NDRUM) eq_put(EV_DRUM, part_sel, 0, 110);
                     else {

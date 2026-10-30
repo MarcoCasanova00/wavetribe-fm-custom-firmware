@@ -179,6 +179,10 @@ playing notes (like a Volca's step keys). Unlatch GLO to play normally.
 
 ## 12. MIDI / external control
 
+**Quick mute:** hold **HOME** for ≥300 ms (tap HOME still opens the system page)
+and press keys **F3…C4** to toggle mute of parts 0–7 — great for live dropping
+in/out of drum and synth parts. Muted parts show an `M` and dim steps.
+
 Notes: channels 1–3 = the three synth parts; channel 10 = drums (GM).
 
 | CC | Action |
@@ -191,6 +195,7 @@ Notes: channels 1–3 = the three synth parts; channel 10 = drums (GM).
 | 95 | Seed (1–255) — generates live |
 | 96 | Density (0–127) — generates live |
 | 98 | Osc mode (0 NORM / 1 SYNC / 2 RING / 3 PD / 4 VEC) |
+| 99 | Live FX trigger (0–7 start: STUT/REV/ECHO/TAPE/CRUSH/GATE/SWEEP/HALF; 127 stop) |
 | 123 | All notes off |
 
 Clock (24 ppqn), Start and Stop are emitted over USB + TRS when MIDI OUT is on.
@@ -210,7 +215,8 @@ Clock (24 ppqn), Start and Stop are emitted over USB + TRS when MIDI OUT is on.
 
 **Combos:** GLO+ARP = COMPOSE · GLO+SEQ = EUCLID · GLO+PLAY = drift ·
 GLO+EDIT = SOUNDS · GLO+REC = load slot · GLO+OCT− = category ·
-GLO+step keys = FUNC commands · hold FX + keys = momentary live FX.
+GLO+step keys = FUNC commands · hold FX + keys = momentary live FX ·
+hold HOME + keys = mute parts.
 
 ---
 
