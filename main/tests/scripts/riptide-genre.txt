@@ -1,27 +1,26 @@
-# Generative engine + UI:
-#   ARP button (alone) -> ARPEGGIATOR page (on/off, mode, oct, rate)
-#   GLO+ARP           -> COMPOSE page (genre/seed/density/octave; OCT+ builds,
-#                        OCT- undoes the build, then backs out)
+# Generative engine + "lost rhythm lab" UI:
+#   ARPEGGIATOR page (ARP) / COMPOSE (GLO+ARP) / EUCLID (GLO+SEQ)
+#   Drift (GLO+PLAY) cycles OFF -> ON -> LOCK
 #   MIDI CCs 94/95/96 -> genre/seed/density (live)
-# MIDI OUT is on, so generated synth notes appear in the MIDI-out log.
+# MIDI OUT on so generated synth notes appear in the MIDI-out log.
 # (FM-1 encoders: SELECT=0 ALGO=1 K1=2 K2=3 K3=4 K4=5 PRESETS=6)
 
 100 enc 0 6        # SELECT -> part 6 (lead/synth)
 200 btn 1          # OCT_UP -> MIDI OUT on (non-SAVE page)
 400 btn 12         # PLAY -> start the sequencer
 
-# --- 1) GLO+ARP opens COMPOSE; OCT+ builds (TECHNO), OCT- undoes ---
+# --- 1) COMPOSE: build TECHNO, then undo ---
 700 btn 7          # GLO latch
 900 btn 10         # ARP -> COMPOSE page
 1100 btn 1         # OCT+ -> build (TECHNO)
 1300 btn 7         # GLO unlatch
-1400 btn 0         # OCT- -> undo (back to the original demo notes)
+1400 btn 0         # OCT- -> undo (back to original demo notes)
 1500 shot
 1700 btn 0         # OCT- again -> back to SEQ
 
-# --- 2) ARP button alone -> ARPEGGIATOR controls ---
+# --- 2) ARPEGGIATOR page (ARP alone) ---
 1900 btn 10
-2200 shot          # ARP page
+2200 shot
 2400 enc 2 1       # K1 -> arp ON
 2500 enc 3 1       # K2 -> next mode
 2600 enc 4 1       # K3 -> octave up
@@ -44,16 +43,31 @@
 5100 btn 0         # OCT- again -> back to SEQ
 5300 shot
 
-# --- 4) MIDI control surface: CC94 genre, CC95 seed+generate, CC96 density ---
+# --- 4) MIDI control surface ---
 5500 midi 0xB0 94 16     # CC94 -> genre 1 (HOUSE) + live generate
 5700 midi 0xB0 95 3      # CC95 -> seed 3 + generate
 5900 midi 0xB0 96 80     # CC96 -> density 80 + generate
-6100 shot                # SEQ after CC-driven generation
+6100 shot
 
-# --- 5) drift: GLO+PLAY enables live per-bar mutation ---
+# --- 5) drift ON (GLO+PLAY once) ---
 6200 btn 7          # GLO latch
 6300 btn 12         # PLAY -> drift ON (transport keeps running)
 6400 btn 7         # GLO unlatch
 7900 shot          # SEQ after several drifted bars
-8200 btn 12        # STOP
-8700 end
+
+# --- 6) drift LOCK (GLO+PLAY again) ---
+7950 btn 7          # GLO latch
+8050 btn 12         # PLAY -> LOCK (freeze current phrase)
+8150 btn 7         # GLO unlatch
+9000 shot          # SEQ still frozen
+
+# --- 7) EUCLID rhythm on kick (part 0) ---
+9200 enc 0 0       # SELECT -> part 0 (kick)
+9300 btn 7          # GLO latch
+9400 btn 11         # SEQ -> EUCLID page
+9500 btn 7         # GLO unlatch
+9600 enc 3 1       # K2 -> hits 5 (E(5,16))
+9700 btn 1         # OCT+ -> apply gates to kick
+11000 shot         # kick now follows E(5,16)
+12500 btn 12        # STOP
+13200 end

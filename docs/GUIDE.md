@@ -97,9 +97,10 @@ Hold **GLO + ARP** (press **GLO**, then **ARP**) to open the COMPOSE page:
 - Building applies **genre defaults**: BPM, swing, accent, FX mode and the lead arp flavour
   (the bottom line previews them).
 - Deterministic: the same genre/seed/density always yields the same pattern.
-- **Live drift:** while playing, hold **GLO + PLAY** to toggle drift — the pattern gently
-  re-rolls every bar (notes only, transport untouched). It follows the same seed rule, so a
-  given drift session is reproducible.
+- **Live drift:** while playing, **GLO + PLAY** cycles drift **OFF → ON → LOCK**. When ON,
+  the pattern gently re-rolls every bar (notes only, transport untouched); LOCK freezes the
+  current phrase so it stops changing. It follows the same seed rule, so a given drift
+  session is reproducible.
 - Notes: generated chord tones are a block triad across three consecutive steps (parts are
   monophonic); genre state (genre/seed/density) is NOT persisted — it resets on boot.
 
@@ -119,6 +120,14 @@ synth parts, channel 10 = drums) the CC map is:
 | 94 | Genre select (0–7) — generates live |
 | 95 | Seed (1–255) — generates live |
 | 96 | Density (0–127) — generates live |
+
+## 13. EUCLID — rhythm generator
+Hold **GLO + SEQ** to open the EUCLID page: it writes a **Euclidean rhythm** (evenly spaced
+hits, the classic algorithmic pattern) onto the selected part's gates.
+- **KNOB1** = steps (4–64) · **KNOB2** = hits (1–steps) · **KNOB3** = rotation.
+- **OCT+** applies the pattern to the selected part (use PART ↑/↓ to pick a drum, e.g. the kick);
+  **OCT−** returns to SEQ.
+- Example: steps 16, hits 5 on the kick gives a tight 5-over-16 groove.
 
 ---
 ## Shortcut map

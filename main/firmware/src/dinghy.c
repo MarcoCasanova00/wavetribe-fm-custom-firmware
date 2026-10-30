@@ -800,7 +800,30 @@ static uint8_t gen_oct;       /* octave spread 0..2 */
 static uint32_t gen_rng;
 static uint8_t gen_undo[NPART][NSTEP];  /* last pattern snapshot (OCT- undo) */
 static uint8_t gen_undo_ok;
-static uint8_t gen_drift;               /* live per-bar mutation (GLO+PLAY) */
+static uint8_t gen_drift;               /* 0 off, 1 on, 2 locked (GLO+PLAY cycles) */
+
+/* Euclidean rhythm (Björklund-style balanced spacing) write helpers. */
+static uint8_t eu_steps, eu_hits, eu_rot;
+static void euclid_fill(uint8_t k, uint8_t n, uint8_t rot, uint8_t *out)
+{
+    uint8_t i, pos;
+    for (i = 0; i < n; i++) out[i] = 0;
+    if (k == 0 || n == 0) return;
+    if (k >= n) { for (i = 0; i < n; i++) out[i] = 1; return; }
+    for (i = 0; i < k; i++) {
+        pos = (uint8_t)(((uint16_t)i * n + k - 1) / k);
+        out[(pos + rot) % n] = 1;
+    }
+}
+static void euclid_apply(void)
+{
+    uint8_t gate[NSTEP], p = part_sel, s = 0;
+    uint8_t n = eu_steps < NSTEP ? eu_steps : (uint8_t)NSTEP;
+    memset(gate, 0, sizeof gate);
+    euclid_fill(eu_hits, n, eu_rot, gate);
+    for (s = 0; s < NSTEP; s++) pat.gates[p][s] = gate[s];
+    dirty = 1;
+}
 
 static uint32_t gen_rng_next(void)
 {
@@ -964,6 +987,7 @@ static void genre_drift(void)
     const struct genre_profile *q;
     uint32_t seed;
     if (!gen_undo_ok) return;        /* only drift a built pattern */
+    if (gen_drift != 1) return;      /* OFF or LOCKED: keep the phrase */
     gen_seed++;
     q = &GENRE_PROFILE[gen_genre];
     seed = (uint32_t)pat_sel << 20 | (uint32_t)gen_genre << 12
@@ -1506,10 +1530,29 @@ static void draw_compose_page(void)
     p = ap(p, "% | FX "); p = ap(p, (const char *[]){"OFF","CHORUS","ECHO","COMBO"}[fx_mode]);
     fit_text(s, 232);
     cv_text(4, 78, &FONT_S, s, UI_LABEL);
-    p = s; p = ap(p, "Drift: "); p = ap(p, gen_drift ? "ON" : "OFF");
+    p = s; p = ap(p, "Drift: "); p = ap(p, (const char *[]){"OFF","ON","LOCK"}[gen_drift % 3u]);
     p = ap(p, "  (GLO+PLAY)"); fit_text(s, 232);
     cv_text(4, 96, &FONT_S, s, UI_LABEL);
     cv_text_wrap(4, 188, 232, &FONT_S, "K1 genre | K2 seed | K3 density | K4 oct | OCT+ build | OCT- undo | GLO+PLAY drift", UI_DIM);
+    cv_blit(0, 34);
+}
+
+static void draw_euclid_page(void)
+{
+    char s[48]; char *p = s;
+    cv_begin(240, 206, UI_BG);
+    cv_text(4, 2, &FONT_S, "EUCLID RHYTHM", UI_HI);
+    cv_rect(0, 18, 240, 1, UI_PANEL);
+    p = s; p = ap(p, PNAME[part_sel]); p = ap(p, " | steps "); p = apu(p, eu_steps);
+    fit_text(s, 232);
+    cv_text(4, 24, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "Hits "); p = apu(p, eu_hits); p = ap(p, " | rotate "); p = apu(p, eu_rot);
+    fit_text(s, 232);
+    cv_text(4, 44, &FONT_S, s, UI_AMB);
+    p = s; p = ap(p, "OCT+ writes the gates to this part.");
+    fit_text(s, 232);
+    cv_text(4, 64, &FONT_S, s, UI_LABEL);
+    cv_text_wrap(4, 188, 232, &FONT_S, "K1 steps | K2 hits | K3 rotate | OCT+ apply | OCT- back", UI_DIM);
     cv_blit(0, 34);
 }
 
@@ -1554,6 +1597,8 @@ static void draw_screen(uint32_t playing)
         draw_arp_page();
     } else if (view_page == 9) {
         draw_compose_page();
+    } else if (view_page == 10) {
+        draw_euclid_page();
     } else {
         draw_parts();
         draw_footer(playing);
@@ -1702,6 +1747,7 @@ static void app_init(void)
     if (pat.gates[0][0] == 0 && pat.gates[0][1] == 0) pattern_load(pat_sel % N_DEMO_PAT);
     gen_genre = DEMO_GENRE[pat_sel % N_DEMO_PAT];
     gen_seed = 0; gen_density = 60; gen_oct = 1; gen_drift = 0;
+    eu_steps = 16; eu_hits = 4; eu_rot = 0;
     step_ms = 15000u / (bpm ? bpm : 128u);
     drum_kit = 1;   /* default to the TR-808 kit (full-bodied); APP is thinner */
     view_page = 0;
@@ -1791,7 +1837,7 @@ static void app_tick(void)
 
         /* --- buttons --- */
         if (b & (1u << BTN_PLAY)) {
-            if (glomode) { gen_drift = !gen_drift; }   /* GLO+PLAY toggles drift */
+            if (glomode) { gen_drift = (uint8_t)((gen_drift + 1u) % 3u); }   /* GLO+PLAY: OFF -> ON -> LOCK */
             else if (run) seq_stop();
             else { run = 1; step_cur = 0; next_step_ms = fm1_ms + step_ms; if (midi_out) midi_send(0xFA, 0, 0); }
             dirty = 1;
@@ -1801,7 +1847,7 @@ static void app_tick(void)
             goto_page(1);
         }
         if (b & (1u << BTN_SEQ)) {
-            goto_page(0);
+            goto_page(glomode ? 10u : 0u);   /* GLO+SEQ = EUCLID page */
         }
         if (b & (1u << BTN_EDIT)) {
             goto_page(glomode ? 7u : 2u);   /* GLO+EDIT = SOUNDS browse page */
@@ -1822,6 +1868,8 @@ static void app_tick(void)
                 genre_generate(gen_genre);   /* COMPOSE: OCT+ builds */
             } else if (view_page == 8) {
                 arp_on[part_sel] = !arp_on[part_sel];   /* ARP: OCT+ toggles */
+            } else if (view_page == 10) {
+                euclid_apply();                         /* EUCLID: OCT+ applies */
             } else {
                 midi_out = !midi_out;
             }
@@ -1838,6 +1886,9 @@ static void app_tick(void)
             else goto_page(0);                /* ... or backs out to SEQ */
         }
         if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 8) {
+            goto_page(0);               /* back out to SEQ */
+        }
+        if (b & (1u << BTN_OCT_DOWN) && !glomode && view_page == 10) {
             goto_page(0);               /* back out to SEQ */
         }
         if (b & (1u << BTN_GLO)) { glomode = !glomode; dirty = 1; }
@@ -1898,7 +1949,14 @@ static void app_tick(void)
                 dirty = 1;
             }
             e = fm1_enc_take(ENC_KNOB1);
-            if (e && view_page == 8) {   /* ARP: KNOB1 on/off */
+            if (e && view_page == 10) {   /* EUCLID: KNOB1 steps */
+                int32_t c = (int32_t)eu_steps + e;
+                eu_steps = (uint8_t)(c < 4 ? 4 : c > 64 ? 64 : c);
+                if (eu_hits > eu_steps) eu_hits = eu_steps;
+                if (eu_rot >= eu_steps) eu_rot = (uint8_t)(eu_steps - 1);
+                dirty = 1;
+            }
+            else if (e && view_page == 8) {   /* ARP: KNOB1 on/off */
                 arp_on[part_sel] = !arp_on[part_sel];
                 dirty = 1;
             }
@@ -1934,7 +1992,12 @@ static void app_tick(void)
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(0, e);
             else if (e) { int32_t c = part_prm[part_sel][0] + e; part_prm[part_sel][0] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB2);
-            if (e && view_page == 8) {   /* ARP: KNOB2 mode */
+            if (e && view_page == 10) {   /* EUCLID: KNOB2 hits */
+                int32_t c = (int32_t)eu_hits + e;
+                eu_hits = (uint8_t)(c < 1 ? 1 : c > eu_steps ? eu_steps : c);
+                dirty = 1;
+            }
+            else if (e && view_page == 8) {   /* ARP: KNOB2 mode */
                 arp_mode[part_sel] = (uint8_t)((arp_mode[part_sel] + 1u) % 5u);
                 dirty = 1;
             }
@@ -1961,7 +2024,14 @@ static void app_tick(void)
             else if (e && view_page == 4 && part_sel >= NDRUM) edit_env(1, e);
             else if (e) { int32_t c = part_prm[part_sel][1] + e; part_prm[part_sel][1] = (uint8_t)(c < 0 ? 0 : c > 127 ? 127 : c); dirty = 1; }
             e = fm1_enc_take(ENC_KNOB3);
-            if (e && view_page == 8) {   /* ARP: KNOB3 octaves */
+            if (e && view_page == 10) {   /* EUCLID: KNOB3 rotate */
+                int32_t c = (int32_t)eu_rot + (e > 0 ? 1 : -1);
+                if (c < 0) c = eu_steps - 1;
+                if (c >= (int32_t)eu_steps) c = 0;
+                eu_rot = (uint8_t)c;
+                dirty = 1;
+            }
+            else if (e && view_page == 8) {   /* ARP: KNOB3 octaves */
                 int32_t o = (int32_t)arp_oct[part_sel] + (e > 0 ? 1 : -1);
                 arp_oct[part_sel] = (uint8_t)(o < 0 ? 0 : o > 3 ? 3 : o);
                 dirty = 1;
