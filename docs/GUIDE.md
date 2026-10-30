@@ -1,159 +1,178 @@
-# Frankentribe OS — Web Emulator Quick Guide
+# Frankentribe OS — User Guide
 
-A hands-on guide to the browser build of the Frankentribe OS firmware (the
-Wavetribe FM-1 groovebox as a web emulator). Build the beat, shape the sound, save it.
+The Frankentribe OS is a 4-operator FM groovebox firmware (the Wavetribe FM-1)
+with a generative soul: it composes from genres, writes Euclidean drum patterns,
+and mixes in a palette of oscillator modes. This guide covers the whole system.
 
 > **Live:** https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
 > Hard-refresh (**Ctrl+Shift+R**) to pick up the latest build.
 
-## 1. Boot
-1. Open the live link in a modern Chromium, Firefox or Safari.
-2. Click **Switch on**.
-3. The 240×240 screen lights up and the sequencer starts.
-   (If audio stays silent, click once more — some browsers suspend the context.)
+---
 
-## 2. Transport
-- **PLAY / STOP** (key `-`) — start / stop the sequencer.
-- **REC** (key `=`) — arms write mode: while lit, the keys write steps instead of playing.
-- **GLO** (key `6`) — enters global mode (knobs become Tempo / Swing / Accent / Page).
-- **HOME** (key `7`) — opens the HOME system page (theme, kit, save slots).
+## 1. The panel
+
+**Buttons** (FM-1):
+
+| Button | Page / role |
+|--------|-------------|
+| OCT− / OCT+ | octave shift (keys), plus page actions (see below) |
+| FX | FX page |
+| SEL | (encoder) selected part |
+| ENV | Envelope page |
+| LFO | LFO page |
+| EDIT | WAVE/EDIT page (GLO+EDIT = SOUNDS) |
+| GLO | global latch = the **FUNC** modifier |
+| HOME | system page (themes) |
+| SAVE | save/load slots |
+| ARP | ARPEGGIATOR page (GLO+ARP = COMPOSE) |
+| SEQ | sequencer page (GLO+SEQ = EUCLID) |
+| PLAY | start/stop (GLO+PLAY = drift) |
+| REC | write arm (GLO+REC = load slot) |
+
+**Encoders / knobs:** SELECT = part, ALGORITHM = loop length, PRESETS = browse,
+KNOB1–4 = contextual (per page).
+
+---
+
+## 2. Transport & tempo
+
+- **PLAY / STOP** (key `-`) starts/stops the sequencer.
+- Tempo, swing, accent and loop length are edited on the **FX page**:
+  KNOB1 = tempo (60–250 BPM), KNOB2 = swing, KNOB3 = accent, KNOB4 = loop length.
+- The same four are available in **GLO mode** (latch GLO, then the knobs).
+
+---
 
 ## 3. Sequencing
-- The screen shows 16 step slots and a moving play-cursor for the visible page.
-- Hold **REC**, tap a key (F3…G5) to toggle a step for the selected part.
-- Repeat for all 8 parts to build a pattern.
-- **PART − / PART +** (`↑` / `↓`) selects the part you edit.
-- **PAGE** (`←` / `→`) changes loop length (16 / 32 / 48 / 64 steps).
-- **Clear the sequence:** hold **SEQ** and press **F3** — the whole current pattern
-  is erased (the screen shows `SEQ TOOLS  F3=CLEAR` while SEQ is held).
 
-## 4. Shaping the sound (your four knobs)
-Knobs 1–4 edit whichever part is selected:
+- The SEQ page shows 16 step cells and a moving play-cursor.
+- **REC + key** toggles a step for the selected part (write mode).
+- **PART ↑/↓** selects the part (0–4 drums, 5–7 synth).
+- **PAGE ←/→** changes loop length (16/32/48/64).
+- **SEQ + F3** clears the whole pattern.
+- **EUCLID** (`GLO+SEQ`) writes evenly-spaced rhythm patterns (see §12).
 
-- **Knob 1 (A) — Decay / Muffle** — how long it rings.
-- **Knob 2 (B) — Pitch / Tone** (with a drum part: cycles the drum kit).
-- **Knob 3 (C) — Modulation / Body**.
-- **Knob 4 (D) — Level** — how loud this part is.
+---
 
-On the **LFO** and **Envelope** pages, the knobs edit the selected sound, and
-the changes apply to **all three synth parts** (the sound is shared) — so you'll
-hear them whichever part you play. These tweaks are saved with your sound — a
-**SAVE / LOAD** slot keeps them.
+## 4. Shaping the sound
 
-On the **WAVE/EDIT** page, **OCT+** cycles the oscillator mode for the selected
-synth part: **NORM → SYNC → RING → PD → VEC** (hard-sync, ring/AM, **phase
-distortion** — the CZ-style warp whose amount follows the C/mod knob — and
-**vector synthesis**, which morphs across four adjacent waveforms with a slow
-2D sweep). A fast way to dial in buzzy, metallic, and morphing-pad 80s textures.
+Four knobs edit the selected part by default (A decay/muffle, B pitch/tone,
+C modulation, D level). On **LFO/ENV** pages they edit the shared FM sound.
 
-Held keyboard notes release when you switch page, part, or mode — so a note
-can't keep ringing after you move elsewhere.
+On **WAVE/EDIT**, **OCT+** cycles the oscillator mode for the selected synth part:
 
-## 5. Patch banks & presets (GR!MM-style sound browsing)
-- **Browse sounds:** turn **PRESETS** on any page except SEQ — it steps the the
-  whole list (each bank acts as a category) and shows the patch name. Each part
-  remembers its own browse position.
-- **Cycle category/bank:** latch **GLO** (Shift+click, or hold key `6`) then tap
-  **OCT-**** (`[`) — cycles APP → DX7 → ROM → TX81Z → FB01.
-- **SOUNDS page:** press **GLO + EDIT** — a full browse page: **KNOB1** picks the
-  category, **KNOB2** the sound. Press **EDIT** again to leave.
-- On the **SEQ** page, **PRESETS** cycles the demo pattern (as before).
-- The screen shows the category (bank) name + patch name + `sound n/count`.
-- Changing a sound releases any ringing note (GR!MM-style): the old patch can't
-  keep sustaining after the switch.
+| Mode | Meaning |
+|------|---------|
+| NORM | standard FM |
+| SYNC | hard sync — carrier restarts each OP4 cycle |
+| RING | ring/AM — carrier scaled by OP4 output |
+| PD | phase distortion (CZ-style) — amount follows the C/mod knob |
+| VEC | vector synthesis — morphs four adjacent waves via a slow 2D sweep |
 
-## 6. Global mode (holding GLO)
-With GLO active, the four knobs become:
-- **Tempo** · **Swing** (0–100%, deeper MPC-style feel) · **Accent** · **Page**.
+**CC 98** sets the same mode externally (0–4).
 
-## 7. Save / load slots (8 slots)
-- **SAVE** (key `8`) opens the **SAVE / SOUNDS** page.
-- On that page: **KNOB 1** picks the slot (1–8, shows `[USED]`/`[empty]`),
-  **KNOB 4** picks the action (**LOAD / SAVE / CLEAR**), and **OCT+** confirms
-  (OCT− backs out).
-- Quick combos: **GLO + REC** loads the current slot directly.
-- In the browser emulator the 8 slots are **persisted to localStorage**, so your
-  saves survive reloads.
+---
 
-## 8. MIDI OUT
-With MIDI out toggled, the sequencer emits clock (24 ppqn), Start (0xFA) and
-Stop (0xFC) on the USB + TRS outlets.
+## 5. Patch banks & presets
 
-## 9. FX
-- **FX** (key `1`) opens the FX page: mode (OFF / CHORUS / ECHO / COMBO),
-  MIDI OUT toggle, and the clock readout (BPM | 1/16 | swing%).
-- The knobs edit the transport right on this page — **KNOB1 = tempo** (60–250 BPM),
-  KNOB2 = swing, KNOB3 = accent, KNOB4 = loop length (no need to enter GLO).
+Five banks: **APP** · **DX7** · **ROM** · **4OP-A** · **4OP-B**.
 
-## 10. ARPEGGIATOR
-The **ARP** button (key `9`) opens the arpeggiator page for the selected synth part (5–7):
-- **KNOB1** — on/off · **KNOB2** — mode (UP / DN / UD / RND / CHD)
-- **KNOB3** — octaves (0–3) · **KNOB4** — rate (x1 / x2 / x4)
-- **OCT+** also toggles on/off; **OCT−** returns to SEQ.
-- Hold keys (or play MIDI notes) into that part to feed the arp its notes — while running,
-  those notes override the step pattern for the part. When COMPOSE builds a chord, the lead
-  part's arp bank is pre-loaded with it.
+- **PRESETS** browses sounds on any page except SEQ (SEQ browses demo patterns).
+- **GLO + OCT−** cycles category; **GLO+EDIT** opens the SOUNDS browse page
+  (KNOB1 category, KNOB2 sound). OCT+ toggles MIDI OUT elsewhere.
 
-## 11. COMPOSE — auto-compose
-Hold **GLO + ARP** (press **GLO**, then **ARP**) to open the COMPOSE page:
-- **KNOB1** picks the genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO / AMBIENT / LOFI / ACID — and regenerates live.
-- **KNOB2** bumps the variation seed (live) · **KNOB3** note density · **KNOB4** octave spread (LO / MID / HI).
-- **OCT+** builds a fresh pattern; **OCT−** undoes the last build (one step), and a second
-  **OCT−** returns to SEQ.
-- Building applies **genre defaults**: BPM, swing, accent, FX mode and the lead arp flavour
-  (the bottom line previews them).
-- Deterministic: the same genre/seed/density always yields the same pattern.
-- **Live drift:** while playing, **GLO + PLAY** cycles drift **OFF → ON → LOCK**. When ON,
-  the pattern gently re-rolls every bar (notes only, transport untouched); LOCK freezes the
-  current phrase so it stops changing. It follows the same seed rule, so a given drift
-  session is reproducible.
-- Notes: generated chord tones are a block triad across three consecutive steps (parts are
-  monophonic); genre state (genre/seed/density) is NOT persisted — it resets on boot.
+---
 
-## 12. MIDI control (external)
-Drive the box over MIDI (USB / TRS). In addition to notes (channels 1–3 = the three
-synth parts, channel 10 = drums) the CC map is:
+## 6. Save / load slots (8 slots)
+
+- **SAVE** opens the slot page: KNOB1 slot, KNOB4 action (LOAD/SAVE/CLEAR),
+  OCT+ confirm, OCT− back.
+- **GLO+REC** loads the current slot directly. Slots persist (localStorage on web).
+
+---
+
+## 7. FX page
+
+Mode (OFF/CHORUS/ECHO/COMBO) cycles with the FX key; MIDI OUT toggle; clock
+readout. As in §2, the knobs edit the transport right here.
+
+---
+
+## 8. ARPEGGIATOR (ARP key)
+
+Per-part arpeggiator for synth parts 5–7:
+
+- KNOB1 = on/off · KNOB2 = mode (UP/DN/UD/RND/CHD)
+- KNOB3 = octaves (0–3) · KNOB4 = rate (×1/×2/×4)
+- OCT+ toggles on/off; hold keys or send MIDI note to feed it.
+- COMPOSE pre-loads the lead part's arp bank with its generated chord.
+
+---
+
+## 9. COMPOSE (GLO+ARP) — auto-compose
+
+Pick a genre and the machine writes bass/chord/lead for you. Eight genres:
+TECHNO · HOUSE · DUBSTEP · D&B · ELECTRO · AMBIENT · LOFI · ACID.
+
+- KNOB1 = genre (live) · KNOB2 = seed (live) · KNOB3 = density (live)
+  · KNOB4 = octave spread (LO/MID/HI)
+- **OCT+** builds; **OCT−** undoes the build, then backs out.
+- Building applies genre defaults (BPM, swing, accent, FX, arp flavour) —
+  previewed on the page.
+- **Drift** (`GLO+PLAY` cycles OFF → ON → LOCK): on, the pattern gently
+  re-rolls each bar; LOCK freezes it. Notes only; deterministic.
+- **Chord-follow**: press **ARP while on COMPOSE** to toggle. When on, the
+  generated phrase locks onto the root of whatever chord you are holding.
+- Deterministic: same genre/seed/density ⇒ same pattern.
+
+---
+
+## 10. EUCLID (GLO+SEQ) — rhythm generator
+
+Writes a Euclidean (evenly-spaced) gate pattern to the selected part:
+
+- KNOB1 = steps (4–64) · KNOB2 = hits · KNOB3 = rotation
+- **OCT+** applies to the selected part (pick a drum, e.g. the kick); OCT− back.
+
+---
+
+## 11. Volca-style FUNC keys
+
+With **GLO latched**, the first 16 white keys run grid-key shortcuts instead of
+playing notes (like a Volca's step keys). Unlatch GLO to play normally.
+
+| Key | Command | Key | Command |
+|-----|---------|-----|---------|
+| F3 (0) | Clear pattern | A#3 (5) | Copy pattern |
+| F#3 (1) | Save → slot | B3 (6) | Paste pattern |
+| G3 (2) | Load ← slot | C4 (7) | Step mode (REC) |
+| G#3 (3) | Pattern − | F#4 (8)…C#5 (15) | reserved |
+| A3 (4) | Pattern + | | |
+
+---
+
+## 12. MIDI / external control
+
+Notes: channels 1–3 = the three synth parts; channel 10 = drums (GM).
 
 | CC | Action |
 |----|--------|
-| 1 | Part A (wavetable) |
-| 2 | Part B (ratio) |
-| 5 | Part C (mod) |
-| 7 | Part D (level) |
+| 1 / 2 / 5 / 7 | Part A/B/C/D |
 | 91 | FX mode (0–3) |
 | 92 | Drum kit (0..N) |
 | 93 | Patch browse (current bank) |
 | 94 | Genre select (0–7) — generates live |
 | 95 | Seed (1–255) — generates live |
 | 96 | Density (0–127) — generates live |
+| 98 | Osc mode (0 NORM / 1 SYNC / 2 RING / 3 PD / 4 VEC) |
+| 123 | All notes off |
 
-## 13. Volca-style FUNC keys
-Hold **GLO** (latch) and press the first 16 white keys — like a Volca's step keys —
-to run grid-key shortcuts instead of playing notes:
-
-| Key | Command | Key | Command |
-|-----|---------|-----|---------|
-| F3 (0) | Clear pattern | F#4 (8) | — |
-| F#3 (1) | Save → slot | G4 (9) | — |
-| G3 (2) | Load ← slot | G#4 (10) | — |
-| G#3 (3) | Pattern − | A4 (11) | — |
-| A3 (4) | Pattern + | A#4 (12) | — |
-| A#3 (5) | Copy pattern | B4 (13) | — |
-| B3 (6) | Paste pattern | C5 (14) | — |
-| C4 (7) | Step mode (REC) | C#5 (15) | — |
-
-Unlatch GLO to play the keys normally.
-
-## 14. EUCLID — rhythm generator
-Hold **GLO + SEQ** to open the EUCLID page: it writes a **Euclidean rhythm** (evenly spaced
-hits, the classic algorithmic pattern) onto the selected part's gates.
-- **KNOB1** = steps (4–64) · **KNOB2** = hits (1–steps) · **KNOB3** = rotation.
-- **OCT+** applies the pattern to the selected part (use PART ↑/↓ to pick a drum, e.g. the kick);
-  **OCT−** returns to SEQ.
-- Example: steps 16, hits 5 on the kick gives a tight 5-over-16 groove.
+Clock (24 ppqn), Start and Stop are emitted over USB + TRS when MIDI OUT is on.
 
 ---
-## Shortcut map
+
+## 13. Shortcut map (keys)
+
 | Key | Action |
 |-----|--------|
 | `Z`…`;` | white keys (F3…G5) |
@@ -162,5 +181,19 @@ hits, the classic algorithmic pattern) onto the selected part's gates.
 | `[` / `]` | OCT − / OCT + |
 | `↑` / `↓` | PART selection |
 | `←` / `→` | PAGE selection |
+
+**Combos:** GLO+ARP = COMPOSE · GLO+SEQ = EUCLID · GLO+PLAY = drift ·
+GLO+EDIT = SOUNDS · GLO+REC = load slot · GLO+OCT− = category ·
+GLO+step keys = FUNC commands.
+
+---
+
+## 14. Notes & gotchas
+
+- The generative engine is deterministic; its state (genre/seed/density) is
+  **not persisted** in slots — it resets on boot.
+- Chords are a block triad across three consecutive steps (parts are monophonic).
+- While GLO is latched, the knobs control transport — unlatch to edit sounds.
+- In the web emulator, hold/latch buttons with Shift+click.
 
 Enjoy — tag feedback on the repository issues.
