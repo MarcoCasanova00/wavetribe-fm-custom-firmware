@@ -162,16 +162,16 @@ static void cv_text_wrap(int32_t x, int32_t y, int32_t maxw,
  * A loud, friendly, multi-colour skin: deep ink canvas, paper white text,
  * and a handful of saturated accents (yellow / red / blue / green /
  * pink / orange).  Drawn with the same primitives, no extra memory. */
-#define PP_INK    RGB(20, 14, 38)     /* deep ink purple canvas */
-#define PP_PANEL  RGB(38, 30, 62)     /* raised panel fill */
-#define PP_W      RGB(255, 252, 235)  /* paper white */
-#define PP_Y      RGB(255, 228, 70)   /* yellow */
-#define PP_R      RGB(255, 74, 58)    /* red */
-#define PP_F      RGB(66, 168, 255)   /* blue */
-#define PP_G      RGB(86, 220, 118)   /* green */
-#define PP_FS     RGB(255, 168, 128)  /* flesh */
-#define PP_O      RGB(255, 150, 50)   /* orange */
-#define PP_SKIN   RGB(120, 220, 96)   /* frank face skin */
+#define PP_INK    RGB(13, 17, 15)     /* deep moss-black canvas */
+#define PP_PANEL  RGB(32, 40, 34)     /* muted moss panel */
+#define PP_W      RGB(226, 224, 212)  /* soft bone */
+#define PP_Y      RGB(186, 158, 96)   /* muted bronze-gold */
+#define PP_R      RGB(164, 92, 76)    /* dusty brick */
+#define PP_F      RGB(98, 128, 132)   /* slate teal */
+#define PP_G      RGB(122, 148, 116)  /* sage green */
+#define PP_FS     RGB(196, 146, 122)  /* dusty peach */
+#define PP_O      RGB(176, 128, 80)   /* burnt umber */
+#define PP_SKIN   RGB(116, 142, 104)  /* desaturated leafy moss */
 
 /* vertical gradient fill (cheap integer blend, 256 steps) */
 static void cv_grad_v(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t top, uint16_t bot)
@@ -1469,7 +1469,7 @@ static void draw_footer(uint32_t playing)
     cv_begin(240, 2, PP_INK);
     cv_rect(0, 0, 240, 1, PP_PANEL);
     cv_rect(0, 1, 240, 1, PP_Y);
-    cv_blit(0, 208);
+    cv_blit(0, 202);
     if (write_arm) {
         p = ap(p, "REC "); p = ap(p, PNAME[part_sel]); p = ap(p, " keys:steps");
     } else if (fm1_in.buttons & (1u << BTN_SEQ)) {
@@ -1492,15 +1492,15 @@ static void draw_footer(uint32_t playing)
         *p = 0;
     }
     fit_text(s, 232);
-    cv_begin(236, 10, PP_PANEL);
+    cv_begin(236, 20, PP_PANEL);
     cv_rect(0, 0, 236, 1, PP_INK);
-    cv_rect(0, 9, 236, 1, PP_INK);
-    cv_rect(0, 0, 1, 10, PP_INK);
-    cv_rect(235, 0, 1, 10, PP_INK);
-    cv_rect(0, 0, 4, 10, (write_arm || glomode) ? PP_R : (playing ? PP_G : PP_PANEL));
-    cv_text(8, 1, &FONT_S, s,
+    cv_rect(0, 19, 236, 1, PP_INK);
+    cv_rect(0, 0, 1, 20, PP_INK);
+    cv_rect(235, 0, 1, 20, PP_INK);
+    cv_rect(0, 0, 4, 20, (write_arm || glomode) ? PP_R : (playing ? PP_G : PP_PANEL));
+    cv_text(8, 4, &FONT_S, s,
             (write_arm || glomode) ? PP_W : (playing ? PP_W : C_GRAY));
-    cv_blit(2, 210);
+    cv_blit(2, 204);
 }
 
 static void draw_fx_page(void)
