@@ -628,7 +628,7 @@ class Updater {
 }
 
 const $ = (id) => document.getElementById(id);
-const meta = {"version": "0.1", "product": "FM-1_991", "size": 0, "sha256": "", "pkg": "frankentribe-os.fwsc"};
+const meta = {"version": "0.1", "product": "FM-1_991", "size": 612196, "sha256": "fdf70d2ae71e57743952f7cde12fcdf0241730cdd5e77d084dec9f35dcdd4ec7", "pkg": "frankentribe-os.fwsc"};
 const state = { image: null, ready: false, busy: false };
 const say = (s) => { $("status").classList.remove("bad"); $("status").textContent = s; };
 const sayBad = (s) => { live(false); $("status").classList.add("bad"); $("status").textContent = s; };
