@@ -1,48 +1,50 @@
-# Frankentribe OS
+# Frankentribe OS — FM-1 Groovebox Firmware
 
-[![License](https://img.shields.io/github/license/MarcoCasanova00/wavetribe-fm-custom-firmware?color=GPL)](LICENSE)
-[![Web Emulator](https://img.shields.io/badge/web-emulator%20live-blue)](https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/)
+**Experimental. Unrefined by design.**
 
-**A retro-styled FM-1 groovebox firmware with a 160-cycle
-wavetable engine, seven drum kits, a synth patch bank, MIDI I/O and an on-board
-Chorus→Echo→Combo FX bus.**
+A single-file sequencer / 4-operator FM synth / drum kit hybrid. Sounds pulled from EPROM dumps, game SFX, and third-party banks — no studio polish, deliberate grit.
 
-- **Web emulator:** `https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/`
-- **GitHub:** `https://github.com/MarcoCasanova00/wavetribe-fm-custom-firmware`
-- **Documentation:** [GUIDE.md](GUIDE.md), [PATCHES.md](PATCHES.md), [docs/ROM_SOURCES.md](docs/ROM_SOURCES.md), [main/docs/PORT.md](main/docs/PORT.md)
+## What it is
+- **Synth:** Real 4-op FM engine (`fm_engine.c`) with 8 algorithms, 8 operator waveforms, per-op envelopes, LFO + ENV pages.
+- **Drums:** 7 factory kits (TR-808 default) + one **ABUSE** kit — 8-bit/11025 Hz DOS SFX resampled to gritty 16-bit (not polished loops).
+- **Sequencer:** Pattern + live MIDI, Shift+click button latching for combos.
+- **UI:** HOME screen with theme palette ("default" = Abuse olive/magenta; plus AMBER, CYAN, RED, ALIEN, LAVA).
 
-## Highlights
+## Sources — how much we took, honestly
 
-- 8-part sequencer (5 drum voices + 3 FM/wavetable tonal voices)
-- 160-curve wavetable carrier oscillator, indexed per part
-- 7 drum banks (switchable on knob B while a drum part is armed)
-- 5 + 64-table synth patches and global FX PATCH browser
-- 4-mode stereo-monolith FX bus, knob-adjustable LFO & tail
-- MIDI in / out on USB + 5-pin TRS (24 ppqn clock pulses too)
-- SANTO CENTER red-metal chassis overlay in the browser and host app
-- Host test build, WebAssembly browser emulator and PNG frames
+### FM voices (byte-level decode)
+- **Yamaha TX81Z EPROM** (`4op synths/`): 128 voices — param-accurate.
+- **Yamaha FB-01 ROM** (`4op synths/`): 144 voices — decoded per authoritative `FB01Editor` format (8-byte ops, inverted Total Level, OP4..OP1 storage). Algorithm routing approximated by carrier-set mapping.
+- **Yamaha DX7** (`eeproms/`): 64 voices — names + heuristic params (not byte-exact).
+- **ROM template / mined EPROMs**: 32 curated + extra EPROM dumps (Crumar Bit-01/99, AAC-Tiracon, Bohm-DD16, Cheetah-MD16, Doepfer ms404, etc.) — mostly untapped.
 
-## Layout
+### Drum / wave sources
+- **FunkBox** (iOS) drums: TR-808 samples.
+- **Linn** drum kits: mapped to factory banks.
+- **Absynth** banks (`new absynth banks/`): single-cycle wavetables.
+- **Abuse** (`ABUSE/` DOS): 8-bit/11025 Hz SFX → resampled ABUSE kit (MGHIT02 kick, SHOTGN31 snare, DELOBJ01 clap, SWISH01 chh, LASRMIS2 ohh). Intentionally loud/quiet mix.
 
-- **`main/`** — firmware sources + tools
-- **`main/firmware/src/dinghy.c`** — the app, ~1100 lines (Drum engine, FM voices, screen draw, sequencer)
-- **`main/firmware/gen/`** — auto-generated `factory_*_banks` (catalog, wavetables, patches)
-- **`main/tools/factory/`** — importer toolchain
+### Ideas only (no code/data taken)
+- **Hortator / DEADACTIVE FM-1**: "4 knobs per page" interaction design (GPL-3.0).
+- **Zoom FX ideas**: chorus/echo chain concepts.
+- **KORG iELECTRIBE** (`ipa`): listed, not integrated.
 
-## Web emulator
+### Visual skin
+- **Abuse** (Crack dot Com, DOS 1995): palettes (`ART/*.SPE`), ANT sprite mascot, font sheets — public-domain source, decoded with REA + open-source engine. No code; only colour/theme assets.
 
-The firmware compiles to a browser emulator with SANTO CENTER chassis:
+See [`INFLUENCES.md`](INFLUENCES.md) for per-source fidelity notes (bytes / params / assets / ideas).
 
-```
-EMSDK=$HOME/emsdk main/tools/build_web.sh
-cd docs
-python3 -m http.server 8000
-```
+## What's experimental / unrefined
+- FB-01 algorithm topology mapped, not bit-exact (voices sound correct but not hardware-identical).
+- Abuse SFX are 8-bit, resampled, clipped/gain-varied — deliberately lo-fi.
+- Bank selection is number-based (OCT- / OCT+) — functional, not polished.
+- No official documentation beyond this file and `HANDOFF.md`.
 
-Open http://localhost:8000/index.html.
+## Build
+Host (test): `cc -DDINGHY_HOST ...`
+Web: `sh tools/build_web.sh` → `/docs/` → GitHub Pages.
 
-## Credits & license
+Live (hard-refresh `Ctrl+Shift+R`): https://MarcoCasanova00.github.io/wavetribe-fm-custom-firmware/
 
-- FM-1 platform (Hügelton Instruments/Felucca/Sloop).
-- Frankentribe OS patchwork by the melting pot team.
-- Distributed under GPL-3.0-only.
+---
+*Brand: FRA N K E N T R I B E OS — built from scraps, redeems nothing.*

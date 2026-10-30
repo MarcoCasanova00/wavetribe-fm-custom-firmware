@@ -34,6 +34,7 @@ static void app_idle(void);
 
 #include "factory_catalog.h"      /* the authentic factory preset names/authors/genres */
 #include "factory_drum_kits.h"    /* kit bank: APP + 909; see import_drum_kits.py */
+#include "abuse_drum_kit.h"       /* Abuse SFX-derived kit */
 #include "factory_wavetables.h"   /* imported single-cycle waves (import_wavetables.py) */
 #include "mined_roms.h"           /* EPROM-mined waves from rare synth dumps */
 #define TOTAL_WT_COUNT (WT_COUNT + MWT_COUNT)   /* combined wavetable pool */
@@ -959,7 +960,7 @@ static void draw_sys_page(void)
     p = s; p = ap(p, "Colour: "); p = ap(p, fm_palette_name(pal_idx));
     fit_text(s, 232);
     cv_text(4, 24, &FONT_S, s, UI_HI);
-    p = s; p = ap(p, "Drum kits: "); p = apu(p, drum_kit+1); p = ap(p, "/"); p = apu(p, TOTAL_DRUMS); fit_text(s, 232);
+    p = s; p = ap(p, "Drum kit: "); p = ap(p, drum_kit_name(drum_kit)); p = ap(p, " (OCT- / OCT+)"); fit_text(s, 232);
     cv_text(4, 42, &FONT_S, s, UI_AMB);
     p = s; p = ap(p, "Patch banks: "); p = apu(p, N_PATCHBANKS);
     p = ap(p, "  Waves: "); p = apu(p, TOTAL_WT_COUNT); fit_text(s, 232);
