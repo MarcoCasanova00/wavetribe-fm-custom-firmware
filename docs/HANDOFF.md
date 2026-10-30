@@ -24,7 +24,8 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - **Save/load slots**: 8 flash slots (`SAVE` store, `GLO+SAVE` pick, `GLO+REC` load).
 - HOME system page: theme palettes ("default"/AMBER/CYAN/RED/ALIEN/LAVA + more).
 - Web emulator (Shift+click latches buttons for combos).
-- **Generative genre engine** (GEN page + `GLO+ARP`): seeded, deterministic rules fill the three synth rows (bass/chord/lead) per genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO — and apply genre defaults (BPM, swing, accent, FX, arp flavour).
+- **Generative genre engine** (GEN page + `GLO+ARP`): seeded, deterministic rules fill the three synth rows (bass/chord/lead) per genre — TECHNO / HOUSE / DUBSTEP / D&B / ELECTRO — and apply genre defaults (BPM, swing, accent, FX, arp flavour). MIDI CCs 94–96 drive it externally.
+- Transport knobs live on the **FX page** (tempo / swing / accent / loop length), so tempo changes don't require entering GLO.
 
 ## Sources
 - `INFLUENCES.md` — full source/attribution table (EPROMs, ipa, Abuse, etc.).
@@ -39,3 +40,5 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - FB-01 algorithm *topology* mapped by carrier-set (not a bit-exact hardware clone).
 - Abuse SFX are deliberately lo-fi (8-bit resampled).
 - MPC3000 string decode blocked by font-code obfuscation; took ideas only (see report).
+- Genre engine state (genre/seed/density) is volatile — not persisted in SAVE slots.
+- Synth chords are a block triad over three consecutive steps (parts are monophonic).

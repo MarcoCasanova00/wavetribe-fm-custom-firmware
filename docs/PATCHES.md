@@ -32,4 +32,7 @@ Each patch controls 3 FM parts × 4 params (`A` wavetable, `B` ratio, `C` mod, `
 | 96 | Density (0..127) — generates live |
 | 123 | All notes off |
 
+Genre CCs (94–96) generate immediately on receipt and follow the same deterministic
+seed rule as the GEN page (same genre/seed/density ⇒ same pattern).
+
 MIDI out (notes + clock) on **OCT+** toggle (USB + TRS).

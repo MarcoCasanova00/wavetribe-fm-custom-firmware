@@ -25,7 +25,7 @@ Wavetribe FM-1 groovebox as a web emulator). Build the beat, shape the sound, sa
 - **PART − / PART +** (`↑` / `↓`) selects the part you edit.
 - **PAGE** (`←` / `→`) changes loop length (16 / 32 / 48 / 64 steps).
 - **Clear the sequence:** hold **SEQ** and press **F3** — the whole current pattern
-  is erased (the screen shows `SEQ TOOLS · F3=CLEAR` while SEQ is held).
+  is erased (the screen shows `SEQ TOOLS  F3=CLEAR` while SEQ is held).
 
 ## 4. Shaping the sound (your four knobs)
 Knobs 1–4 edit whichever part is selected:
@@ -75,7 +75,9 @@ Stop (0xFC) on the USB + TRS outlets.
 
 ## 9. FX
 - **FX** (key `1`) opens the FX page: mode (OFF / CHORUS / ECHO / COMBO),
-  MIDI OUT toggle, and the clock readout (BPM · 1/16 · swing%).
+  MIDI OUT toggle, and the clock readout (BPM | 1/16 | swing%).
+- The knobs edit the transport right on this page — **KNOB1 = tempo** (60–250 BPM),
+  KNOB2 = swing, KNOB3 = accent, KNOB4 = loop length (no need to enter GLO).
 
 ## 10. GEN — generative genre engine
 - Open the **GEN** page with the **ARP** key, or hold **GLO + ARP** to generate instantly without leaving the page you're on.
@@ -85,6 +87,24 @@ Stop (0xFC) on the USB + TRS outlets.
 - **OCT+** generates a fresh pattern; **OCT−** returns to SEQ.
 - Generating also applies **genre-appropriate defaults**: BPM, swing, accent, FX mode, and the lead part's arp mode/rate — the generated chord is fed into the arpeggiator automatically, so switching on ARP arpeggiates it.
 - The engine is **deterministic**: the same genre/seed/density always yields the same pattern, so you can find a variation you like and return to it.
+- Notes: generated chord tones are a block triad across three consecutive steps (parts are monophonic), and the genre state (genre/seed/density) is **not persisted** — it resets on boot.
+
+## 11. MIDI control (external)
+Drive the box over MIDI (USB / TRS). In addition to notes (channels 1–3 = the three
+synth parts, channel 10 = drums) the CC map is:
+
+| CC | Action |
+|----|--------|
+| 1 | Part A (wavetable) |
+| 2 | Part B (ratio) |
+| 5 | Part C (mod) |
+| 7 | Part D (level) |
+| 91 | FX mode (0–3) |
+| 92 | Drum kit (0..N) |
+| 93 | Patch browse (current bank) |
+| 94 | Genre select (0–4) — generates live |
+| 95 | Seed (1–255) — generates live |
+| 96 | Density (0–127) — generates live |
 
 ---
 ## Shortcut map
