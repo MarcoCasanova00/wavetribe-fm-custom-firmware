@@ -16,7 +16,7 @@ A single-file sequencer / 4-operator FM synth / drum kit hybrid. Sounds pulled f
 - **Live FX layer:** hold FX + keys (F3..C4, D4/E4 throws) for momentary whole-mix effects — stutter, reverse/echo throws, tape stop, bitcrush, gate, filter sweep, half speed. Also triggerable by MIDI CC 99 (0–7 start / 127 stop).
 - **Quick mute:** hold HOME (≥300 ms) + F3…C4 toggles part mutes live (tap HOME still opens the system page).
 - **Bidirectional MIDI clock:** MASTER mode sends 24 PPQ clock + Start/Stop over USB; **SLAVE** mode follows external Start/Continue/Stop and steps the sequencer on incoming F8 (USB or TRS). Clock mode cycles via GLO+FX or CC 100.
-- **MORPH osc mode:** phase distortion whose amount follows the note envelope — crisp attack settling to a sine — alongside SYNC/RING/PD/VEC as per-part integrated oscillator modes.
+- **MORPH / VMORPH osc modes:** phase distortion and vector synthesis whose amounts follow the note envelope — crisp attack settling to a sine (MORPH) or a per-note four-wave sweep (VMORPH) — alongside SYNC/RING/PD/VEC as per-part integrated oscillator modes.
 - **Font:** normalized to Terminus 16 (regular body + generated bold for titles/brand/selected part); Nerd Fonts not compatible with the 1-bit BDF bitmap pipeline.
 - **Volca-style FUNC keys:** with GLO latched, the first 16 white keys act as grid-key shortcuts (clear / save / load / pattern ± / copy / paste / step mode).
 - **Patch/sound selection:** category-first browsing (GLO+PRESET = sound, GLO+OCT- = category). **SAVE** opens a SOUNDS page: `SLOT / SOURCE / ACTION (LOAD|SAVE|CLEAR)` with OCT+ to confirm.

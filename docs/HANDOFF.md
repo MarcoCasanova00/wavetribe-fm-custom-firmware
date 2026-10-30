@@ -38,7 +38,8 @@ from the DOS game's 8-bit/11025 Hz SFX (resampled to 16-bit, gritty).
 - **Audio regression:** `tests/run_audio.sh` renders the deterministic scene `riptide-audio.txt` (genre build + drone + live FX STUT/SWEEP) to WAV and compares its SHA-256 against `tests/golden/audio.sha256` — catches DSP changes the MIDI-only logs cannot.
 - **Live performance pack:** quick-mute layer (hold HOME ≥300 ms + F3..C4 toggles part mutes; tap HOME still opens the system page) and MIDI CC 99 live-FX triggers (0–7 start / 127 stop). Covered by `riptide-live.txt`.
 - **Bidirectional MIDI clock:** `clk_mode` 0 off / 1 master (24 PPQ out, gated by MIDI OUT) / 2 slave (external FA/FB/FC + F8 stepping, 6 clocks per step). GLO+FX cycles it; CC 100 sets it. Covered by `riptide-clk.txt` (96 external clocks → 16 deterministic steps).
-- **MORPH osc mode (5):** PD amount follows the carrier envelope (crisp attack → sine tail), added to SYNC/RING/PD/VEC. CC 98 range now 0–5.
+- **MORPH osc mode (5):** PD amount follows the carrier envelope (crisp attack → sine tail), added to SYNC/RING/PD/VEC. CC 98 range now 0–6.
+- **VMORPH osc mode (6):** vector morph position driven by the carrier envelope (per-note four-wave sweep). CC 98 range now 0–6.
 - Transport knobs live on the **FX page** (tempo / swing / accent / loop length), so tempo changes don't require entering GLO.
 
 ## Sources

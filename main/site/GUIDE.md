@@ -76,8 +76,9 @@ On **WAVE/EDIT**, **OCT+** cycles the oscillator mode for the selected synth par
 | PD | phase distortion (CZ-style) — amount follows the C/mod knob |
 | VEC | vector synthesis — morphs four adjacent waves via a slow 2D sweep |
 | MORPH | phase distortion whose amount follows the note envelope (crisp attack that settles to a sine) |
+| VMORPH | vector synthesis driven by the note envelope — each note sweeps the four-wave morph as it decays |
 
-**CC 98** sets the same mode externally (0–5).
+**CC 98** sets the same mode externally (0–6).
 
 ---
 
@@ -195,7 +196,7 @@ Notes: channels 1–3 = the three synth parts; channel 10 = drums (GM).
 | 94 | Genre select (0–7) — generates live |
 | 95 | Seed (1–255) — generates live |
 | 96 | Density (0–127) — generates live |
-| 98 | Osc mode (0 NORM / 1 SYNC / 2 RING / 3 PD / 4 VEC / 5 MORPH) |
+| 98 | Osc mode (0 NORM / 1 SYNC / 2 RING / 3 PD / 4 VEC / 5 MORPH / 6 VMORPH) |
 | 99 | Live FX trigger (0–7 start: STUT/REV/ECHO/TAPE/CRUSH/GATE/SWEEP/HALF; 127 stop) |
 | 100 | Clock mode (0 off / 1 master / 2 slave) |
 | 123 | All notes off |

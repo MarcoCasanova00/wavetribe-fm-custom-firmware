@@ -8,12 +8,13 @@
 700 btn 1        # OCT+ -> MIDI OUT on
 900 midi 0xB0 100 2    # clock mode SLAVE
 1000 midi 0xB0 98 127  # osc mode -> MORPH (5)
-1200 shot
-1400 midi 0xFA   # external START
-1500 clock 120 96 # stream 96 F8 clocks (24 PPQ, 120 BPM) = 16 steps
-3200 shot
-3400 midi 0xFC   # external STOP
-3600 shot
-3900 midi 0xB0 100 1   # clock MASTER
-4100 midi 0xB0 100 0   # clock OFF
-4400 end
+1100 midi 0xB0 98 120  # osc mode -> VMORPH (6)
+1300 shot
+1500 midi 0xFA   # external START
+1600 clock 120 96 # stream 96 F8 clocks (24 PPQ, 120 BPM) = 16 steps
+3300 shot
+3500 midi 0xFC   # external STOP
+3700 shot
+4000 midi 0xB0 100 1   # clock MASTER
+4200 midi 0xB0 100 0   # clock OFF
+4500 end

@@ -288,7 +288,7 @@ void fm_set_vca(uint8_t voice, uint8_t ar, uint8_t dr, uint8_t sus, uint8_t rr)
 void fm_set_oscmode(uint8_t voice, uint8_t mode)
 {
     if (voice >= FM_MAX_VOICES) return;
-    if (mode > 5u) mode = 5u;
+    if (mode > 6u) mode = 6u;
     fm_voices[voice].oscmode = mode;
 }
 
@@ -405,7 +405,7 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
             int32_t cut, fc, damp;
             uint8_t sync_latch = 0;
 
-            /* vector sweep advances once per sample */
+            /* vector sweep advances once per sample (mode 4 only; mode 6 is envelope-driven) */
             if (vo->oscmode == 4u) vo->vec_phase += 2u + (p->lfo_speed >> 3);
 
             for (o = 4; o-- > 0; ) {
@@ -448,10 +448,22 @@ void fm_process(int32_t *out_l, int32_t *out_r, uint32_t frames)
                     }
                     {
                         int32_t s;
-                        /* vector synthesis: bilinear morph across four adjacent waves */
-                        if (vo->oscmode == 4u && o == 0u) {
-                            uint32_t vp = vo->vec_phase;
-                            uint32_t fx = (vp >> 16) & 255u, fy = ((vp >> 16) + 128u) & 255u;
+                        /* vector synthesis: bilinear morph across four adjacent waves.
+                         * Mode 4 sweeps continuously; mode 6 (VMORPH) drives the
+                         * morph position from the carrier envelope so each note
+                         * sweeps the wave set as it decays. */
+                        if ((vo->oscmode == 4u || vo->oscmode == 6u) && o == 0u) {
+                            uint32_t fx, fy;
+                            if (vo->oscmode == 6u) {
+                                int32_t en = vo->op[0].env >> 8;   /* 0..32767 */
+                                if (en > 32767) en = 32767;
+                                fx = (uint32_t)((int32_t)en * 255u / 32767u);
+                                fy = (255u - fx) >> 1;
+                            } else {
+                                uint32_t vp = vo->vec_phase;
+                                fx = (vp >> 16) & 255u;
+                                fy = ((vp >> 16) + 128u) & 255u;
+                            }
                             int32_t s0 = fm_wave((wave + 0u) & 7u, p);
                             int32_t s1 = fm_wave((wave + 1u) & 7u, p);
                             int32_t s2 = fm_wave((wave + 2u) & 7u, p);
