@@ -98,6 +98,48 @@ static void fit_text(char *s, int32_t maxw)
         *q = 0;
     }
 }
+
+/* Draw a hint at (x, y), wrapping onto a second line at word breaks when it is
+ * wider than maxw.  The first line is drawn one row above y so both lines are
+ * fully visible in the bottom band.  Falls back to a single line when it fits. */
+static void cv_text_wrap(int32_t x, int32_t y, int32_t maxw,
+                         const felucca_font_t *f, const char *s, uint16_t c)
+{
+    char a[64], b[64];
+    int32_t i, j, n = 0, best = 0;
+    if (!s || !s[0]) return;
+    while (s[n] && n < (int32_t)sizeof a - 1) n++;
+    if (text_w(f, s) <= maxw) { cv_text(x, y, f, s, c); return; }
+    /* largest prefix ending at a space that fits on the first line */
+    for (i = 1; i <= n; i++) {
+        if (s[i] == ' ' || s[i] == '\0') {
+            char t[64];
+            memcpy(t, s, i); t[i] = 0;
+            if (text_w(f, t) <= maxw) best = i;
+            else break;
+        }
+    }
+    if (!best) {                       /* no space fits: break on any character */
+        for (i = n; i > 0; i--) {
+            char t[64];
+            memcpy(t, s, i); t[i] = 0;
+            if (text_w(f, t) <= maxw) { best = i; break; }
+        }
+        if (!best) best = 1;
+    }
+    memcpy(a, s, best); a[best] = 0;
+    j = best;
+    while (s[j] == ' ') j++;
+    if (j < n) {
+        memcpy(b, s + j, (uint32_t)(n - j));
+        b[n - j] = 0;
+    } else {
+        b[0] = 0;
+    }
+    fit_text(b, maxw);
+    cv_text(x, y - f->h, f, a, c);    /* first line above y */
+    cv_text(x, y, f, b, c);            /* second line at y */
+}
 #define C_BG     RGB(14, 12, 9)     /* near-black chassy LCD */
 #define C_PANEL  RGB(26, 22, 16)
 #define C_SUB    RGB(70, 56, 40)
@@ -1004,7 +1046,7 @@ static void draw_sounds_page(void)
     p = ap(p, "/"); p = apu(p, PATCHBANK_COUNT[patchbank]);
     fit_text(s, 232);
     cv_text(4, 64, &FONT_S, s, UI_LABEL);
-    cv_text(4, 188, &FONT_S, "KNOB1 cat · KNOB2 sound · PRESETS browses · EDIT exits", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "KNOB1 cat · KNOB2 sound · PRESETS browses · EDIT exits", UI_DIM);
     cv_blit(0, 34);
 }
 static const char *wave_label_direct(uint8_t w)
@@ -1119,7 +1161,7 @@ static void draw_lfo_page(void)
         fit_text(s, 232);
         cv_text(4, 42, &FONT_S, s, UI_AMB);
         draw_wave_plot(8, 64, 224, 72, pp.lfo_on ? pp.lfo_wave : 0u);
-        cv_text(4, 188, &FONT_S, "A: wave/off  B: speed  C: vibrato  D: tremolo", UI_DIM);
+        cv_text_wrap(4, 188, 232, &FONT_S, "A: wave/off  B: speed  C: vibrato  D: tremolo", UI_DIM);
     }
     cv_blit(0, 34);
 }
@@ -1169,7 +1211,7 @@ static void draw_sys_page(void)
     p = s; p = ap(p, "Slot: "); p = apu(p, slot_sel + 1); p = ap(p, "/"); p = apu(p, NSLOT);
     p = ap(p, "  SAVE=page  GLO+REC=load"); fit_text(s, 232);
     cv_text(4, 96, &FONT_S, s, UI_HI);
-    cv_text(4, 188, &FONT_S, "A: colour  pages: SEQ FX EDIT LFO ENV  OCT+ MIDI", UI_DIM);
+    cv_text_wrap(4, 188, 232, &FONT_S, "A: colour  pages: SEQ FX EDIT LFO ENV  OCT+ MIDI", UI_DIM);
     cv_blit(0, 34);
 }
 static void draw_save_page(void)
